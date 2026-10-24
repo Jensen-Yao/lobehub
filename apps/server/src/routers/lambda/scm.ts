@@ -1,5 +1,6 @@
 import type { ScmRepositoryListItem } from '@lobechat/types';
 import { TRPCError } from '@trpc/server';
+import pMap from 'p-map';
 import { z } from 'zod';
 
 import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
@@ -162,26 +163,37 @@ export const scmRouter = router({
     const installations = (await ScmInstallationModel.listByScope(ctx.serverDB, ctx.scope)).filter(
       (item) => item.provider === 'github' && !item.suspendedAt,
     );
-    const results = await Promise.allSettled(
-      installations.map((item) => listGitHubInstallationRepositoryDetails(item.installationId)),
+    // Bounded fan-out: one GitHub request per installation, capped so a scope with
+    // many installations cannot open an unbounded number of connections at once.
+    const outcomes = await pMap(
+      installations,
+      async (item) => {
+        try {
+          const value = await listGitHubInstallationRepositoryDetails(item.installationId);
+          return { installationId: item.installationId, ok: true as const, value };
+        } catch (error) {
+          return { error, installationId: item.installationId, ok: false as const };
+        }
+      },
+      { concurrency: 5 },
     );
 
     const byName = new Map<string, ScmRepositoryListItem>();
     const failures: unknown[] = [];
     let truncated = false;
-    results.forEach((result, index) => {
-      if (result.status === 'rejected') {
-        failures.push(result.reason);
+    for (const outcome of outcomes) {
+      if (!outcome.ok) {
+        failures.push(outcome.error);
         console.error(
           '[scm:listRepositories] installation %s: %s',
-          installations[index].installationId,
-          (result.reason as Error)?.message,
+          outcome.installationId,
+          (outcome.error as Error)?.message,
         );
-        return;
+        continue;
       }
-      truncated ||= result.value.truncated;
-      for (const repo of result.value.repositories) byName.set(repo.fullName.toLowerCase(), repo);
-    });
+      truncated ||= outcome.value.truncated;
+      for (const repo of outcome.value.repositories) byName.set(repo.fullName.toLowerCase(), repo);
+    }
     if (installations.length > 0 && failures.length === installations.length) {
       throw new TRPCError({
         cause: failures[0],
