@@ -132,7 +132,6 @@ const RepositoryList = ({ onConnect, onSelect, selected }: RepositoryListProps) 
           {guide.action && (
             <Button
               loading={guide.action === 'retry' && isValidating}
-              size={'small'}
               type={guide.action === 'connect' ? 'primary' : 'default'}
               onClick={guide.action === 'retry' ? () => void retry() : onConnect}
             >
