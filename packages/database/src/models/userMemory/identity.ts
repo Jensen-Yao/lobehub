@@ -1,4 +1,9 @@
-import type { IdentityListParams, IdentityListResult } from '@lobechat/types';
+import type {
+  IdentityListParams,
+  IdentityListResult,
+  UserMemoryIdentity,
+  UserMemoryIdentityInsert,
+} from '@lobechat/types';
 import { RelationshipEnum } from '@lobechat/types';
 import type { SQL } from 'drizzle-orm';
 import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
@@ -29,7 +34,7 @@ export class UserMemoryIdentityModel {
     return buildUserMemoryWhere(this.db, this.userId, table);
   }
 
-  create = async (params: Omit<typeof userMemoriesIdentities.$inferInsert, 'userId'>) => {
+  create = async (params: Omit<UserMemoryIdentityInsert, 'userId'>) => {
     const [result] = await this.db
       .insert(userMemoriesIdentities)
       .values({ ...params, userId: this.userId })
@@ -182,7 +187,7 @@ export class UserMemoryIdentityModel {
     });
   };
 
-  update = async (id: string, value: Partial<typeof userMemoriesIdentities.$inferSelect>) => {
+  update = async (id: string, value: Partial<UserMemoryIdentity>) => {
     return this.db
       .update(userMemoriesIdentities)
       .set({ ...value, updatedAt: new Date() })

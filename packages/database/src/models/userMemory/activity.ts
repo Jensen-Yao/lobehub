@@ -1,4 +1,9 @@
-import type { ActivityListParams, ActivityListResult } from '@lobechat/types';
+import type {
+  ActivityListParams,
+  ActivityListResult,
+  UserMemoryActivity,
+  UserMemoryActivityInsert,
+} from '@lobechat/types';
 import type { SQL } from 'drizzle-orm';
 import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
 
@@ -28,7 +33,7 @@ export class UserMemoryActivityModel {
     return buildUserMemoryWhere(this.db, this.userId, table);
   }
 
-  create = async (params: Omit<typeof userMemoriesActivities.$inferInsert, 'userId'>) => {
+  create = async (params: Omit<UserMemoryActivityInsert, 'userId'>) => {
     const [result] = await this.db
       .insert(userMemoriesActivities)
       .values({ ...params, userId: this.userId })
@@ -181,7 +186,7 @@ export class UserMemoryActivityModel {
     });
   };
 
-  update = async (id: string, value: Partial<typeof userMemoriesActivities.$inferSelect>) => {
+  update = async (id: string, value: Partial<UserMemoryActivity>) => {
     return this.db
       .update(userMemoriesActivities)
       .set({ ...value, updatedAt: new Date() })

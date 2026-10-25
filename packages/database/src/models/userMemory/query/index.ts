@@ -3,6 +3,7 @@ import type {
   QueryTaxonomyOptionsParams,
   QueryTaxonomyOptionsResult,
   SearchMemoryParams,
+  UserMemoryIdentityWithoutVectors,
 } from '@lobechat/types';
 import type { AnyColumn, SQL } from 'drizzle-orm';
 
@@ -412,7 +413,7 @@ export class UserMemoryQueryModel {
     embedding: number[],
     limit: number,
     params: SearchMemoryParams,
-  ): Promise<Omit<typeof userMemoriesIdentities.$inferSelect, 'descriptionVector'>[]> {
+  ): Promise<UserMemoryIdentityWithoutVectors[]> {
     return searchIdentitiesSemantic(this.context, embedding, limit, params);
   }
 

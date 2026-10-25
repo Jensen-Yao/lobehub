@@ -1,3 +1,4 @@
+import type { UserMemoryContext, UserMemoryContextInsert } from '@lobechat/types';
 import { and, desc, eq } from 'drizzle-orm';
 
 import { userMemories, userMemoriesContexts } from '../../schemas';
@@ -17,7 +18,7 @@ export class UserMemoryContextModel {
     return buildUserMemoryWhere(this.db, this.userId, table);
   }
 
-  create = async (params: Omit<typeof userMemoriesContexts.$inferInsert, 'userId'>) => {
+  create = async (params: Omit<UserMemoryContextInsert, 'userId'>) => {
     const [result] = await this.db
       .insert(userMemoriesContexts)
       .values({ ...params, userId: this.userId })
@@ -76,7 +77,7 @@ export class UserMemoryContextModel {
     });
   };
 
-  update = async (id: string, value: Partial<typeof userMemoriesContexts.$inferSelect>) => {
+  update = async (id: string, value: Partial<UserMemoryContext>) => {
     return this.db
       .update(userMemoriesContexts)
       .set({ ...value, updatedAt: new Date() })

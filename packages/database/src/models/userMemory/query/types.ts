@@ -1,13 +1,12 @@
-import type { SearchMemoryParams } from '@lobechat/types';
-import type { AnyColumn } from 'drizzle-orm';
-
 import type {
-  userMemoriesActivities,
-  userMemoriesContexts,
-  userMemoriesExperiences,
-  userMemoriesIdentities,
-  userMemoriesPreferences,
-} from '../../../schemas';
+  SearchMemoryParams,
+  UserMemoryActivityWithoutVectors,
+  UserMemoryContextWithoutVectors,
+  UserMemoryExperienceWithoutVectors,
+  UserMemoryIdentityWithoutVectors,
+  UserMemoryPreferenceWithoutVectors,
+} from '@lobechat/types';
+import type { AnyColumn } from 'drizzle-orm';
 
 export interface Bm25MatchFieldGroup {
   fields: string[];
@@ -47,21 +46,15 @@ export interface RankedSearchCandidate<T> {
 }
 
 export interface UserMemoryHybridSearchAggregatedResult {
-  activities: Omit<
-    typeof userMemoriesActivities.$inferSelect,
-    'narrativeVector' | 'feedbackVector'
-  >[];
-  contexts: Omit<typeof userMemoriesContexts.$inferSelect, 'descriptionVector'>[];
-  experiences: Omit<
-    typeof userMemoriesExperiences.$inferSelect,
-    'situationVector' | 'actionVector' | 'keyLearningVector'
-  >[];
-  identities: Omit<typeof userMemoriesIdentities.$inferSelect, 'descriptionVector'>[];
+  activities: UserMemoryActivityWithoutVectors[];
+  contexts: UserMemoryContextWithoutVectors[];
+  experiences: UserMemoryExperienceWithoutVectors[];
+  identities: UserMemoryIdentityWithoutVectors[];
   meta: {
     appliedFilters: Omit<SearchMemoryParams, 'effort' | 'topK'>;
     appliedQueries: string[];
     layers: Record<SearchLayerKey, HybridSearchLayerMeta>;
     ranking: Partial<Record<SearchLayerKey, Record<string, RecommendationScoreBreakdown>>>;
   };
-  preferences: Omit<typeof userMemoriesPreferences.$inferSelect, 'conclusionDirectivesVector'>[];
+  preferences: UserMemoryPreferenceWithoutVectors[];
 }

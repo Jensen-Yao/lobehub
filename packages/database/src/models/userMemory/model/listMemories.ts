@@ -1,9 +1,15 @@
-import type { UserMemoryDetail } from '@lobechat/types';
+import type {
+  UserMemoryActivity,
+  UserMemoryContext,
+  UserMemoryDetail,
+  UserMemoryExperience,
+  UserMemoryIdentity,
+  UserMemoryPreference,
+} from '@lobechat/types';
 import { LayersEnum } from '@lobechat/types';
 import type { AnyColumn, SQL } from 'drizzle-orm';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 
-import type { userMemoriesActivities } from '../../../schemas';
 import {
   userMemories,
   userMemoriesContexts,
@@ -16,27 +22,27 @@ import type { UserMemoryModelContext } from './context';
 
 export type ListMemoriesItem<L extends LayersEnum> = L extends LayersEnum.Context
   ? UserMemoryDetail & {
-      context: typeof userMemoriesContexts.$inferSelect;
+      context: UserMemoryContext;
       layer: LayersEnum.Context;
     }
   : L extends LayersEnum.Experience
     ? UserMemoryDetail & {
-        experience: typeof userMemoriesExperiences.$inferSelect;
+        experience: UserMemoryExperience;
         layer: LayersEnum.Experience;
       }
     : L extends LayersEnum.Identity
       ? UserMemoryDetail & {
-          identity: typeof userMemoriesIdentities.$inferSelect;
+          identity: UserMemoryIdentity;
           layer: LayersEnum.Identity;
         }
       : L extends LayersEnum.Preference
         ? UserMemoryDetail & {
             layer: LayersEnum.Preference;
-            preference: typeof userMemoriesPreferences.$inferSelect;
+            preference: UserMemoryPreference;
           }
         : L extends LayersEnum.Activity
           ? UserMemoryDetail & {
-              activity: typeof userMemoriesActivities.$inferSelect;
+              activity: UserMemoryActivity;
               layer: LayersEnum.Activity;
             }
           : never;

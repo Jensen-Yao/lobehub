@@ -1,3 +1,4 @@
+import type { UserMemoryPreference, UserMemoryPreferenceInsert } from '@lobechat/types';
 import { and, desc, eq } from 'drizzle-orm';
 
 import { userMemories, userMemoriesPreferences } from '../../schemas';
@@ -17,7 +18,7 @@ export class UserMemoryPreferenceModel {
     return buildUserMemoryWhere(this.db, this.userId, table);
   }
 
-  create = async (params: Omit<typeof userMemoriesPreferences.$inferInsert, 'userId'>) => {
+  create = async (params: Omit<UserMemoryPreferenceInsert, 'userId'>) => {
     const [result] = await this.db
       .insert(userMemoriesPreferences)
       .values({ ...params, userId: this.userId })
@@ -63,7 +64,7 @@ export class UserMemoryPreferenceModel {
     });
   };
 
-  update = async (id: string, value: Partial<typeof userMemoriesPreferences.$inferSelect>) => {
+  update = async (id: string, value: Partial<UserMemoryPreference>) => {
     return this.db
       .update(userMemoriesPreferences)
       .set({ ...value, updatedAt: new Date() })

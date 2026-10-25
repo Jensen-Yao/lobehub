@@ -1,10 +1,10 @@
 import type {
-  userMemoriesActivities,
-  userMemoriesContexts,
-  userMemoriesExperiences,
-  userMemoriesIdentities,
-  userMemoriesPreferences,
-} from '../../schemas';
+  UserMemoryActivityWithoutVectors,
+  UserMemoryContextWithoutVectors,
+  UserMemoryExperienceWithoutVectors,
+  UserMemoryIdentityWithoutVectors,
+  UserMemoryPreferenceWithoutVectors,
+} from '@lobechat/types';
 
 export { UserMemoryTopicRepository } from './UserMemoryTopicRepository';
 
@@ -15,33 +15,18 @@ export interface MemorySource {
   title: string | null;
 }
 
-export interface DisplayExperienceMemory extends Omit<
-  typeof userMemoriesExperiences.$inferSelect,
-  'situationVector' | 'actionVector' | 'keyLearningVector'
-> {
+export interface DisplayExperienceMemory extends UserMemoryExperienceWithoutVectors {
   title: string | null;
 }
 
-export interface DisplayPreferenceMemory extends Omit<
-  typeof userMemoriesPreferences.$inferSelect,
-  'conclusionDirectivesVector'
-> {
+export interface DisplayPreferenceMemory extends UserMemoryPreferenceWithoutVectors {
   title: string | null;
 }
 
-export type DisplayContextMemory = Omit<
-  typeof userMemoriesContexts.$inferSelect,
-  'descriptionVector'
->;
+export type DisplayContextMemory = UserMemoryContextWithoutVectors;
 
-export type DisplayIdentityMemory = Omit<
-  typeof userMemoriesIdentities.$inferSelect,
-  'descriptionVector'
->;
+export type DisplayIdentityMemory = UserMemoryIdentityWithoutVectors;
 
-export interface DisplayActivityMemory extends Omit<
-  typeof userMemoriesActivities.$inferSelect,
-  'narrativeVector' | 'feedbackVector'
-> {
+export interface DisplayActivityMemory extends UserMemoryActivityWithoutVectors {
   title: string | null;
 }

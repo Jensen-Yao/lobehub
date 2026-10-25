@@ -1,3 +1,14 @@
+import type {
+  UserMemory,
+  UserMemoryActivity,
+  UserMemoryActivityInsert,
+  UserMemoryContext,
+  UserMemoryContextInsert,
+  UserMemoryExperience,
+  UserMemoryExperienceInsert,
+  UserMemoryPreference,
+  UserMemoryPreferenceInsert,
+} from '@lobechat/types';
 import { ActivityTypeEnum } from '@lobechat/types';
 
 import {
@@ -20,7 +31,7 @@ import { coerceDate } from './utils';
 export const create = async (
   ctx: UserMemoryModelContext,
   params: CreateUserMemoryParams,
-): Promise<typeof userMemories.$inferSelect> => {
+): Promise<UserMemory> => {
   const [result] = await ctx.db
     .insert(userMemories)
     .values(ctx.buildBaseMemoryInsertValues(params))
@@ -33,8 +44,8 @@ export const createContextMemory = async (
   ctx: UserMemoryModelContext,
   params: CreateUserMemoryContextParams,
 ): Promise<{
-  context: typeof userMemoriesContexts.$inferSelect;
-  memory: typeof userMemories.$inferSelect;
+  context: UserMemoryContext;
+  memory: UserMemory;
 }> => {
   return ctx.db.transaction(async (tx) => {
     const baseValues = ctx.buildBaseMemoryInsertValues(params, {
@@ -61,7 +72,7 @@ export const createContextMemory = async (
       userId: ctx.userId,
       userMemoryId: memory.id,
       userMemoryIds: [memory.id],
-    } satisfies typeof userMemoriesContexts.$inferInsert;
+    } satisfies UserMemoryContextInsert;
 
     const [context] = await tx.insert(userMemoriesContexts).values(contextValues).returning();
 
@@ -73,8 +84,8 @@ export const createExperienceMemory = async (
   ctx: UserMemoryModelContext,
   params: CreateUserMemoryExperienceParams,
 ): Promise<{
-  experience: typeof userMemoriesExperiences.$inferSelect;
-  memory: typeof userMemories.$inferSelect;
+  experience: UserMemoryExperience;
+  memory: UserMemory;
 }> => {
   return ctx.db.transaction(async (tx) => {
     const baseValues = ctx.buildBaseMemoryInsertValues(params, {
@@ -101,7 +112,7 @@ export const createExperienceMemory = async (
       type: params.experience.type ?? params.memoryType ?? null,
       userId: ctx.userId,
       userMemoryId: memory.id,
-    } satisfies typeof userMemoriesExperiences.$inferInsert;
+    } satisfies UserMemoryExperienceInsert;
 
     const [experience] = await tx
       .insert(userMemoriesExperiences)
@@ -116,8 +127,8 @@ export const createActivityMemory = async (
   ctx: UserMemoryModelContext,
   params: CreateUserMemoryActivityParams,
 ): Promise<{
-  activity: typeof userMemoriesActivities.$inferSelect;
-  memory: typeof userMemories.$inferSelect;
+  activity: UserMemoryActivity;
+  memory: UserMemory;
 }> => {
   return ctx.db.transaction(async (tx) => {
     const baseValues = ctx.buildBaseMemoryInsertValues(params, {
@@ -148,7 +159,7 @@ export const createActivityMemory = async (
       type: params.activity.type ?? ActivityTypeEnum.Other,
       userId: ctx.userId,
       userMemoryId: memory.id,
-    } satisfies typeof userMemoriesActivities.$inferInsert;
+    } satisfies UserMemoryActivityInsert;
 
     const [activity] = await tx.insert(userMemoriesActivities).values(activityValues).returning();
 
@@ -160,8 +171,8 @@ export const createPreferenceMemory = async (
   ctx: UserMemoryModelContext,
   params: CreateUserMemoryPreferenceParams,
 ): Promise<{
-  memory: typeof userMemories.$inferSelect;
-  preference: typeof userMemoriesPreferences.$inferSelect;
+  memory: UserMemory;
+  preference: UserMemoryPreference;
 }> => {
   return ctx.db.transaction(async (tx) => {
     const baseValues = ctx.buildBaseMemoryInsertValues(params, {
@@ -183,7 +194,7 @@ export const createPreferenceMemory = async (
       type: params.preference.type ?? params.memoryType ?? null,
       userId: ctx.userId,
       userMemoryId: memory.id,
-    } satisfies typeof userMemoriesPreferences.$inferInsert;
+    } satisfies UserMemoryPreferenceInsert;
 
     const [preference] = await tx
       .insert(userMemoriesPreferences)

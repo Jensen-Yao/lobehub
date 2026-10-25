@@ -1,4 +1,5 @@
 import type {
+  UserMemoryActivityWithoutVectors,
   UserMemoryContextWithoutVectors,
   UserMemoryExperienceWithoutVectors,
   UserMemoryPreferenceWithoutVectors,
@@ -85,9 +86,7 @@ export const searchActivities = async (
     limit?: number;
     type?: string;
   },
-): Promise<
-  Omit<typeof userMemoriesActivities.$inferSelect, 'narrativeVector' | 'feedbackVector'>[]
-> => {
+): Promise<UserMemoryActivityWithoutVectors[]> => {
   const { embedding, limit = 5, type } = params;
   if (limit <= 0) {
     return [];
@@ -139,9 +138,7 @@ export const searchActivities = async (
   } else {
     query = query.orderBy(desc(userMemoriesActivities.createdAt));
   }
-  return query.limit(limit) as Promise<
-    Omit<typeof userMemoriesActivities.$inferSelect, 'narrativeVector' | 'feedbackVector'>[]
-  >;
+  return query.limit(limit) as Promise<UserMemoryActivityWithoutVectors[]>;
 };
 
 export const searchContexts = async (

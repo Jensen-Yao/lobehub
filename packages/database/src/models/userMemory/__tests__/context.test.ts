@@ -1,3 +1,4 @@
+import type { UserMemoryContextInsert } from '@lobechat/types';
 // @vitest-environment node
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -26,7 +27,7 @@ beforeEach(async () => {
 describe('UserMemoryContextModel', () => {
   describe('create', () => {
     it('should create a new context', async () => {
-      const contextData: Omit<typeof userMemoriesContexts.$inferInsert, 'userId'> = {
+      const contextData: Omit<UserMemoryContextInsert, 'userId'> = {
         title: 'Test Context',
         description: 'Test context description',
         type: 'work',

@@ -1,4 +1,11 @@
-import type { SearchMemoryParams } from '@lobechat/types';
+import type {
+  SearchMemoryParams,
+  UserMemoryActivityWithoutVectors,
+  UserMemoryContextWithoutVectors,
+  UserMemoryExperienceWithoutVectors,
+  UserMemoryIdentityWithoutVectors,
+  UserMemoryPreferenceWithoutVectors,
+} from '@lobechat/types';
 import type { SQL } from 'drizzle-orm';
 import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 
@@ -122,9 +129,7 @@ export async function searchActivitiesLexical(
     .orderBy(desc(userMemoriesActivities.capturedAt), desc(userMemoriesActivities.createdAt))
     .limit(limit);
 
-  return rowsQuery as Promise<
-    Omit<typeof userMemoriesActivities.$inferSelect, 'narrativeVector' | 'feedbackVector'>[]
-  >;
+  return rowsQuery as Promise<UserMemoryActivityWithoutVectors[]>;
 }
 
 export async function searchContextsLexical(
@@ -253,9 +258,7 @@ export async function searchContextsLexical(
     .orderBy(desc(contextCandidates.capturedAt), desc(contextCandidates.createdAt))
     .limit(limit);
 
-  return rowsQuery as Promise<
-    Omit<typeof userMemoriesContexts.$inferSelect, 'descriptionVector'>[]
-  >;
+  return rowsQuery as Promise<UserMemoryContextWithoutVectors[]>;
 }
 
 export async function searchExperiencesLexical(
@@ -335,12 +338,7 @@ export async function searchExperiencesLexical(
     .orderBy(desc(userMemoriesExperiences.capturedAt), desc(userMemoriesExperiences.createdAt))
     .limit(limit);
 
-  return rowsQuery as Promise<
-    Omit<
-      typeof userMemoriesExperiences.$inferSelect,
-      'situationVector' | 'actionVector' | 'keyLearningVector'
-    >[]
-  >;
+  return rowsQuery as Promise<UserMemoryExperienceWithoutVectors[]>;
 }
 
 export async function searchPreferencesLexical(
@@ -420,9 +418,7 @@ export async function searchPreferencesLexical(
     .orderBy(desc(userMemoriesPreferences.capturedAt), desc(userMemoriesPreferences.createdAt))
     .limit(limit);
 
-  return rowsQuery as Promise<
-    Omit<typeof userMemoriesPreferences.$inferSelect, 'conclusionDirectivesVector'>[]
-  >;
+  return rowsQuery as Promise<UserMemoryPreferenceWithoutVectors[]>;
 }
 
 export async function searchIdentitiesLexical(
@@ -493,7 +489,5 @@ export async function searchIdentitiesLexical(
     .orderBy(desc(userMemoriesIdentities.capturedAt), desc(userMemoriesIdentities.createdAt))
     .limit(limit);
 
-  return rowsQuery as Promise<
-    Omit<typeof userMemoriesIdentities.$inferSelect, 'descriptionVector'>[]
-  >;
+  return rowsQuery as Promise<UserMemoryIdentityWithoutVectors[]>;
 }

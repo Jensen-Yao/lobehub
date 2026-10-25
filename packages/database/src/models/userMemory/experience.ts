@@ -1,4 +1,9 @@
-import type { ExperienceListParams, ExperienceListResult } from '@lobechat/types';
+import type {
+  ExperienceListParams,
+  ExperienceListResult,
+  UserMemoryExperience,
+  UserMemoryExperienceInsert,
+} from '@lobechat/types';
 import type { SQL } from 'drizzle-orm';
 import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
 
@@ -28,7 +33,7 @@ export class UserMemoryExperienceModel {
     return buildUserMemoryWhere(this.db, this.userId, table);
   }
 
-  create = async (params: Omit<typeof userMemoriesExperiences.$inferInsert, 'userId'>) => {
+  create = async (params: Omit<UserMemoryExperienceInsert, 'userId'>) => {
     const [result] = await this.db
       .insert(userMemoriesExperiences)
       .values({ ...params, userId: this.userId })
@@ -178,7 +183,7 @@ export class UserMemoryExperienceModel {
     });
   };
 
-  update = async (id: string, value: Partial<typeof userMemoriesExperiences.$inferSelect>) => {
+  update = async (id: string, value: Partial<UserMemoryExperience>) => {
     return this.db
       .update(userMemoriesExperiences)
       .set({ ...value, updatedAt: new Date() })

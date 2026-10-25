@@ -1,4 +1,8 @@
-import type { UserMemoryIdentityWithoutVectors } from '@lobechat/types';
+import type {
+  UserMemoryIdentityInsert,
+  UserMemoryIdentityWithoutVectors,
+  UserMemoryInsert,
+} from '@lobechat/types';
 import { IdentityTypeEnum, RelationshipEnum } from '@lobechat/types';
 import type { AnyColumn } from 'drizzle-orm';
 import { and, desc, eq, sql } from 'drizzle-orm';
@@ -53,7 +57,7 @@ export const addIdentityEntry = async (
 
   return ctx.db.transaction(async (tx) => {
     const base = params.base ?? {};
-    const baseValues: typeof userMemories.$inferInsert = {
+    const baseValues: UserMemoryInsert = {
       accessedCount: 0,
       capturedAt: base.capturedAt,
       details: base.details ?? null,
@@ -77,7 +81,7 @@ export const addIdentityEntry = async (
       .returning({ id: userMemories.id });
 
     const identity = params.identity ?? {};
-    const identityValues: typeof userMemoriesIdentities.$inferInsert = {
+    const identityValues: UserMemoryIdentityInsert = {
       capturedAt: identity.capturedAt,
       description: identity.description ?? null,
       descriptionVector: identity.descriptionVector ?? null,
@@ -130,8 +134,8 @@ export const updateIdentityEntry = async (
       return false;
     }
 
-    let baseUpdate: Partial<typeof userMemories.$inferInsert> = {};
-    let identityUpdate: Partial<typeof userMemoriesIdentities.$inferInsert> = {};
+    let baseUpdate: Partial<UserMemoryInsert> = {};
+    let identityUpdate: Partial<UserMemoryIdentityInsert> = {};
 
     if (params.base) {
       baseUpdate = merge(baseUpdate, params.base);

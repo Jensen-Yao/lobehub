@@ -1,3 +1,4 @@
+import type { UserMemoryExperienceInsert } from '@lobechat/types';
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -26,7 +27,7 @@ beforeEach(async () => {
 describe('UserMemoryExperienceModel', () => {
   describe('create', () => {
     it('should create a new experience', async () => {
-      const experienceData: Omit<typeof userMemoriesExperiences.$inferInsert, 'userId'> = {
+      const experienceData: Omit<UserMemoryExperienceInsert, 'userId'> = {
         type: 'lesson',
         situation: 'When debugging code',
         reasoning: 'Checking logs helps identify issues',

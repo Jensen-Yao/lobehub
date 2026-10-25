@@ -1,3 +1,9 @@
+import type {
+  UserPersonaDocument,
+  UserPersonaDocumentHistory,
+  UserPersonaDocumentHistoryInsert,
+  UserPersonaDocumentInsert,
+} from '@lobechat/types';
 import { isPlainRecord } from '@lobechat/utils/object';
 import { and, desc, eq } from 'drizzle-orm';
 import isEqual from 'fast-deep-equal';
@@ -48,7 +54,7 @@ export const getUserPersonaForUpdateInTransaction = async (
   tx: Transaction,
   userId: string,
   profile = 'default',
-): Promise<typeof userPersonaDocuments.$inferSelect | undefined> => {
+): Promise<UserPersonaDocument | undefined> => {
   const [document] = await tx
     .select()
     .from(userPersonaDocuments)
@@ -63,8 +69,8 @@ export const upsertUserPersonaInTransaction = async (
   userId: string,
   params: UpsertUserPersonaParams,
 ): Promise<{
-  diff?: typeof userPersonaDocumentHistories.$inferSelect;
-  document: typeof userPersonaDocuments.$inferSelect;
+  diff?: UserPersonaDocumentHistory;
+  document: UserPersonaDocument;
 }> => {
   await lockUserPersonaOwner(tx, userId);
 
@@ -80,7 +86,7 @@ export const upsertUserPersonaInTransaction = async (
   const nextSourceIds = params.sourceIds ?? existing?.sourceIds ?? undefined;
   const nextTagline = params.tagline === undefined ? existing?.tagline : params.tagline;
 
-  const baseDocument: Omit<typeof userPersonaDocuments.$inferInsert, 'id' | 'userId'> = {
+  const baseDocument: Omit<UserPersonaDocumentInsert, 'id' | 'userId'> = {
     capturedAt: params.capturedAt,
     memoryIds: nextMemoryIds,
     metadata: nextMetadata,
@@ -91,7 +97,7 @@ export const upsertUserPersonaInTransaction = async (
     version: nextVersion,
   };
 
-  let document: typeof userPersonaDocuments.$inferSelect;
+  let document: UserPersonaDocument;
 
   if (existing) {
     const hasDocumentChanges =
@@ -138,7 +144,7 @@ export const upsertUserPersonaInTransaction = async (
       .returning();
   }
 
-  let diff: typeof userPersonaDocumentHistories.$inferSelect | undefined;
+  let diff: UserPersonaDocumentHistory | undefined;
   const hasDiff =
     params.diffPersona ||
     params.diffTagline ||
@@ -232,10 +238,10 @@ export class UserPersonaModel {
   };
 
   appendDiff = async (
-    params: Omit<typeof userPersonaDocumentHistories.$inferInsert, 'id' | 'userId'> & {
+    params: Omit<UserPersonaDocumentHistoryInsert, 'id' | 'userId'> & {
       personaId: string;
     },
-  ): Promise<typeof userPersonaDocumentHistories.$inferSelect> => {
+  ): Promise<UserPersonaDocumentHistory> => {
     const [result] = await this.db
       .insert(userPersonaDocumentHistories)
       .values({ ...params, userId: this.userId })
@@ -261,8 +267,8 @@ export class UserPersonaModel {
   upsertPersona = async (
     params: UpsertUserPersonaParams,
   ): Promise<{
-    diff?: typeof userPersonaDocumentHistories.$inferSelect;
-    document: typeof userPersonaDocuments.$inferSelect;
+    diff?: UserPersonaDocumentHistory;
+    document: UserPersonaDocument;
   }> => {
     return this.db.transaction((tx) => upsertUserPersonaInTransaction(tx, this.userId, params));
   };

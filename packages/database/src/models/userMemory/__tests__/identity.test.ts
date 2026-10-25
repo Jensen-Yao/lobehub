@@ -1,3 +1,4 @@
+import type { UserMemoryIdentityInsert } from '@lobechat/types';
 // @vitest-environment node
 import { RelationshipEnum } from '@lobechat/types';
 import { eq } from 'drizzle-orm';
@@ -28,7 +29,7 @@ beforeEach(async () => {
 describe('UserMemoryIdentityModel', () => {
   describe('create', () => {
     it('should create a new identity', async () => {
-      const identityData: Omit<typeof userMemoriesIdentities.$inferInsert, 'userId'> = {
+      const identityData: Omit<UserMemoryIdentityInsert, 'userId'> = {
         type: 'personal',
         description: 'Software developer',
         role: 'developer',

@@ -1,15 +1,15 @@
-import {
-  userMemories,
-  type userPersonaDocumentHistories,
-  type userPersonaDocuments,
-} from '@lobechat/database/schemas';
+import { userMemories } from '@lobechat/database/schemas';
 import { type UserPersonaExtractionResult } from '@lobechat/memory-user-memory';
 import {
   RetrievalUserMemoryContextProvider,
   RetrievalUserMemoryIdentitiesProvider,
   UserPersonaExtractor,
 } from '@lobechat/memory-user-memory';
-import type { UserServiceModelConfig } from '@lobechat/types';
+import type {
+  UserPersonaDocument,
+  UserPersonaDocumentHistory,
+  UserServiceModelConfig,
+} from '@lobechat/types';
 import { and, desc, eq } from 'drizzle-orm';
 
 import { getBusinessModelRuntimeHooks } from '@/business/server/model-runtime';
@@ -47,8 +47,8 @@ interface UserPersonaAgentPayload {
 
 interface UserPersonaAgentResult {
   agentResult: UserPersonaExtractionResult;
-  diff?: typeof userPersonaDocumentHistories.$inferSelect;
-  document: typeof userPersonaDocuments.$inferSelect;
+  diff?: UserPersonaDocumentHistory;
+  document: UserPersonaDocument;
 }
 
 const resolvePositiveInteger = (value?: number) => {
