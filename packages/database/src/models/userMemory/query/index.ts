@@ -18,7 +18,6 @@ import type {
   userMemoriesExperiences,
   userMemoriesIdentities,
   userMemoriesPreferences,
-  UserMemoryIdentitiesWithoutVectors,
 } from '../../../schemas';
 import type { LobeChatDatabase } from '../../../type';
 import { buildUserMemoryWhere } from '../where';
@@ -413,7 +412,7 @@ export class UserMemoryQueryModel {
     embedding: number[],
     limit: number,
     params: SearchMemoryParams,
-  ): Promise<UserMemoryIdentitiesWithoutVectors[]> {
+  ): Promise<Omit<typeof userMemoriesIdentities.$inferSelect, 'descriptionVector'>[]> {
     return searchIdentitiesSemantic(this.context, embedding, limit, params);
   }
 

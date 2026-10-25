@@ -4,7 +4,6 @@ import type { SQL } from 'drizzle-orm';
 import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import type { FtsSearchCandidateSource } from '../../repositories/ftsSearch';
-import type { NewUserMemoryIdentity, UserMemoryIdentity } from '../../schemas';
 import { userMemories, userMemoriesIdentities } from '../../schemas';
 import type { LobeChatDatabase } from '../../type';
 import { normalizeBm25MatchQuery, SAFE_BM25_QUERY_OPTIONS } from '../../utils/bm25';
@@ -30,7 +29,7 @@ export class UserMemoryIdentityModel {
     return buildUserMemoryWhere(this.db, this.userId, table);
   }
 
-  create = async (params: Omit<NewUserMemoryIdentity, 'userId'>) => {
+  create = async (params: Omit<typeof userMemoriesIdentities.$inferInsert, 'userId'>) => {
     const [result] = await this.db
       .insert(userMemoriesIdentities)
       .values({ ...params, userId: this.userId })
@@ -183,7 +182,7 @@ export class UserMemoryIdentityModel {
     });
   };
 
-  update = async (id: string, value: Partial<UserMemoryIdentity>) => {
+  update = async (id: string, value: Partial<typeof userMemoriesIdentities.$inferSelect>) => {
     return this.db
       .update(userMemoriesIdentities)
       .set({ ...value, updatedAt: new Date() })

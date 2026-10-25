@@ -2,13 +2,6 @@ import type { SearchMemoryParams } from '@lobechat/types';
 import type { SQL } from 'drizzle-orm';
 import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 
-import type {
-  UserMemoryActivitiesWithoutVectors,
-  UserMemoryContextsWithoutVectors,
-  UserMemoryExperiencesWithoutVectors,
-  UserMemoryIdentitiesWithoutVectors,
-  UserMemoryPreferencesWithoutVectors,
-} from '../../../schemas';
 import {
   userMemories,
   userMemoriesActivities,
@@ -129,7 +122,9 @@ export async function searchActivitiesLexical(
     .orderBy(desc(userMemoriesActivities.capturedAt), desc(userMemoriesActivities.createdAt))
     .limit(limit);
 
-  return rowsQuery as Promise<UserMemoryActivitiesWithoutVectors[]>;
+  return rowsQuery as Promise<
+    Omit<typeof userMemoriesActivities.$inferSelect, 'narrativeVector' | 'feedbackVector'>[]
+  >;
 }
 
 export async function searchContextsLexical(
@@ -258,7 +253,9 @@ export async function searchContextsLexical(
     .orderBy(desc(contextCandidates.capturedAt), desc(contextCandidates.createdAt))
     .limit(limit);
 
-  return rowsQuery as Promise<UserMemoryContextsWithoutVectors[]>;
+  return rowsQuery as Promise<
+    Omit<typeof userMemoriesContexts.$inferSelect, 'descriptionVector'>[]
+  >;
 }
 
 export async function searchExperiencesLexical(
@@ -338,7 +335,12 @@ export async function searchExperiencesLexical(
     .orderBy(desc(userMemoriesExperiences.capturedAt), desc(userMemoriesExperiences.createdAt))
     .limit(limit);
 
-  return rowsQuery as Promise<UserMemoryExperiencesWithoutVectors[]>;
+  return rowsQuery as Promise<
+    Omit<
+      typeof userMemoriesExperiences.$inferSelect,
+      'situationVector' | 'actionVector' | 'keyLearningVector'
+    >[]
+  >;
 }
 
 export async function searchPreferencesLexical(
@@ -418,7 +420,9 @@ export async function searchPreferencesLexical(
     .orderBy(desc(userMemoriesPreferences.capturedAt), desc(userMemoriesPreferences.createdAt))
     .limit(limit);
 
-  return rowsQuery as Promise<UserMemoryPreferencesWithoutVectors[]>;
+  return rowsQuery as Promise<
+    Omit<typeof userMemoriesPreferences.$inferSelect, 'conclusionDirectivesVector'>[]
+  >;
 }
 
 export async function searchIdentitiesLexical(
@@ -489,5 +493,7 @@ export async function searchIdentitiesLexical(
     .orderBy(desc(userMemoriesIdentities.capturedAt), desc(userMemoriesIdentities.createdAt))
     .limit(limit);
 
-  return rowsQuery as Promise<UserMemoryIdentitiesWithoutVectors[]>;
+  return rowsQuery as Promise<
+    Omit<typeof userMemoriesIdentities.$inferSelect, 'descriptionVector'>[]
+  >;
 }

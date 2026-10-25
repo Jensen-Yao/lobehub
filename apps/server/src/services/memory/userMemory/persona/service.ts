@@ -1,8 +1,8 @@
 import {
-  type UserPersonaDocument,
-  type UserPersonaDocumentHistoriesItem,
+  userMemories,
+  type userPersonaDocumentHistories,
+  type userPersonaDocuments,
 } from '@lobechat/database/schemas';
-import { userMemories } from '@lobechat/database/schemas';
 import { type UserPersonaExtractionResult } from '@lobechat/memory-user-memory';
 import {
   RetrievalUserMemoryContextProvider,
@@ -47,8 +47,8 @@ interface UserPersonaAgentPayload {
 
 interface UserPersonaAgentResult {
   agentResult: UserPersonaExtractionResult;
-  diff?: UserPersonaDocumentHistoriesItem;
-  document: UserPersonaDocument;
+  diff?: typeof userPersonaDocumentHistories.$inferSelect;
+  document: typeof userPersonaDocuments.$inferSelect;
 }
 
 const resolvePositiveInteger = (value?: number) => {

@@ -6,7 +6,6 @@ import type {
 import { LayersEnum } from '@lobechat/types';
 import { and, eq } from 'drizzle-orm';
 
-import type { UserMemoryItem } from '../../../schemas';
 import {
   userMemories,
   userMemoriesActivities,
@@ -303,7 +302,7 @@ export const findUserMemoryRawById = async (
 export const findById = async (
   ctx: UserMemoryModelContext,
   id: string,
-): Promise<UserMemoryItem | undefined> => {
+): Promise<typeof userMemories.$inferSelect | undefined> => {
   const result = await ctx.db.query.userMemories.findFirst({
     where: and(eq(userMemories.id, id), ctx.memoryWhere(userMemories)),
   });

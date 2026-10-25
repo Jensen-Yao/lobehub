@@ -1,9 +1,9 @@
 import type {
-  UserMemoryActivitiesWithoutVectors,
-  UserMemoryContextsWithoutVectors,
-  UserMemoryExperiencesWithoutVectors,
-  UserMemoryIdentitiesWithoutVectors,
-  UserMemoryPreferencesWithoutVectors,
+  userMemoriesActivities,
+  userMemoriesContexts,
+  userMemoriesExperiences,
+  userMemoriesIdentities,
+  userMemoriesPreferences,
 } from '../../schemas';
 
 export { UserMemoryTopicRepository } from './UserMemoryTopicRepository';
@@ -15,18 +15,33 @@ export interface MemorySource {
   title: string | null;
 }
 
-export interface DisplayExperienceMemory extends UserMemoryExperiencesWithoutVectors {
+export interface DisplayExperienceMemory extends Omit<
+  typeof userMemoriesExperiences.$inferSelect,
+  'situationVector' | 'actionVector' | 'keyLearningVector'
+> {
   title: string | null;
 }
 
-export interface DisplayPreferenceMemory extends UserMemoryPreferencesWithoutVectors {
+export interface DisplayPreferenceMemory extends Omit<
+  typeof userMemoriesPreferences.$inferSelect,
+  'conclusionDirectivesVector'
+> {
   title: string | null;
 }
 
-export type DisplayContextMemory = UserMemoryContextsWithoutVectors;
+export type DisplayContextMemory = Omit<
+  typeof userMemoriesContexts.$inferSelect,
+  'descriptionVector'
+>;
 
-export type DisplayIdentityMemory = UserMemoryIdentitiesWithoutVectors;
+export type DisplayIdentityMemory = Omit<
+  typeof userMemoriesIdentities.$inferSelect,
+  'descriptionVector'
+>;
 
-export interface DisplayActivityMemory extends UserMemoryActivitiesWithoutVectors {
+export interface DisplayActivityMemory extends Omit<
+  typeof userMemoriesActivities.$inferSelect,
+  'narrativeVector' | 'feedbackVector'
+> {
   title: string | null;
 }

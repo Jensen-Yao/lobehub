@@ -109,6 +109,8 @@ export const userMemoriesDossiers = pgTable(
       onDelete: 'cascade',
     }),
 
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+
     title: text('title'),
     summary: text('summary'),
     summaryVector: vector('summary_vector', { dimensions: 1024 }),
@@ -150,6 +152,8 @@ export const userMemoriesContextProjects = pgTable(
 
     userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
 
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+
     source: text('source').$type<UserMemoryContextProjectSource>().notNull(),
     /** Dossiers in the context whose evidence came from this project; orders injection. */
     evidenceCount: integer('evidence_count').notNull().default(0),
@@ -166,16 +170,3 @@ export const userMemoriesContextProjects = pgTable(
     index('user_memories_context_projects_user_id_index').on(table.userId),
   ],
 );
-
-export type UserMemoryContext = typeof userMemoriesContexts.$inferSelect;
-export type UserMemoryContextsWithoutVectors = Omit<
-  UserMemoryContext,
-  'titleVector' | 'descriptionVector'
->;
-export type NewUserMemoryContext = typeof userMemoriesContexts.$inferInsert;
-
-export type UserMemoryDossier = typeof userMemoriesDossiers.$inferSelect;
-export type NewUserMemoryDossier = typeof userMemoriesDossiers.$inferInsert;
-
-export type UserMemoryContextProject = typeof userMemoriesContextProjects.$inferSelect;
-export type NewUserMemoryContextProject = typeof userMemoriesContextProjects.$inferInsert;

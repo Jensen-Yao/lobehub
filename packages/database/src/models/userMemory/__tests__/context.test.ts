@@ -2,7 +2,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { getTestDB } from '../../../core/getTestDB';
-import type { NewUserMemoryContext } from '../../../schemas';
 import { userMemories, userMemoriesContexts, users } from '../../../schemas';
 import type { LobeChatDatabase } from '../../../type';
 import { UserMemoryContextModel } from '../context';
@@ -27,7 +26,7 @@ beforeEach(async () => {
 describe('UserMemoryContextModel', () => {
   describe('create', () => {
     it('should create a new context', async () => {
-      const contextData: Omit<NewUserMemoryContext, 'userId'> = {
+      const contextData: Omit<typeof userMemoriesContexts.$inferInsert, 'userId'> = {
         title: 'Test Context',
         description: 'Test context description',
         type: 'work',

@@ -2,13 +2,6 @@ import type { SearchMemoryParams } from '@lobechat/types';
 import type { SQL } from 'drizzle-orm';
 import { and, cosineDistance, desc, eq, inArray, sql } from 'drizzle-orm';
 
-import type {
-  UserMemoryActivitiesWithoutVectors,
-  UserMemoryContextsWithoutVectors,
-  UserMemoryExperiencesWithoutVectors,
-  UserMemoryIdentitiesWithoutVectors,
-  UserMemoryPreferencesWithoutVectors,
-} from '../../../schemas';
 import {
   userMemories,
   userMemoriesActivities,
@@ -78,7 +71,9 @@ export async function searchActivitiesSemantic(
     .orderBy(desc(sql`1 - (${cosineDistance(userMemoriesActivities.narrativeVector, embedding)})`))
     .limit(limit);
 
-  return rowsQuery as Promise<UserMemoryActivitiesWithoutVectors[]>;
+  return rowsQuery as Promise<
+    Omit<typeof userMemoriesActivities.$inferSelect, 'narrativeVector' | 'feedbackVector'>[]
+  >;
 }
 
 export async function searchContextsSemantic(
@@ -189,7 +184,9 @@ export async function searchContextsSemantic(
     .orderBy(desc(contextCandidates.similarity), desc(contextCandidates.createdAt))
     .limit(limit);
 
-  return rowsQuery as Promise<UserMemoryContextsWithoutVectors[]>;
+  return rowsQuery as Promise<
+    Omit<typeof userMemoriesContexts.$inferSelect, 'descriptionVector'>[]
+  >;
 }
 
 export async function searchExperiencesSemantic(
@@ -239,7 +236,12 @@ export async function searchExperiencesSemantic(
     .orderBy(desc(sql`1 - (${cosineDistance(userMemoriesExperiences.situationVector, embedding)})`))
     .limit(limit);
 
-  return rowsQuery as Promise<UserMemoryExperiencesWithoutVectors[]>;
+  return rowsQuery as Promise<
+    Omit<
+      typeof userMemoriesExperiences.$inferSelect,
+      'situationVector' | 'actionVector' | 'keyLearningVector'
+    >[]
+  >;
 }
 
 export async function searchPreferencesSemantic(
@@ -296,7 +298,9 @@ export async function searchPreferencesSemantic(
     )
     .limit(limit);
 
-  return rowsQuery as Promise<UserMemoryPreferencesWithoutVectors[]>;
+  return rowsQuery as Promise<
+    Omit<typeof userMemoriesPreferences.$inferSelect, 'conclusionDirectivesVector'>[]
+  >;
 }
 
 export async function searchIdentitiesSemantic(
@@ -304,7 +308,7 @@ export async function searchIdentitiesSemantic(
   embedding: number[],
   limit: number,
   params: SearchMemoryParams,
-): Promise<UserMemoryIdentitiesWithoutVectors[]> {
+): Promise<Omit<typeof userMemoriesIdentities.$inferSelect, 'descriptionVector'>[]> {
   const conditions = [
     ctx.memoryWhere(userMemoriesIdentities),
     ctx.memoryWhere(userMemories),
@@ -351,5 +355,7 @@ export async function searchIdentitiesSemantic(
     )
     .limit(limit);
 
-  return rowsQuery as Promise<UserMemoryIdentitiesWithoutVectors[]>;
+  return rowsQuery as Promise<
+    Omit<typeof userMemoriesIdentities.$inferSelect, 'descriptionVector'>[]
+  >;
 }

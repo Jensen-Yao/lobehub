@@ -8,6 +8,7 @@ import {
   type AnyPgColumn,
   boolean,
   index,
+  jsonb,
   pgTable,
   text,
   uniqueIndex,
@@ -37,6 +38,8 @@ export const userMemoriesEntities = pgTable(
     ),
 
     userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
+
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
 
     /** Canonical name; other names live in `user_memories_entity_names`. */
     name: text('name').notNull(),
@@ -73,6 +76,8 @@ export const userMemoriesEntityNames = pgTable(
 
     userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
 
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+
     name: text('name').notNull(),
     /** Lower-cased, whitespace-collapsed form used for exact resolution. */
     normalized: text('normalized').notNull(),
@@ -100,6 +105,8 @@ export const userMemoriesEntityDistinctions = pgTable(
     id: uuid('id').defaultRandom().primaryKey().notNull(),
 
     userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
+
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
 
     /** Normalized names, stored with `name_a < name_b` so a pair has one row. */
     nameA: text('name_a').notNull(),
@@ -133,6 +140,8 @@ export const userMemoriesEntityMentions = pgTable(
 
     userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
 
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+
     role: text('role').$type<UserMemoryEntityMentionRole>().notNull().default('mention'),
 
     ...timestamps,
@@ -146,9 +155,3 @@ export const userMemoriesEntityMentions = pgTable(
     index('user_memories_entity_mentions_entity_id_index').on(table.entityId),
   ],
 );
-
-export type UserMemoryEntity = typeof userMemoriesEntities.$inferSelect;
-export type NewUserMemoryEntity = typeof userMemoriesEntities.$inferInsert;
-
-export type UserMemoryEntityName = typeof userMemoriesEntityNames.$inferSelect;
-export type NewUserMemoryEntityName = typeof userMemoriesEntityNames.$inferInsert;

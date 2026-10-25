@@ -7,7 +7,7 @@ import type {
 } from '@lobechat/types';
 
 import type { FtsSearchCandidateSource } from '../../../repositories/ftsSearch';
-import type { userMemories, UserMemoryActivitiesWithoutVectors } from '../../../schemas';
+import type { userMemories, userMemoriesActivities } from '../../../schemas';
 import type { LobeChatDatabase } from '../../../type';
 import type { TopicModel } from '../../topic';
 import type { buildUserMemoryWhere } from '../where';
@@ -42,7 +42,11 @@ export interface UserMemoryModelContext {
   memoryWhere: (
     table: Parameters<typeof buildUserMemoryWhere>[2],
   ) => ReturnType<typeof buildUserMemoryWhere>;
-  searchActivities: (params: SearchLayerParams) => Promise<UserMemoryActivitiesWithoutVectors[]>;
+  searchActivities: (
+    params: SearchLayerParams,
+  ) => Promise<
+    Omit<typeof userMemoriesActivities.$inferSelect, 'narrativeVector' | 'feedbackVector'>[]
+  >;
   searchContexts: (params: SearchLayerParams) => Promise<UserMemoryContextWithoutVectors[]>;
   searchExperiences: (params: SearchLayerParams) => Promise<UserMemoryExperienceWithoutVectors[]>;
   searchPreferences: (params: SearchLayerParams) => Promise<UserMemoryPreferenceWithoutVectors[]>;

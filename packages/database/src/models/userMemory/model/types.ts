@@ -14,12 +14,11 @@ import type {
 } from '@lobechat/types';
 
 import type {
-  UserMemoryActivitiesWithoutVectors,
-  UserMemoryActivity,
-  UserMemoryContext,
-  UserMemoryExperience,
-  UserMemoryIdentity,
-  UserMemoryPreference,
+  userMemoriesActivities,
+  userMemoriesContexts,
+  userMemoriesExperiences,
+  userMemoriesIdentities,
+  userMemoriesPreferences,
 } from '../../../schemas';
 
 export interface BaseCreateUserMemoryParams {
@@ -38,7 +37,7 @@ export interface BaseCreateUserMemoryParams {
 export interface CreateUserMemoryContextParams extends BaseCreateUserMemoryParams {
   context: Optional<
     Omit<
-      UserMemoryContext,
+      typeof userMemoriesContexts.$inferSelect,
       'id' | 'userId' | 'createdAt' | 'updatedAt' | 'accessedAt' | 'userMemoryIds' | 'userMemoryId'
     >,
     | 'capturedAt'
@@ -54,7 +53,7 @@ export interface CreateUserMemoryContextParams extends BaseCreateUserMemoryParam
 export interface CreateUserMemoryActivityParams extends BaseCreateUserMemoryParams {
   activity: Optional<
     Omit<
-      UserMemoryActivity,
+      typeof userMemoriesActivities.$inferSelect,
       'id' | 'userId' | 'createdAt' | 'updatedAt' | 'accessedAt' | 'userMemoryId'
     >,
     'capturedAt' | 'dossierId' | 'injectable' | 'messageIds' | 'projectId' | 'topicId'
@@ -64,7 +63,7 @@ export interface CreateUserMemoryActivityParams extends BaseCreateUserMemoryPara
 export interface CreateUserMemoryExperienceParams extends BaseCreateUserMemoryParams {
   experience: Optional<
     Omit<
-      UserMemoryExperience,
+      typeof userMemoriesExperiences.$inferSelect,
       'id' | 'userId' | 'createdAt' | 'updatedAt' | 'accessedAt' | 'userMemoryId'
     >,
     'capturedAt'
@@ -74,7 +73,7 @@ export interface CreateUserMemoryExperienceParams extends BaseCreateUserMemoryPa
 export interface CreateUserMemoryIdentityParams extends BaseCreateUserMemoryParams {
   identity: Optional<
     Omit<
-      UserMemoryIdentity,
+      typeof userMemoriesIdentities.$inferSelect,
       'id' | 'userId' | 'createdAt' | 'updatedAt' | 'accessedAt' | 'userMemoryId'
     >,
     'capturedAt' | 'entityId'
@@ -84,7 +83,7 @@ export interface CreateUserMemoryIdentityParams extends BaseCreateUserMemoryPara
 export interface CreateUserMemoryPreferenceParams extends BaseCreateUserMemoryParams {
   preference: Optional<
     Omit<
-      UserMemoryPreference,
+      typeof userMemoriesPreferences.$inferSelect,
       'id' | 'userId' | 'createdAt' | 'updatedAt' | 'accessedAt' | 'userMemoryId'
     >,
     | 'appliesToEntityId'
@@ -121,7 +120,10 @@ export interface SearchUserMemoryWithEmbeddingParams {
 }
 
 export interface UserMemorySearchAggregatedResult {
-  activities: UserMemoryActivitiesWithoutVectors[];
+  activities: Omit<
+    typeof userMemoriesActivities.$inferSelect,
+    'narrativeVector' | 'feedbackVector'
+  >[];
   contexts: UserMemoryContextWithoutVectors[];
   experiences: UserMemoryExperienceWithoutVectors[];
   preferences: UserMemoryPreferenceWithoutVectors[];

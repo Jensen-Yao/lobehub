@@ -62,10 +62,3 @@ export const userMemories = pgTable(
       .where(sql`${table.topicId} IS NOT NULL`),
   ],
 );
-
-export type UserMemoryItem = typeof userMemories.$inferSelect;
-export type UserMemoryItemWithoutVectors = Omit<
-  UserMemoryItem,
-  'summaryVector1024' | 'detailsVector1024'
->;
-export type NewUserMemory = typeof userMemories.$inferInsert;

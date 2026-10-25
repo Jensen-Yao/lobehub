@@ -23,6 +23,8 @@ export const userMemoriesOperations = pgTable(
 
     userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
 
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+
     op: text('op').$type<UserMemoryOperationType>().notNull(),
     actor: text('actor').$type<UserMemoryOperationActor>().notNull(),
     /** Ids the operation touches, keyed by role (e.g. `{ dossier, activity }`). */
@@ -45,6 +47,3 @@ export const userMemoriesOperations = pgTable(
     ),
   ],
 );
-
-export type UserMemoryOperation = typeof userMemoriesOperations.$inferSelect;
-export type NewUserMemoryOperation = typeof userMemoriesOperations.$inferInsert;
