@@ -218,3 +218,32 @@ export const runDeferredOperationInit = async (
 
   return { context: initialContext, state: initialized };
 };
+
+/**
+ * Whether a send may return before its init and leave it to the step-0 worker.
+ * Behind `ENABLE_AGENT_DEFERRED_INIT=1`, and only for a plain chat turn: a run
+ * whose send path does more with the init's results than hand them to the
+ * operation — an approval continuation, a group member or sub-agent, a bot,
+ * eval or share run, a caller that steps the run itself — keeps the inline init.
+ */
+export const shouldDeferOperationInit = (turn: {
+  appContext?: ExecRunContext['appContext'];
+  autoStart: boolean;
+  hasBotChannel: boolean;
+  hasEval: boolean;
+  isApprovalOrToolResume: boolean;
+  isShareRun: boolean;
+  parentOperationId?: string;
+  topicStartOwnerOperationId?: string;
+}): boolean =>
+  process.env.ENABLE_AGENT_DEFERRED_INIT === '1' &&
+  turn.autoStart &&
+  !turn.isApprovalOrToolResume &&
+  !turn.hasBotChannel &&
+  !turn.hasEval &&
+  !turn.isShareRun &&
+  !turn.parentOperationId &&
+  !turn.topicStartOwnerOperationId &&
+  !turn.appContext?.groupId &&
+  !turn.appContext?.isSubAgent &&
+  !turn.appContext?.orchestrationRole;

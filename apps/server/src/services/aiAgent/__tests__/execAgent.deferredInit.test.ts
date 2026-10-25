@@ -391,4 +391,86 @@ describe('AiAgentService.runDeferredInit - parity with the send path', () => {
       expect(runOperationInit).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('the send path behind ENABLE_AGENT_DEFERRED_INIT', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('returns before the init on a plain chat send, handing the operation the request', async () => {
+      vi.stubEnv('ENABLE_AGENT_DEFERRED_INIT', '1');
+
+      await service.execAgent({
+        agentId: 'agent-1',
+        appContext: { topicId: 'topic-existing' },
+        prompt: 'a follow-up question',
+      });
+
+      expect(runOperationInit).not.toHaveBeenCalled();
+      const created = mockCreateOperation.mock.calls[0][0];
+      expect(created.deferredInit.request).toMatchObject({ prompt: 'a follow-up question' });
+      expect(created.toolSet).toBeUndefined();
+      expect(created.initialMessages).toBeUndefined();
+      expect(created.appContext.assistantMessageId).toBeDefined();
+    });
+
+    it('keeps the inline init when the flag is off', async () => {
+      await service.execAgent({ agentId: 'agent-1', prompt: 'hello' });
+
+      expect(runOperationInit).toHaveBeenCalledTimes(1);
+      expect(mockCreateOperation.mock.calls[0][0].deferredInit).toBeUndefined();
+    });
+
+    it('keeps the inline init for a run that is not a plain chat send', async () => {
+      vi.stubEnv('ENABLE_AGENT_DEFERRED_INIT', '1');
+      mockFindShareById.mockResolvedValue(null);
+
+      await service.execAgent({
+        agentId: 'agent-1',
+        prompt: 'Hello',
+        shareGate: {
+          agentId: 'agent-1',
+          shareConfig: { toolGrants: [] },
+          shareId: 'share-1',
+          visitorUserId: 'visitor-1',
+        },
+      });
+
+      expect(runOperationInit).toHaveBeenCalledTimes(1);
+      expect(mockCreateOperation.mock.calls[0][0].deferredInit).toBeUndefined();
+    });
+
+    // The whole point: a deferred send plus the worker's init is the same run
+    // an inline send creates.
+    it('creates, once the worker has run the init, the run an inline send creates', async () => {
+      const send = { agentId: 'agent-1', appContext: { topicId: 'topic-existing' }, prompt: 'q' };
+
+      await service.execAgent(send);
+      const inlineCreated = mockCreateOperation.mock.calls[0][0];
+      const inline = applyOperationInitSlots(
+        buildPreInitState(inlineCreated, {}),
+        pickOperationInitSlots(inlineCreated),
+      );
+
+      vi.stubEnv('ENABLE_AGENT_DEFERRED_INIT', '1');
+      await service.execAgent(send);
+      const deferredCreated = mockCreateOperation.mock.calls[1][0];
+      const { request } = deferredCreated.deferredInit;
+      const deferred = await service.runDeferredInit({
+        operationId: deferredCreated.operationId,
+        request: throughRedis(request),
+        state: throughRedis({ ...buildPreInitState(deferredCreated, {}), request }) as any,
+      });
+
+      // Same work, two turns: only the per-turn ids differ.
+      const shape = (state: any) => ({
+        messages: state.messages.map(({ content, role }: any) => ({ content, role })),
+        modelRuntimeConfig: state.modelRuntimeConfig,
+        operationToolSet: state.operationToolSet,
+        plan: state.plan,
+        world: state.world,
+      });
+      expect(throughRedis(shape(deferred.state))).toEqual(throughRedis(shape(inline)));
+    });
+  });
 });

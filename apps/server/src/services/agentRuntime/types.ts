@@ -13,6 +13,7 @@ import type {
   ToolSource,
 } from '@lobechat/context-engine';
 import type {
+  AgentRunInitRequest,
   AgentShareVisitorContext,
   ChatTopicBotContext,
   EvalToolForwardingConfig,
@@ -537,6 +538,13 @@ export interface OperationCreationParams {
    */
   connectorOwnershipNote?: string;
   /**
+   * Create the operation without its init: the state carries the turn's
+   * request and step 0 runs the init (`AgentRuntimeDelegate.runDeferredInit`).
+   * Every init-derived field below is then absent, and `initialContext` is only
+   * the placeholder the first step is queued with.
+   */
+  deferredInit?: { request: AgentRunInitRequest };
+  /**
    * Device-access policy decision computed once per turn by
    * `resolveDeviceAccessPolicy`. Forwarded into `state.principal.policy.deviceAccess`
    * so the dispatch site can include `reason` in the audit entry without
@@ -629,7 +637,8 @@ export interface OperationCreationParams {
    * Defaults to true. Set to false for non-streaming scenarios (e.g., bot integrations).
    */
   stream?: boolean;
-  toolSet: OperationToolSet;
+  /** The run's tool set; absent only for a `deferredInit` operation. */
+  toolSet?: OperationToolSet;
   userId?: string;
   /**
    * User intervention configuration

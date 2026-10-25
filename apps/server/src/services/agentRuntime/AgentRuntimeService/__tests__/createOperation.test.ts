@@ -219,5 +219,51 @@ describe('AgentRuntimeService', () => {
         expect(savedState.host).not.toHaveProperty('acceptsFileWorks');
       });
     });
+
+    // A deferred operation is created before its init: the state carries the
+    // turn's request, and none of the init's slots exist until step 0 runs it.
+    describe('without its init (deferredInit)', () => {
+      const request = {
+        approvedToolEntries: [],
+        globalMemoryEnabled: false,
+        hasMentionedAgents: false,
+        isFixedDeviceTarget: false,
+        prompt: 'hello',
+        resumeFromHistory: false,
+        runAttachments: { warnings: [] },
+      };
+      const { initialMessages: _messages, toolSet: _toolSet, ...preInitParams } = mockParams;
+
+      it('saves the pre-init state with the request and no init slots', async () => {
+        await service.createOperation({
+          ...preInitParams,
+          autoStart: false,
+          deferredInit: { request },
+        });
+
+        const savedState = mockCoordinator.saveAgentState.mock.calls[0][1];
+        expect(savedState.request).toEqual(request);
+        expect(savedState.world.agent).toEqual(mockParams.agentConfig);
+        for (const slot of ['operationToolSet', 'messages', 'activatedStepTools', 'initialContext']) {
+          expect(savedState).not.toHaveProperty(slot);
+        }
+      });
+
+      it('queues step 0 with the placeholder context it was given', async () => {
+        const scheduleMessage = vi
+          .spyOn((service as any).queueService, 'scheduleMessage')
+          .mockResolvedValue('queue-msg-1');
+
+        const result = await service.createOperation({
+          ...preInitParams,
+          deferredInit: { request },
+        });
+
+        expect(result.autoStarted).toBe(true);
+        expect(scheduleMessage).toHaveBeenCalledWith(
+          expect.objectContaining({ context: mockParams.initialContext, stepIndex: 0 }),
+        );
+      });
+    });
   });
 });

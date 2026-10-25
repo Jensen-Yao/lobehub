@@ -9,7 +9,8 @@ import { isAbortError } from '@/server/services/agentRuntime/abort';
 
 import type { ExecRunContext, InternalExecAgentParams } from '../types';
 import type { ApprovalClaimState } from './approvalResume';
-import { resolveOperationInitSlots } from './operationInitSlots';
+import type { OperationInitRequest } from './operationInit';
+import { deferredOperationInitSlots, resolveOperationInitSlots } from './operationInitSlots';
 import type { OperationPrepResult } from './operationPrep';
 import { traceStartStage } from './sendTracing';
 import type { ToolDiscoveryResult } from './toolDiscovery';
@@ -25,6 +26,19 @@ export interface StartOperationDeps {
   withholdGatewayToken: boolean;
   workspaceId?: string;
 }
+
+/**
+ * The run's init: done on the send path (its results), or deferred to the
+ * step-0 worker (the turn's request, which the operation then carries).
+ */
+export type StartOperationInit =
+  | {
+      discovery: ToolDiscoveryResult;
+      /** Final runtime context — base prep context with 16b/16c overrides applied. */
+      initialContext: OperationPrepResult['initialContext'];
+      prep: OperationPrepResult;
+    }
+  | { deferredRequest: OperationInitRequest };
 
 export interface StartOperationInput {
   /** See {@link InternalExecAgentParams.acceptsFileWorks}. */
@@ -43,14 +57,12 @@ export interface StartOperationInput {
   /** Tri-state disabled plugin identifiers, kept on the world slot for the context rules. */
   disabledPluginIds?: string[];
   discordContext?: any;
-  discovery: ToolDiscoveryResult;
   enableExpertise: boolean;
   evalContext?: InternalExecAgentParams['evalContext'];
   evalRuntime?: InternalExecAgentParams['evalRuntime'];
   hooks?: InternalExecAgentParams['hooks'];
   includeFinalState?: boolean;
-  /** Final runtime context — base prep context with 16b/16c overrides applied. */
-  initialContext: OperationPrepResult['initialContext'];
+  init: StartOperationInit;
   initialLlmCalls?: number;
   initialStepCount?: number;
   /** Relay executor the calling client declared; lands on `state.host.llmExecutor`. */
@@ -60,7 +72,6 @@ export interface StartOperationInput {
   operationId: string;
   operationTaskId?: string;
   parentOperationId?: string;
-  prep: OperationPrepResult;
   providedApprovalResolutionRequestId?: string;
   queueRetries?: number;
   queueRetryDelay?: string;
@@ -115,19 +126,17 @@ export const startOperation = async (
     clientIp,
     disabledPluginIds,
     discordContext,
-    discovery,
     enableExpertise,
     evalContext,
     evalRuntime,
     hooks,
-    initialContext,
+    init,
     initialLlmCalls,
     initialStepCount,
     maxSteps,
     operationId,
     operationTaskId,
     parentOperationId,
-    prep,
     providedApprovalResolutionRequestId,
     queueRetries,
     queueRetryDelay,
@@ -146,14 +155,18 @@ export const startOperation = async (
     (appContext?.scope === 'group_agent_builder' ? appContext.editingGroupId : undefined) ||
     topicEditingGroupId;
 
-  log(
-    'execAgent: creating operation %s — agentDocuments=%d, knowledgeBases=%s, tools=%d, skills=%d',
-    operationId,
-    discovery.hasAgentDocuments ? 'yes' : 0,
-    discovery.hasEnabledKnowledgeBases,
-    discovery.tools?.length ?? 0,
-    prep.operationSkillSet?.skills?.length ?? 0,
-  );
+  if ('discovery' in init) {
+    log(
+      'execAgent: creating operation %s — agentDocuments=%d, knowledgeBases=%s, tools=%d, skills=%d',
+      operationId,
+      init.discovery.hasAgentDocuments ? 'yes' : 0,
+      init.discovery.hasEnabledKnowledgeBases,
+      init.discovery.tools?.length ?? 0,
+      init.prep.operationSkillSet?.skills?.length ?? 0,
+    );
+  } else {
+    log('execAgent: creating operation %s — init deferred to step 0', operationId);
+  }
 
   // Wrap in try-catch to handle operation startup failures (e.g., QStash unavailable)
   // If createOperation fails, we still have valid messages that need error info
@@ -190,11 +203,10 @@ export const startOperation = async (
     const inheritedEditingGroupId = approvalSourceOperationId
       ? await deps.agentRuntimeService.getOperationEditingGroupId(approvalSourceOperationId)
       : undefined;
-    const { modelCapabilities, ...initSlots } = await resolveOperationInitSlots({
-      discovery,
-      initialContext,
-      prep,
-    });
+    const { modelCapabilities, ...initSlots } =
+      'deferredRequest' in init
+        ? deferredOperationInitSlots(init.deferredRequest, operationId)
+        : await resolveOperationInitSlots(init);
     const result = await deps.agentRuntimeService.createOperation({
       ...initSlots,
       acceptsFileWorks: fileWorksAccepted,

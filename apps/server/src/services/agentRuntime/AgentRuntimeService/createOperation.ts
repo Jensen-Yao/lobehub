@@ -155,7 +155,6 @@ export async function createOperation(
     }
   }
 
-  const operationToolSet = toolSet;
   let operationCreated = false;
   let hooksRegistered = false;
 
@@ -169,9 +168,9 @@ export async function createOperation(
       autoStart,
       agentConfig?.model,
       agentConfig?.provider,
-      operationToolSet.tools?.length ?? 0,
+      toolSet?.tools?.length ?? 0,
       initialMessages.length,
-      operationToolSet.manifestMap ? Object.keys(operationToolSet.manifestMap).length : 0,
+      toolSet?.manifestMap ? Object.keys(toolSet.manifestMap).length : 0,
       memories
         ? `{contexts:${memories.contexts?.length ?? 0},experiences:${memories.experiences?.length ?? 0},preferences:${memories.preferences?.length ?? 0},identities:${memories.identities?.length ?? 0},activities:${memories.activities?.length ?? 0},persona:${memories.persona ? 'yes' : 'no'}}`
         : 'none',
@@ -187,7 +186,10 @@ export async function createOperation(
         : undefined);
 
     const preInitState = buildPreInitState(params, { fileWorksAccepted, llmExecutor });
-    const initialState = applyOperationInitSlots(preInitState, pickOperationInitSlots(params));
+    // A deferred operation keeps the turn's request until step 0 runs its init.
+    const initialState = params.deferredInit
+      ? { ...preInitState, request: params.deferredInit.request }
+      : applyOperationInitSlots(preInitState, pickOperationInitSlots(params));
 
     // Use coordinator to create operation, automatically sends initialization event.
     // For an in-group broadcast/speak member, mirror its Gateway stream events

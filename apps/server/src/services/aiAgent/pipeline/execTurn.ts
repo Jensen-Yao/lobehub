@@ -29,14 +29,19 @@ import { applyShareGateToAgentConfig } from '../shareGate';
 import type { ExecRunContext, InternalExecAgentParams } from '../types';
 import type { ApprovalClaimState } from './approvalResume';
 import { claimApprovalResume, tryReuseInterventionContinuation } from './approvalResume';
+import { shouldDeferOperationInit } from './deferredInit';
 import { dispatchHeteroAgent } from './heteroDispatch';
-import { buildOperationInitRequest, runOperationInit } from './operationInit';
+import {
+  buildOperationInitRequest,
+  runOperationInit,
+  toPersistedInitRequest,
+} from './operationInit';
 import { createHistoryMessagesLoader } from './operationPrep';
 import { resolveRunAgentConfig } from './resolveRunAgentConfig';
 import { loadResumeParentMessage } from './resumeParent';
 import { resolveRunSettings } from './runSettings';
 import { traceSendStage } from './sendTracing';
-import { startOperation } from './startOperation';
+import { startOperation, type StartOperationInit } from './startOperation';
 import { bindTopicWorkingDirectory } from './topicWorkingDirectory';
 import { setupTurn } from './turnSetup';
 
@@ -611,49 +616,70 @@ export const execAgentTurn = async (
     viewedGoal: appContext?.viewedGoal,
   });
 
-  const { discovery, initialContext, prep } = await traceSendStage('operation_init', () =>
-    runOperationInit(
-      {
-        agentDocumentsService: deps.agentDocumentsService,
-        agentModel: deps.agentModel,
-        bindTopicWorkingDirectory: (p) =>
-          bindTopicWorkingDirectory({ topicModel: deps.topicModel }, p),
-        composioService: deps.composioService,
-        connectorModel: deps.connectorModel,
-        connectorToolModel: deps.connectorToolModel,
-        db: deps.db,
-        getMarketService: () => deps.getMarketService(runFacts),
-        loadHistoryMessages,
-        messageModel: deps.messageModel,
-        pluginModel: deps.pluginModel,
-        readFileContent: async (fileId) =>
-          (
-            await new DocumentService(deps.db, deps.userId, deps.workspaceId).parseFile(
-              fileId,
-              shareGate ? agentShareFileAccessScope(shareGate) : ordinaryFileAccessScope,
-            )
-          ).content ?? undefined,
-        throwIfExecutionAborted,
-        topicModel: deps.topicModel,
-        userId: deps.userId,
-        workspaceId: deps.workspaceId,
-      },
-      runContext,
-      initRequest,
-      operationId,
-    ),
-  );
+  // A plain chat turn can return here and leave the init to the step-0 worker:
+  // the operation then carries the request instead of the init's results.
+  const deferInit = shouldDeferOperationInit({
+    appContext,
+    autoStart,
+    hasBotChannel: !!(botContext || botPlatformContext || discordContext),
+    hasEval: !!(evalContext || evalRuntime),
+    isApprovalOrToolResume: approvalDecisions.length > 0 || !!resumeToolResult,
+    isShareRun: !!shareGate,
+    parentOperationId,
+    topicStartOwnerOperationId: params.topicStartOwnerOperationId,
+  });
 
-  // 17. Log final operation parameters summary
-  log(
-    'execAgent: creating operation %s with params: model=%s, provider=%s, tools=%d, messages=%d, manifests=%d',
-    operationId,
-    model,
-    provider,
-    discovery.tools?.length ?? 0,
-    prep.allMessages.length,
-    Object.keys(discovery.toolManifestMap).length,
-  );
+  const runInlineInit = async (): Promise<StartOperationInit> => {
+    const { discovery, initialContext, prep } = await traceSendStage('operation_init', () =>
+      runOperationInit(
+        {
+          agentDocumentsService: deps.agentDocumentsService,
+          agentModel: deps.agentModel,
+          bindTopicWorkingDirectory: (p) =>
+            bindTopicWorkingDirectory({ topicModel: deps.topicModel }, p),
+          composioService: deps.composioService,
+          connectorModel: deps.connectorModel,
+          connectorToolModel: deps.connectorToolModel,
+          db: deps.db,
+          getMarketService: () => deps.getMarketService(runFacts),
+          loadHistoryMessages,
+          messageModel: deps.messageModel,
+          pluginModel: deps.pluginModel,
+          readFileContent: async (fileId) =>
+            (
+              await new DocumentService(deps.db, deps.userId, deps.workspaceId).parseFile(
+                fileId,
+                shareGate ? agentShareFileAccessScope(shareGate) : ordinaryFileAccessScope,
+              )
+            ).content ?? undefined,
+          throwIfExecutionAborted,
+          topicModel: deps.topicModel,
+          userId: deps.userId,
+          workspaceId: deps.workspaceId,
+        },
+        runContext,
+        initRequest,
+        operationId,
+      ),
+    );
+
+    // 17. Log final operation parameters summary
+    log(
+      'execAgent: creating operation %s with params: model=%s, provider=%s, tools=%d, messages=%d, manifests=%d',
+      operationId,
+      model,
+      provider,
+      discovery.tools?.length ?? 0,
+      prep.allMessages.length,
+      Object.keys(discovery.toolManifestMap).length,
+    );
+
+    return { discovery, initialContext, prep };
+  };
+
+  const init: StartOperationInit = deferInit
+    ? { deferredRequest: toPersistedInitRequest(initRequest) }
+    : await runInlineInit();
 
   // Claim the child slot on the supervisor's runningOperation marker LAST,
   // immediately before startup. The marker vanishes when the supervisor is
@@ -721,19 +747,17 @@ export const execAgentTurn = async (
         clientIp,
         disabledPluginIds,
         discordContext,
-        discovery,
         enableExpertise,
         evalContext,
         evalRuntime,
         hooks,
-        initialContext,
+        init,
         initialLlmCalls,
         initialStepCount,
         maxSteps,
         operationId,
         operationTaskId,
         parentOperationId,
-        prep,
         providedApprovalResolutionRequestId,
         queueRetries,
         queueRetryDelay,

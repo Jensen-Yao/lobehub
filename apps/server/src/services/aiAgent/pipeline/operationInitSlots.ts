@@ -1,5 +1,6 @@
 import type { OperationInitSlots } from '@/server/services/agentRuntime/AgentRuntimeService/operationInitSlots';
 
+import type { OperationInitRequest } from './operationInit';
 import type { OperationPrepResult } from './operationPrep';
 import type { ToolDiscoveryResult } from './toolDiscovery';
 
@@ -63,3 +64,19 @@ export const resolveOperationInitSlots = async ({
     userMemory: prep.userMemory,
   };
 };
+
+/**
+ * What `createOperation` gets in place of the init's results when the init is
+ * deferred: the request the state will carry, and the context step 0 is queued
+ * with. Step 0 runs the init before it reads that context and replaces it with
+ * the one the init assembles, so it only has to be a valid first context.
+ */
+export const deferredOperationInitSlots = (request: OperationInitRequest, operationId: string) => ({
+  deferredInit: { request },
+  initialContext: {
+    payload: {},
+    phase: 'user_input' as const,
+    session: { messageCount: 0, sessionId: operationId, status: 'idle' as const, stepCount: 0 },
+  },
+  modelCapabilities: {},
+});

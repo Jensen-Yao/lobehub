@@ -23,9 +23,9 @@ export type OperationInitSlots = Pick<
   | 'operationSkillSet'
   | 'projectInstructions'
   | 'searchDecision'
-  | 'toolSet'
   | 'userMemory'
 > & {
+  toolSet: NonNullable<OperationCreationParams['toolSet']>;
   /** The model facts discovery resolved; `model` / `provider` are known before. */
   modelCapabilities: {
     mediaCapabilities?: Record<string, boolean>;
@@ -178,27 +178,32 @@ export const buildPreInitState = (
 };
 
 /** The init's half of a fully-specified creation request. */
-export const pickOperationInitSlots = (params: OperationCreationParams): OperationInitSlots => ({
-  activeDeviceId: params.activeDeviceId,
-  activeDeviceScope: params.activeDeviceScope,
-  agentGroup: params.agentGroup,
-  connectorOwnershipNote: params.connectorOwnershipNote,
-  deviceSystemInfo: params.deviceSystemInfo,
-  executionPlan: params.executionPlan,
-  expertise: params.expertise,
-  initialContext: params.initialContext,
-  initialMessages: params.initialMessages,
-  modelCapabilities: {
-    mediaCapabilities: params.modelRuntimeConfig?.mediaCapabilities,
-    modelFacts: params.modelRuntimeConfig?.modelFacts,
-  },
-  operationCredentials: params.operationCredentials,
-  operationSkillSet: params.operationSkillSet,
-  projectInstructions: params.projectInstructions,
-  searchDecision: params.searchDecision,
-  toolSet: params.toolSet,
-  userMemory: params.userMemory,
-});
+export const pickOperationInitSlots = (params: OperationCreationParams): OperationInitSlots => {
+  if (!params.toolSet) {
+    throw new Error(`Operation ${params.operationId} was created without its init's tool set`);
+  }
+  return {
+    activeDeviceId: params.activeDeviceId,
+    activeDeviceScope: params.activeDeviceScope,
+    agentGroup: params.agentGroup,
+    connectorOwnershipNote: params.connectorOwnershipNote,
+    deviceSystemInfo: params.deviceSystemInfo,
+    executionPlan: params.executionPlan,
+    expertise: params.expertise,
+    initialContext: params.initialContext,
+    initialMessages: params.initialMessages,
+    modelCapabilities: {
+      mediaCapabilities: params.modelRuntimeConfig?.mediaCapabilities,
+      modelFacts: params.modelRuntimeConfig?.modelFacts,
+    },
+    operationCredentials: params.operationCredentials,
+    operationSkillSet: params.operationSkillSet,
+    projectInstructions: params.projectInstructions,
+    searchDecision: params.searchDecision,
+    toolSet: params.toolSet,
+    userMemory: params.userMemory,
+  };
+};
 
 /**
  * Write what the init produced into the state's slots. The one place that knows
