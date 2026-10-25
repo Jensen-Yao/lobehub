@@ -3300,8 +3300,8 @@ table project_sites {
   indexes {
     project_id [name: 'project_sites_project_id_idx']
     workspace_id [name: 'project_sites_workspace_id_idx']
-
-
+    
+    
   }
 }
 
