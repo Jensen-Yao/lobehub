@@ -5,6 +5,11 @@ import { timestamps, timestamptz, varchar255 } from '../_helpers';
 import { users } from '../user';
 import { userMemories } from './base';
 
+/**
+ * @deprecated Superseded by the structured model: what happened is an activity under a dossier,
+ * a durable lesson is a preference or an entity fact. Kept for existing rows and readers; do not
+ * write new experiences.
+ */
 export const userMemoriesExperiences = pgTable(
   'user_memories_experiences',
   {
