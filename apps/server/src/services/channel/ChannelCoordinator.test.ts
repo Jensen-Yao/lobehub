@@ -42,6 +42,7 @@ describe('Channel completion physical writer confirmation', () => {
     publicationRevoked = false,
     runtime = 'codex',
     leaseOwner: string | null = null,
+    status = 'done',
   ) => {
     const job = {
       channelId: 'channel',
@@ -53,7 +54,7 @@ describe('Channel completion physical writer confirmation', () => {
       publicationRevoked,
       writerHeld: true,
     };
-    const operation = { id: 'op', status: 'done', userId: 'user', workspaceId: null };
+    const operation = { id: 'op', status, userId: 'user', workspaceId: null };
     const rows = [
       {
         ...job,
@@ -110,7 +111,7 @@ describe('Channel completion physical writer confirmation', () => {
 
   // A worker that crashed after starting the run never reached finishDispatch.
   it('revokes an expired dispatch lease, then releases only after confirmed termination', async () => {
-    executions.revokeExpiredLease.mockResolvedValue(true);
+    executions.revokeExpiredLease.mockResolvedValue('revoked');
     executeToolCall.mockResolvedValue({ success: true, state: { exited: true } });
     await coordinator(false, 'codex', 'crashed-worker').complete('channel', 'job', 'op');
     expect(executions.revokeExpiredLease).toHaveBeenCalledWith('channel', 'job');
@@ -119,16 +120,54 @@ describe('Channel completion physical writer confirmation', () => {
   });
 
   it('keeps the writer held after revoking an expired lease without confirmed termination', async () => {
-    executions.revokeExpiredLease.mockResolvedValue(true);
+    executions.revokeExpiredLease.mockResolvedValue('revoked');
     executeToolCall.mockResolvedValue({ success: true, state: { exited: false } });
     await coordinator(false, 'native', 'crashed-worker').complete('channel', 'job', 'op');
     expect(executions.releaseWriter).not.toHaveBeenCalled();
   });
 
   it('does not stop a writer while a live dispatcher still holds its lease', async () => {
-    executions.revokeExpiredLease.mockResolvedValue(false);
+    executions.revokeExpiredLease.mockResolvedValue('live');
     await coordinator(false, 'codex', 'live-worker').complete('channel', 'job', 'op');
     expect(executeToolCall).not.toHaveBeenCalled();
     expect(executions.releaseWriter).not.toHaveBeenCalled();
+  });
+
+  // A worker passed its lease check and started the operation, then stalled past the lease.
+  // A stop revokes the lease; the Desktop finds no process because the late start has not
+  // arrived yet. Releasing now would let another writer into the directory before it does.
+  it('keeps the writer when a revoked dispatcher may still start the run late', async () => {
+    executions.revokeExpiredLease.mockResolvedValue('revoked');
+    executeToolCall.mockResolvedValue({
+      success: true,
+      state: { exited: true, reason: 'not_found' },
+    });
+    await coordinator(true, 'codex', 'stalled-worker', 'running').stopWriters([
+      { channelId: 'channel', id: 'job', operationId: 'op' },
+    ]);
+    expect(executeToolCall).toHaveBeenCalled();
+    expect(executions.releaseWriter).not.toHaveBeenCalled();
+  });
+
+  it('releases a revoked dispatch once the device itself reported the run done', async () => {
+    executions.revokeExpiredLease.mockResolvedValue('revoked');
+    executeToolCall.mockResolvedValue({
+      success: true,
+      state: { exited: true, reason: 'not_found' },
+    });
+    await coordinator(false, 'codex', 'crashed-worker').complete('channel', 'job', 'op');
+    expect(executions.releaseWriter).toHaveBeenCalledWith('channel', 'job');
+  });
+
+  it('trusts a missing process after the dispatch settled normally', async () => {
+    executeToolCall.mockResolvedValue({
+      success: true,
+      state: { exited: true, reason: 'not_found' },
+    });
+    await coordinator(true, 'codex', null, 'running').stopWriters([
+      { channelId: 'channel', id: 'job', operationId: 'op' },
+    ]);
+    expect(executions.revokeExpiredLease).not.toHaveBeenCalled();
+    expect(executions.releaseWriter).toHaveBeenCalledWith('channel', 'job');
   });
 });

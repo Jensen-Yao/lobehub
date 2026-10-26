@@ -112,25 +112,38 @@ describe('Channel dispatch reservation', () => {
     expect(await jobById(db, job.id)).toMatchObject({ status: 'cancelled', writerHeld: false });
   });
 
-  it('keeps a live lease and revokes an expired one without releasing the writer', async () => {
+  it('keeps a live lease and marks an expired one revoked without releasing the writer', async () => {
     const { channel, job, start } = await reserve();
     await start();
-    expect(await executions.revokeExpiredLease(channel.id, job.id)).toBe(false);
+    expect(await executions.revokeExpiredLease(channel.id, job.id)).toBe('live');
     expect(await jobById(db, job.id)).toMatchObject({ leaseOwner: 'worker-1' });
 
     await db
       .update(channelJobs)
       .set({ leaseExpiresAt: new Date(Date.now() - 1000) })
       .where(eq(channelJobs.id, job.id));
-    expect(await executions.revokeExpiredLease(channel.id, job.id)).toBe(true);
+    expect(await executions.revokeExpiredLease(channel.id, job.id)).toBe('revoked');
     expect(await jobById(db, job.id)).toMatchObject({
       leaseExpiresAt: null,
-      leaseOwner: null,
+      leaseOwner: 'revoked:worker-1',
       status: 'running',
       writerHeld: true,
     });
-    // The fenced dispatcher can neither renew nor settle the lease it lost.
+    // The fenced dispatcher can neither renew nor settle the lease it lost, and later passes
+    // still see that its dispatch never settled.
     expect(await executions.heartbeat(job.id, lease)).toBe(false);
+    await executions.finishDispatch(channel.id, job.id, lease.leaseOwner);
+    expect(await executions.revokeExpiredLease(channel.id, job.id)).toBe('revoked');
+
+    await executions.releaseWriter(channel.id, job.id);
+    expect(await jobById(db, job.id)).toMatchObject({ leaseOwner: null, writerHeld: false });
+  });
+
+  it('reports a dispatch that settled normally', async () => {
+    const { channel, job, start } = await reserve();
+    await start();
+    await executions.finishDispatch(channel.id, job.id, lease.leaseOwner);
+    expect(await executions.revokeExpiredLease(channel.id, job.id)).toBe('settled');
   });
 
   it('ignores a settle from a dispatcher that no longer owns the lease', async () => {

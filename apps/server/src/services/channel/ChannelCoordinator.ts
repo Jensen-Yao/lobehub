@@ -275,8 +275,10 @@ export class ChannelCoordinator {
       if (!current?.writerHeld) continue;
       // A dispatcher that died before settling leaves its lease behind. Once expired, revoke
       // it and still require the device to confirm termination below.
-      if (current.leaseOwner && !(await this.executions.revokeExpiredLease(job.channelId, job.id)))
-        continue;
+      const dispatch = current.leaseOwner
+        ? await this.executions.revokeExpiredLease(job.channelId, job.id)
+        : 'settled';
+      if (dispatch === 'live') continue;
       if (row.config?.runtime === 'native') {
         const result = await this.service(
           row.operation.userId,
@@ -320,7 +322,12 @@ export class ChannelCoordinator {
           },
           10_000,
         );
-        if (result.success && isRecord(result.state) && result.state.exited === true)
+        const exited = result.success && isRecord(result.state) && result.state.exited === true;
+        // "No such process" proves nothing while a revoked dispatcher may still submit the
+        // start late, and the device keeps no record that would refuse it. Only a run the
+        // device itself reported done shows that the one submission already arrived.
+        const unseen = isRecord(result.state) && result.state.reason === 'not_found';
+        if (exited && (dispatch !== 'revoked' || !unseen || row.operation.status === 'done'))
           await this.executions.releaseWriter(job.channelId, job.id);
       }
     }

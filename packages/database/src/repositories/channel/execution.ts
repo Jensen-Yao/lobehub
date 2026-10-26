@@ -88,6 +88,9 @@ export const releaseOutcome = (
   };
 };
 
+/** Marks a lease taken from a dispatcher that never settled. See `revokeExpiredLease`. */
+const REVOKED_LEASE_PREFIX = 'revoked:';
+
 /**
  * Channel writes made by the system rather than by a person: the dispatcher, native
  * completion callbacks, device receipts and reconcile. Mutations lock the channel row
@@ -113,24 +116,32 @@ export class ChannelExecutionRepository {
 
   /**
    * Takes dispatch authority from a dispatcher whose lease expired, e.g. a worker that
-   * crashed before `finishDispatch`. An expired lease can no longer be renewed, so its
-   * dispatcher fails its pre-submission check; one already past it consumed the
-   * reservation, which leaves only physical termination to confirm. This never releases
-   * the writer. False while a live dispatcher still holds the lease.
+   * crashed before `finishDispatch`. The lease owner becomes a revocation marker, so the old
+   * dispatcher can neither renew nor settle it, and later passes still know the dispatch
+   * never settled: a late submission may yet reach the device. This never releases the
+   * writer.
+   *
+   * - `live`: a dispatcher still holds an unexpired lease.
+   * - `settled`: the dispatch call finished; its submission, if any, already happened.
+   * - `revoked`: the dispatcher lost its lease before settling.
    */
-  revokeExpiredLease = async (channelId: string, jobId: string) =>
+  revokeExpiredLease = async (
+    channelId: string,
+    jobId: string,
+  ): Promise<'live' | 'revoked' | 'settled'> =>
     withChannelLock(this.db, channelId, async (tx) => {
       const job = await claimed(tx, channelId, jobId, true);
-      if (!job.leaseOwner) return true;
-      if (job.leaseExpiresAt && job.leaseExpiresAt.getTime() > Date.now()) return false;
+      if (!job.leaseOwner) return 'settled';
+      if (job.leaseOwner.startsWith(REVOKED_LEASE_PREFIX)) return 'revoked';
+      if (job.leaseExpiresAt && job.leaseExpiresAt.getTime() > Date.now()) return 'live';
       await tx
         .update(channelJobs)
-        .set({ leaseExpiresAt: null, leaseOwner: null })
+        .set({ leaseExpiresAt: null, leaseOwner: `${REVOKED_LEASE_PREFIX}${job.leaseOwner}` })
         .where(eq(channelJobs.id, job.id));
       await audit(tx, channelId, 'dispatch_lease_expired', job.id, {
         leaseOwner: job.leaseOwner,
       });
-      return true;
+      return 'revoked';
     });
 
   /** Retire only an untouched reservation, racing recordStart on the operation row itself. */
