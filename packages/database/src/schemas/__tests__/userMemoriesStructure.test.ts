@@ -11,6 +11,7 @@ import {
   userMemoriesContextProjects,
   userMemoriesContexts,
   userMemoriesDossiers,
+  userMemoriesEdges,
   userMemoriesEntities,
   userMemoriesEntityNames,
   userMemoriesIdentities,
@@ -53,7 +54,61 @@ afterEach(async () => {
   await serverDB.delete(users).where(eq(users.id, userId));
 });
 
+const createMemory = async (memoryLayer: string) => {
+  const [memory] = await serverDB
+    .insert(userMemories)
+    .values({ lastAccessedAt: new Date(), memoryLayer, userId })
+    .returning();
+  return memory;
+};
+
 describe('structured user memory schema', () => {
+  it('relates any two memories through one edge per relation and drops it with either end', async () => {
+    const citicTelecom = await createMemory('entity');
+    const citicGroup = await createMemory('entity');
+    const dossier = await createMemory('dossier');
+    await serverDB.insert(userMemoriesEntities).values([
+      { name: '中信国际电讯', type: 'customer', userId, userMemoryId: citicTelecom.id },
+      { name: '中信集团', type: 'org', userId, userMemoryId: citicGroup.id },
+    ]);
+
+    await serverDB.insert(userMemoriesEdges).values([
+      { relation: 'mentions', sourceMemoryId: dossier.id, targetMemoryId: citicTelecom.id, userId },
+      {
+        relation: 'distinct_from',
+        sourceMemoryId: citicGroup.id,
+        targetMemoryId: citicTelecom.id,
+        userId,
+      },
+    ]);
+    await expect(
+      serverDB.insert(userMemoriesEdges).values({
+        relation: 'mentions',
+        sourceMemoryId: dossier.id,
+        targetMemoryId: citicTelecom.id,
+        userId,
+      }),
+    ).rejects.toThrow();
+
+    const [mention] = await serverDB
+      .select()
+      .from(userMemoriesEdges)
+      .where(eq(userMemoriesEdges.relation, 'mentions'));
+    expect(mention).toMatchObject({ evidenceCount: 1, sourceMemoryId: dossier.id });
+
+    await serverDB.delete(userMemories).where(eq(userMemories.id, citicTelecom.id));
+    const remaining = await serverDB
+      .select()
+      .from(userMemoriesEdges)
+      .where(eq(userMemoriesEdges.userId, userId));
+    expect(remaining).toHaveLength(0);
+    const entities = await serverDB
+      .select()
+      .from(userMemoriesEntities)
+      .where(eq(userMemoriesEntities.userId, userId));
+    expect(entities.map((entity) => entity.name)).toEqual(['中信集团']);
+  });
+
   it('keeps activities as evidence when their dossier or context goes away', async () => {
     const context = await createContext();
     const [dossier] = await serverDB

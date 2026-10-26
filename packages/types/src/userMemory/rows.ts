@@ -8,7 +8,7 @@ import type {
   UserMemoryContextProjectSource,
   UserMemoryDossierDecision,
   UserMemoryDossierStatus,
-  UserMemoryEntityMentionRole,
+  UserMemoryEdgeRelation,
   UserMemoryEntityNameKind,
   UserMemoryEntityType,
   UserMemoryEvidenceSource,
@@ -420,6 +420,7 @@ export interface UserMemoryEntity {
   type: UserMemoryEntityType;
   updatedAt: Date;
   userId: string | null;
+  userMemoryId: string | null;
 }
 
 /** Insert shape of `UserMemoryEntity`: required columns have no database default. */
@@ -438,6 +439,7 @@ export interface UserMemoryEntityInsert {
   type?: UserMemoryEntityType;
   updatedAt?: Date;
   userId?: string | null;
+  userMemoryId?: string | null;
 }
 
 /** Row of `user_memories_entity_names` — a name an entity goes by. */
@@ -470,56 +472,32 @@ export interface UserMemoryEntityNameInsert {
   userId?: string | null;
 }
 
-/** Row of `user_memories_entity_distinctions` — two names stated to be different things. */
-export interface UserMemoryEntityDistinction {
+/** Row of `user_memories_edges` — a graph relation between two memories. */
+export interface UserMemoryEdge {
   accessedAt: Date;
   createdAt: Date;
+  evidenceCount: number;
   id: string;
   metadata: Record<string, unknown> | null;
-  nameA: string;
-  nameB: string;
-  sourceMemoryId: string | null;
+  relation: UserMemoryEdgeRelation;
+  sourceMemoryId: string;
+  targetMemoryId: string;
   updatedAt: Date;
   userId: string | null;
 }
 
-/** Insert shape of `UserMemoryEntityDistinction`: required columns have no database default. */
-export interface UserMemoryEntityDistinctionInsert {
+/** Insert shape of `UserMemoryEdge`: required columns have no database default. */
+export interface UserMemoryEdgeInsert {
   accessedAt?: Date;
   createdAt?: Date;
+  evidenceCount?: number;
   id?: string;
   metadata?: Record<string, unknown> | null;
-  nameA: string;
-  nameB: string;
-  sourceMemoryId?: string | null;
+  relation: UserMemoryEdgeRelation;
+  sourceMemoryId: string;
+  targetMemoryId: string;
   updatedAt?: Date;
   userId?: string | null;
-}
-
-/** Row of `user_memories_entity_mentions` — a memory mentioning an entity. */
-export interface UserMemoryEntityMention {
-  accessedAt: Date;
-  createdAt: Date;
-  entityId: string;
-  id: string;
-  metadata: Record<string, unknown> | null;
-  role: UserMemoryEntityMentionRole;
-  updatedAt: Date;
-  userId: string | null;
-  userMemoryId: string;
-}
-
-/** Insert shape of `UserMemoryEntityMention`: required columns have no database default. */
-export interface UserMemoryEntityMentionInsert {
-  accessedAt?: Date;
-  createdAt?: Date;
-  entityId: string;
-  id?: string;
-  metadata?: Record<string, unknown> | null;
-  role?: UserMemoryEntityMentionRole;
-  updatedAt?: Date;
-  userId?: string | null;
-  userMemoryId: string;
 }
 
 /** Row of `user_memories_operations` — one structural change, with what is needed to undo it. */

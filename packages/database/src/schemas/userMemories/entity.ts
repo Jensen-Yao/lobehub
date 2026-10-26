@@ -1,8 +1,4 @@
-import type {
-  UserMemoryEntityMentionRole,
-  UserMemoryEntityNameKind,
-  UserMemoryEntityType,
-} from '@lobechat/types';
+import type { UserMemoryEntityNameKind, UserMemoryEntityType } from '@lobechat/types';
 import { sql } from 'drizzle-orm';
 import {
   type AnyPgColumn,
@@ -23,7 +19,9 @@ import { userMemories } from './base';
 
 /**
  * A person, organization, product, repository or place the user deals with. The user is the
- * entity with `is_self`. Names, facts (identities) and preferences hang off entities.
+ * entity with `is_self`. Names, facts (identities) and preferences hang off entities. Like every
+ * other memory it has a parent row in `user_memories`, so it is a node in `user_memories_edges`
+ * (mentions, "not the same as", …).
  */
 export const userMemoriesEntities = pgTable(
   'user_memories_entities',
@@ -38,6 +36,9 @@ export const userMemoriesEntities = pgTable(
     ),
 
     userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    userMemoryId: varchar255('user_memory_id').references(() => userMemories.id, {
+      onDelete: 'cascade',
+    }),
 
     metadata: jsonb('metadata').$type<Record<string, unknown>>(),
 
@@ -59,6 +60,7 @@ export const userMemoriesEntities = pgTable(
     ),
     index('user_memories_entities_user_id_index').on(table.userId),
     index('user_memories_entities_parent_entity_id_index').on(table.parentEntityId),
+    index('user_memories_entities_user_memory_id_index').on(table.userMemoryId),
     uniqueIndex('user_memories_entities_user_id_self_unique')
       .on(table.userId)
       .where(sql`${table.isSelf}`),
@@ -95,63 +97,5 @@ export const userMemoriesEntityNames = pgTable(
       table.normalized,
     ),
     index('user_memories_entity_names_user_id_normalized_index').on(table.userId, table.normalized),
-  ],
-);
-
-/** Names stated to be different things, so resolution never merges them. */
-export const userMemoriesEntityDistinctions = pgTable(
-  'user_memories_entity_distinctions',
-  {
-    id: uuid('id').defaultRandom().primaryKey().notNull(),
-
-    userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
-
-    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
-
-    /** Normalized names, stored with `name_a < name_b` so a pair has one row. */
-    nameA: text('name_a').notNull(),
-    nameB: text('name_b').notNull(),
-    sourceMemoryId: varchar255('source_memory_id').references(() => userMemories.id, {
-      onDelete: 'set null',
-    }),
-
-    ...timestamps,
-  },
-  (table) => [
-    uniqueIndex('user_memories_entity_distinctions_user_id_names_unique').on(
-      table.userId,
-      table.nameA,
-      table.nameB,
-    ),
-  ],
-);
-
-/** Which memories mention which entities; the main way to find candidates when consolidating. */
-export const userMemoriesEntityMentions = pgTable(
-  'user_memories_entity_mentions',
-  {
-    id: uuid('id').defaultRandom().primaryKey().notNull(),
-    userMemoryId: varchar255('user_memory_id')
-      .references(() => userMemories.id, { onDelete: 'cascade' })
-      .notNull(),
-    entityId: varchar255('entity_id')
-      .references(() => userMemoriesEntities.id, { onDelete: 'cascade' })
-      .notNull(),
-
-    userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
-
-    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
-
-    role: text('role').$type<UserMemoryEntityMentionRole>().notNull().default('mention'),
-
-    ...timestamps,
-  },
-  (table) => [
-    uniqueIndex('user_memories_entity_mentions_memory_entity_role_unique').on(
-      table.userMemoryId,
-      table.entityId,
-      table.role,
-    ),
-    index('user_memories_entity_mentions_entity_id_index').on(table.entityId),
   ],
 );

@@ -38,7 +38,13 @@ export type UserMemoryEntityNameKind = 'alias' | 'former' | 'wrong';
 /** Who said it: the holder themself, the user relaying it, or the model inferring it. */
 export type UserMemoryEvidenceSource = 'stated' | 'reported' | 'inferred';
 
-export type UserMemoryEntityMentionRole = 'subject' | 'holder' | 'mention';
+/**
+ * Relation carried by a `user_memories_edges` row. `mentions`: a memory mentions an entity;
+ * `distinct_from`: two entities are stated not to be the same thing (stored once, smaller id first);
+ * `supersedes` / `contradicts`: one memory replaces or conflicts with another.
+ */
+export type UserMemoryEdgeRelation =
+  'mentions' | 'distinct_from' | 'supersedes' | 'contradicts' | 'related_to';
 
 export type UserMemoryOperationType =
   'attach' | 'create' | 'merge' | 'split' | 'alias' | 'supersede' | 'route' | 'drop' | 'status';
