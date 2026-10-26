@@ -86,6 +86,7 @@ import { oauthAppRouter } from './oauthApp';
 import { oauthDeviceFlowRouter } from './oauthDeviceFlow';
 import { pluginRouter } from './plugin';
 import { projectRouter } from './project';
+import { projectReviewRouter } from './projectReview';
 import { projectWorkingDirectoryRouter } from './projectWorkingDirectory';
 import { pushTokenRouter } from './pushToken';
 import { ragEvalRouter } from './ragEval';
@@ -188,6 +189,7 @@ export const lambdaRouter = router({
   oauthDeviceFlow: oauthDeviceFlowRouter,
   plugin: pluginRouter,
   project: projectRouter,
+  projectReview: projectReviewRouter,
   projectWorkingDirectory: projectWorkingDirectoryRouter,
   pushToken: pushTokenRouter,
   ragEval: ragEvalRouter,

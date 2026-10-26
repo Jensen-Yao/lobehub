@@ -4,7 +4,7 @@ import { Avatar, Empty, Flexbox, Icon } from '@lobehub/ui';
 import { cssVar } from '@lobehub/ui/stylex/cssVar.stylex';
 import * as stylex from '@stylexjs/stylex';
 import dayjs from 'dayjs';
-import { FileTextIcon, FolderOpenIcon, HardDriveIcon, UsersIcon } from 'lucide-react';
+import { FileTextIcon, FolderOpenIcon, GlobeIcon, HardDriveIcon, UsersIcon } from 'lucide-react';
 import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -21,10 +21,14 @@ import { knowledgeBaseSelectors, useKnowledgeBaseStore } from '@/store/library';
 import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/slices/auth/selectors';
 
+import { isArtifactPage } from '../Layout/Body/PageSection/group';
 import { docsFilePath, docsPagePath } from '../paths';
 
 /** Title, location, owner, created, updated — the time columns stay fixed-width. */
 const COLUMNS = 'minmax(0, 3fr) minmax(0, 1.4fr) minmax(0, 1.1fr) 132px 132px';
+/** A phone keeps title and updated; five columns would wrap the headers letter by letter. */
+const PHONE = '@media (width <= 767px)';
+const PHONE_COLUMNS = 'minmax(0, 1fr) 96px';
 
 const styles = stylex.create({
   cell: {
@@ -35,7 +39,7 @@ const styles = stylex.create({
   },
   header: {
     display: 'grid',
-    gridTemplateColumns: COLUMNS,
+    gridTemplateColumns: { default: COLUMNS, [PHONE]: PHONE_COLUMNS },
     gap: '16px',
     paddingBlock: '8px',
     paddingInline: '12px',
@@ -44,6 +48,10 @@ const styles = stylex.create({
     borderBlockEndColor: cssVar.colorBorderSecondary,
     fontSize: '12px',
     color: cssVar.colorTextTertiary,
+  },
+  // `contents` keeps the wrapped cell a direct grid item on wider screens.
+  desktopOnly: {
+    display: { default: 'contents', [PHONE]: 'none' },
   },
   meta: {
     fontSize: '13px',
@@ -56,7 +64,7 @@ const styles = stylex.create({
   row: {
     cursor: 'pointer',
     display: 'grid',
-    gridTemplateColumns: COLUMNS,
+    gridTemplateColumns: { default: COLUMNS, [PHONE]: PHONE_COLUMNS },
     gap: '16px',
     alignItems: 'center',
     width: '100%',
@@ -188,9 +196,11 @@ const HomeList = memo<HomeListProps>(({ onTabChange, tab }) => {
       <div>
         <div {...stylex.props(styles.header)}>
           <span>{t('docs.home.columns.title')}</span>
-          <span>{t('docs.home.columns.location')}</span>
-          <span>{t('docs.home.columns.owner')}</span>
-          <span>{t('docs.home.columns.createdAt')}</span>
+          <span {...stylex.props(styles.desktopOnly)}>
+            <span>{t('docs.home.columns.location')}</span>
+            <span>{t('docs.home.columns.owner')}</span>
+            <span>{t('docs.home.columns.createdAt')}</span>
+          </span>
           <span>{t('docs.home.columns.updatedAt')}</span>
         </div>
         <AsyncBoundary
@@ -227,7 +237,7 @@ const HomeList = memo<HomeListProps>(({ onTabChange, tab }) => {
                   row.emoji ? (
                     <Avatar avatar={row.emoji} size={20} />
                   ) : (
-                    <Icon icon={FileTextIcon} size={18} />
+                    <Icon icon={isArtifactPage(row) ? GlobeIcon : FileTextIcon} size={18} />
                   )
                 ) : (
                   <FileIcon fileName={row.name} fileType={row.fileType} size={20} />
@@ -236,21 +246,23 @@ const HomeList = memo<HomeListProps>(({ onTabChange, tab }) => {
                   {row.name || t('pageList.untitled')}
                 </span>
               </Flexbox>
-              <Location libraryNames={libraryNames} myId={myId} row={row} />
-              <Flexbox
-                horizontal
-                align={'center'}
-                gap={6}
-                {...stylex.props(styles.cell, styles.meta)}
-              >
-                {row.owner && (
-                  <>
-                    <Avatar avatar={row.owner.avatar || row.owner.name} size={18} />
-                    <span {...stylex.props(styles.cell)}>{row.owner.name}</span>
-                  </>
-                )}
-              </Flexbox>
-              <span {...stylex.props(styles.meta)}>{formatTime(row.createdAt)}</span>
+              <span {...stylex.props(styles.desktopOnly)}>
+                <Location libraryNames={libraryNames} myId={myId} row={row} />
+                <Flexbox
+                  horizontal
+                  align={'center'}
+                  gap={6}
+                  {...stylex.props(styles.cell, styles.meta)}
+                >
+                  {row.owner && (
+                    <>
+                      <Avatar avatar={row.owner.avatar || row.owner.name} size={18} />
+                      <span {...stylex.props(styles.cell)}>{row.owner.name}</span>
+                    </>
+                  )}
+                </Flexbox>
+                <span {...stylex.props(styles.meta)}>{formatTime(row.createdAt)}</span>
+              </span>
               <span {...stylex.props(styles.meta)}>{formatTime(row.updatedAt)}</span>
             </button>
           ))}

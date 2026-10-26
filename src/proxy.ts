@@ -42,6 +42,7 @@ export const config = {
     '/resource',
     '/resource(.*)',
     '/profile(.*)',
+    '/invite/(.*)',
     '/projects',
     '/project',
     '/project/(.*)',

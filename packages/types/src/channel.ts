@@ -1,7 +1,7 @@
 import type { LobeAgentConfig } from './agent';
 
 /**
- * Channel: a shared conversation where people and Agents talk together (LOBE-15104).
+ * Channel: a shared conversation where people and Agents talk together.
  *
  * Public content lives in channel_messages. Channel jobs trigger ordinary Agent topics
  * and operations; the internal transcript stays separate from the public timeline.
@@ -50,6 +50,21 @@ export interface ChannelMemberConfig {
   /** Set only from a device's canonical-path acknowledgement before claiming work. */
   workingDirectory?: string;
 }
+
+/** Free-form member state that does not need its own column. */
+export type ChannelMemberMetadata = Record<string, unknown>;
+
+/** Free-form channel state that does not need its own column. */
+export type ChannelMetadata = Record<string, unknown>;
+
+/** Free-form grant state that does not need its own column. */
+export type ChannelMemberGrantMetadata = Record<string, unknown>;
+
+/** Free-form Thread state that does not need its own column. */
+export type ChannelThreadMetadata = Record<string, unknown>;
+
+/** Free-form public message state that does not need its own column. */
+export type ChannelMessageMetadata = Record<string, unknown>;
 
 /** Effective Agent settings and Channel environment, frozen once when a job is claimed. */
 export interface ChannelExecutionConfig extends LobeAgentConfig, ChannelMemberConfig {

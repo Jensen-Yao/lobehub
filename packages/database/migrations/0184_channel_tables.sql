@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS "channel_member_grants" (
 	"decided_at" timestamp with time zone,
 	"revoked_at" timestamp with time zone,
 	"revoke_reason" text,
+	"metadata" jsonb DEFAULT '{}'::jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -66,6 +67,7 @@ CREATE TABLE IF NOT EXISTS "channel_members" (
 	"name" text,
 	"description" text DEFAULT '' NOT NULL,
 	"config" jsonb,
+	"metadata" jsonb DEFAULT '{}'::jsonb,
 	"active" boolean DEFAULT true NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -103,6 +105,7 @@ CREATE TABLE IF NOT EXISTS "channel_messages" (
 	"routing_reason" text,
 	"routing_attempt" integer DEFAULT 0 NOT NULL,
 	"recipient_member_ids" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"metadata" jsonb DEFAULT '{}'::jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "channel_messages_scope_unique" UNIQUE("channel_id","id"),
 	CONSTRAINT "channel_messages_sender_check" CHECK ("channel_messages"."user_id" IS NULL OR "channel_messages"."agent_id" IS NULL),
@@ -116,6 +119,7 @@ CREATE TABLE IF NOT EXISTS "channel_threads" (
 	"root_message_id" uuid NOT NULL,
 	"root_sequence" integer NOT NULL,
 	"follower_member_ids" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"metadata" jsonb DEFAULT '{}'::jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "channel_threads_scope_unique" UNIQUE("channel_id","id")
 );
@@ -130,6 +134,7 @@ CREATE TABLE IF NOT EXISTS "channels" (
 	"sequence" integer DEFAULT 0 NOT NULL,
 	"archived" boolean DEFAULT false NOT NULL,
 	"visibility" text DEFAULT 'private' NOT NULL,
+	"metadata" jsonb DEFAULT '{}'::jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "channels_direct_visibility_check" CHECK ("channels"."agent_id" IS NULL OR "channels"."visibility" = 'private')
@@ -215,19 +220,3 @@ CREATE INDEX IF NOT EXISTS "channels_user_id_idx" ON "channels" USING btree ("us
 CREATE UNIQUE INDEX IF NOT EXISTS "channels_direct_unique" ON "channels" USING btree ("agent_id","user_id",coalesce("workspace_id", '')) WHERE "channels"."agent_id" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "channels_project_id_idx" ON "channels" USING btree ("project_id") WHERE "channels"."project_id" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "channels_workspace_visibility_idx" ON "channels" USING btree ("workspace_id","visibility");
---> statement-breakpoint
--- Hard deletes can arrive through existing Agent/account/workspace cascades. Never erase
--- a physical writer lock with its owning row: the caller must stop it and confirm exit first.
-CREATE OR REPLACE FUNCTION "channel_preserve_active_writer"() RETURNS trigger AS $$
-BEGIN
-  IF OLD.writer_held THEN
-    RAISE EXCEPTION 'Stop active Channel replies before deleting their owner'
-      USING ERRCODE = '55006';
-  END IF;
-  RETURN OLD;
-END;
-$$ LANGUAGE plpgsql;--> statement-breakpoint
-DROP TRIGGER IF EXISTS "channel_preserve_active_writer" ON "channel_jobs";--> statement-breakpoint
-CREATE TRIGGER "channel_preserve_active_writer"
-  BEFORE DELETE ON "channel_jobs"
-  FOR EACH ROW EXECUTE FUNCTION "channel_preserve_active_writer"();
