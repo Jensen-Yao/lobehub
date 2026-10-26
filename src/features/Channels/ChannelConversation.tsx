@@ -23,6 +23,7 @@ import { MessageAttachments } from './MessageAttachments';
 import { MessageReceipts } from './MessageReceipts';
 import { styles } from './styles';
 import { useChannelEvents } from './useChannelEvents';
+import { channelDraftKey } from './useComposerDraft';
 
 interface ChannelConversationProps {
   channelId: string;
@@ -282,7 +283,8 @@ const Timeline = ({
               </WideScreenContainer>
             ) : (
               <Composer
-                key={`${channelId}:${threadId || 'main'}`}
+                draftKey={channelDraftKey(channelId, threadId)}
+                key={channelDraftKey(channelId, threadId)}
                 placeholder={t(threadId ? 'threadComposer' : 'composer')}
                 replying={replying}
                 members={activeMembers.map((member) => ({

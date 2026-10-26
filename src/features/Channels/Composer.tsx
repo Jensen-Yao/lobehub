@@ -34,16 +34,20 @@ import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfi
 import { $insertChannelMentionBoundary, channelMentionIds } from './mentions';
 import { styles } from './styles';
 import { useAttachments } from './useAttachments';
+import { useComposerDraft } from './useComposerDraft';
 
 const plugins = [ReactCodePlugin, ReactListPlugin, ReactLinkHighlightPlugin, ReactMentionPlugin];
 
 export function Composer({
+  draftKey,
   members,
   onSend,
   replying,
   onStop,
   placeholder,
 }: {
+  /** Where unsent input is kept; see {@link useComposerDraft}. */
+  draftKey: string;
   members: { id: string; name: string }[];
   replying?: boolean;
   onStop?: () => void;
@@ -57,6 +61,7 @@ export function Composer({
 }) {
   const { t } = useTranslation('channel');
   const editor = useEditor();
+  const draft = useComposerDraft(editor, draftKey);
   const shouldSendOnEnter = useEnterToSend();
   const height = useGlobalStore(systemStatusSelectors.chatInputHeight);
   const [content, setContent] = useState('');
@@ -96,6 +101,7 @@ export function Composer({
         fileIds,
       );
       editor.cleanDocument();
+      draft.clear();
       attachments.clear();
       setContent('');
       requestKey.current = crypto.randomUUID();
@@ -204,6 +210,8 @@ export function Composer({
                 });
               },
             }}
+            onBlur={() => draft.flush()}
+            onInit={() => requestAnimationFrame(draft.restore)}
             onKeyDown={({ event }) => members.length > 0 && $insertChannelMentionBoundary(event)}
             onChange={() => {
               // onTextChange skips the first dirty update in the editor. A first
@@ -213,6 +221,7 @@ export function Composer({
                 previousDocument.current = document;
                 setContent(String(editor.getDocument('markdown') || ''));
                 requestKey.current = crypto.randomUUID();
+                draft.save();
               }
             }}
             onPressEnter={({ event }) => {
