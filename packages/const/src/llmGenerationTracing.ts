@@ -9,6 +9,7 @@
 export const TRACING_SCENARIOS = {
   AgentSignal: 'agent_signal',
   AgentWelcome: 'agent_welcome',
+  BotWakeClassifier: 'bot_wake_classifier',
   BuilderSuggestion: 'builder_suggestion',
   DocumentReviewImpact: 'document_review_impact',
   DocumentToSkillMeta: 'document_to_skill_meta',

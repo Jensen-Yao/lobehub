@@ -1,6 +1,7 @@
 import type { SandboxStorageClaim } from '@lobechat/builtin-tool-cloud-sandbox';
 import type { LobeChatDatabase } from '@lobechat/database';
 import type { AgentSenderMetadata, ExecAgentResult, UserInterventionConfig } from '@lobechat/types';
+import { agentShareFileAccessScope, ordinaryFileAccessScope } from '@lobechat/types';
 import { nanoid } from '@lobechat/utils';
 import debug from 'debug';
 
@@ -20,6 +21,7 @@ import type { AgentDocumentsService } from '@/server/services/agentDocuments';
 import type { AgentRuntimeService } from '@/server/services/agentRuntime';
 import { getAbortError, throwIfAborted } from '@/server/services/agentRuntime/abort';
 import type { ComposioService } from '@/server/services/composio';
+import { DocumentService } from '@/server/services/document';
 import type { MarketService } from '@/server/services/market';
 
 import { createRunFacts, type RunFacts } from '../runFacts';
@@ -95,7 +97,6 @@ export const execAgentTurn = async (
     autoStart = true,
     botContext,
     botSender,
-    contextSelections,
     createdThreadId,
     externalOrigin,
     clientIp,
@@ -124,12 +125,13 @@ export const execAgentTurn = async (
     evalRuntime,
     maxSteps,
     disableLocalSystem,
+    initialLlmCalls,
     initialStepCount,
     signal,
     userInterventionConfig: requestedUserInterventionConfig = { approvalMode: 'headless' },
+    userMessage,
     queueRetries,
     queueRetryDelay,
-    pageSelections,
     parentMessageId,
     parentOperationId,
     resume,
@@ -399,7 +401,6 @@ export const execAgentTurn = async (
         botSender,
         clientIds,
         continuationAssistantId,
-        contextSelections,
         conversationAgentId,
         createdThreadId,
         externalOrigin,
@@ -407,7 +408,6 @@ export const execAgentTurn = async (
         files,
         modelOverride,
         operationTaskId,
-        pageSelections,
         parentMessageId,
         prompt,
         providerOverride,
@@ -421,6 +421,7 @@ export const execAgentTurn = async (
         throwIfExecutionAborted,
         title,
         trigger,
+        userMessage,
       },
     ),
   );
@@ -451,16 +452,25 @@ export const execAgentTurn = async (
 
   const runContext: ExecRunContext = {
     agentConfig,
+    // Facts the turn resolved (builder target, project) ride on the context so
+    // every later stage — and the frozen operation origin — reads one value.
     appContext:
-      turn.editingAgentId && turn.editingAgentId !== appContext?.editingAgentId
-        ? { ...appContext, editingAgentId: turn.editingAgentId }
+      (turn.editingAgentId && turn.editingAgentId !== appContext?.editingAgentId) ||
+      turn.projectId !== appContext?.projectId
+        ? {
+            ...appContext,
+            editingAgentId: turn.editingAgentId ?? appContext?.editingAgentId,
+            projectId: turn.projectId,
+          }
         : appContext,
     assistantMessageId: turn.assistantMessageId,
+    botContext,
+    botPlatformContext,
     canUseDevice,
-    contextSelections,
     deviceAccessReason,
+    disabledPluginIds,
+    discordContext,
     model,
-    pageSelections,
     parentMessageId,
     persistAgentId,
     prompt,
@@ -472,6 +482,9 @@ export const execAgentTurn = async (
     topicId,
     trigger,
     userMessageId: turn.userMessageId,
+    // Exactly what the user row was persisted with, so every stage reads the
+    // message the way a later turn reads it back from history.
+    userMessageMetadata: turn.userMessageId ? turn.requestTriggerMetadata : undefined,
   };
 
   if (isHeteroAgent) {
@@ -567,15 +580,12 @@ export const execAgentTurn = async (
     approvalOwnerAssistantId,
     approvedToolEntries,
     attachedFileIds,
-    botContext,
-    botPlatformContext,
     disableLocalSystem,
     disableSelfFeedbackIntentTool: params.disableSelfFeedbackIntentTool,
     disableTools: params.disableTools,
-    disabledPluginIds,
-    discordContext,
     ephemeralUserMessage,
     exclusivePluginIds,
+    existingMessageIds,
     files,
     functionTools,
     globalMemoryEnabled,
@@ -583,19 +593,22 @@ export const execAgentTurn = async (
     isFixedDeviceTarget: turn.isFixedDeviceTarget,
     localDeviceId,
     mentionedAgents,
-    operationId,
     parentMessageId,
+    prompt,
+    requestedTopicId: appContext?.topicId ?? undefined,
     requestTrigger: requestTriggerMetadata.trigger,
     requestedDeviceId: turn.requestedDeviceId,
     resumeApproval,
     resumeApprovalPlugin,
     resumeApprovals,
+    resume,
     resumeFromHistory: runFromHistory,
     resumeToolResult: resolvedToolResult,
     runAttachments,
     selectedSkillIds,
     selectedToolIds,
     topicBoundDeviceId: turn.topicBoundDeviceId,
+    viewedGoal: appContext?.viewedGoal,
   });
 
   const { discovery, initialContext, prep } = await traceSendStage('operation_init', () =>
@@ -613,6 +626,13 @@ export const execAgentTurn = async (
         loadHistoryMessages,
         messageModel: deps.messageModel,
         pluginModel: deps.pluginModel,
+        readFileContent: async (fileId) =>
+          (
+            await new DocumentService(deps.db, deps.userId, deps.workspaceId).parseFile(
+              fileId,
+              shareGate ? agentShareFileAccessScope(shareGate) : ordinaryFileAccessScope,
+            )
+          ).content ?? undefined,
         throwIfExecutionAborted,
         topicModel: deps.topicModel,
         userId: deps.userId,
@@ -620,6 +640,7 @@ export const execAgentTurn = async (
       },
       runContext,
       initRequest,
+      operationId,
     ),
   );
 
@@ -706,6 +727,7 @@ export const execAgentTurn = async (
         evalRuntime,
         hooks,
         initialContext,
+        initialLlmCalls,
         initialStepCount,
         maxSteps,
         operationId,
