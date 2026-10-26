@@ -31,7 +31,9 @@ import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
 
+import { ComposerRecipients } from './ComposerRecipients';
 import { $insertChannelMentionBoundary, channelMentionIds } from './mentions';
+import { type ComposerMember, composerRecipients } from './recipients';
 import { styles } from './styles';
 import { useAttachments } from './useAttachments';
 import { useComposerDraft } from './useComposerDraft';
@@ -39,16 +41,21 @@ import { useComposerDraft } from './useComposerDraft';
 const plugins = [ReactCodePlugin, ReactListPlugin, ReactLinkHighlightPlugin, ReactMentionPlugin];
 
 export function Composer({
+  defaultRecipientIds,
   draftKey,
+  inThread = false,
   members,
   onSend,
   replying,
   onStop,
   placeholder,
 }: {
+  /** Agents that reply when the message mentions nobody. */
+  defaultRecipientIds: string[];
   /** Where unsent input is kept; see {@link useComposerDraft}. */
   draftKey: string;
-  members: { id: string; name: string }[];
+  inThread?: boolean;
+  members: ComposerMember[];
   replying?: boolean;
   onStop?: () => void;
   placeholder?: string;
@@ -65,6 +72,7 @@ export function Composer({
   const shouldSendOnEnter = useEnterToSend();
   const height = useGlobalStore(systemStatusSelectors.chatInputHeight);
   const [content, setContent] = useState('');
+  const [mentionIds, setMentionIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const sending = useRef(false);
   const previousDocument = useRef('');
@@ -83,6 +91,7 @@ export function Composer({
   const { getContainerProps } = useLocalDragUpload({ onUploadFiles: upload });
   usePasteFile(editor, upload);
   const hasDraft = !!content.trim() || attachments.items.length > 0;
+  const memberIds = members.map((member) => member.id);
   const send = async () => {
     const value = String(editor.getDocument('markdown') || '').trim();
     const fileIds = attachments.readyFileIds();
@@ -94,10 +103,7 @@ export function Composer({
     try {
       await onSend(
         value,
-        channelMentionIds(
-          editor.getDocument('json'),
-          members.map((member) => member.id),
-        ),
+        channelMentionIds(editor.getDocument('json'), memberIds),
         requestKey.current,
         fileIds,
       );
@@ -105,6 +111,7 @@ export function Composer({
       draft.clear(sentRevision);
       attachments.clear();
       setContent('');
+      setMentionIds([]);
       requestKey.current = crypto.randomUUID();
     } catch (cause) {
       console.error('Failed to send Channel message', cause);
@@ -147,7 +154,7 @@ export function Composer({
             <ChatInputActionBar
               style={{ paddingRight: 8 }}
               left={
-                <Flexbox horizontal align="center" gap={8}>
+                <Flexbox horizontal align="center" gap={8} {...stylex.props(styles.composerTools)}>
                   {enableUpload && (
                     <Upload
                       multiple
@@ -162,6 +169,14 @@ export function Composer({
                       />
                     </Upload>
                   )}
+                  <ComposerRecipients
+                    recipients={composerRecipients({
+                      defaultRecipientIds,
+                      inThread,
+                      members,
+                      mentionIds,
+                    })}
+                  />
                 </Flexbox>
               }
               right={
@@ -217,10 +232,12 @@ export function Composer({
             onChange={() => {
               // onTextChange skips the first dirty update in the editor. A first
               // paste/keystroke must enable Send, while caret moves keep retries idempotent.
-              const document = JSON.stringify(editor.getDocument('json'));
+              const json = editor.getDocument('json');
+              const document = JSON.stringify(json);
               if (document !== previousDocument.current) {
                 previousDocument.current = document;
                 setContent(String(editor.getDocument('markdown') || ''));
+                setMentionIds(channelMentionIds(json, memberIds));
                 requestKey.current = crypto.randomUUID();
                 draft.save();
               }

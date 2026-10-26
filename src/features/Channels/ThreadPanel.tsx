@@ -7,29 +7,37 @@ import { useTranslation } from 'react-i18next';
 
 import NavHeader from '@/features/NavHeader';
 import RightPanel from '@/features/RightPanel';
+import { channelSelectors, useChannelStore } from '@/store/channel';
 
 import { ChannelConversation } from './ChannelConversation';
 import { memberAvatar, memberName } from './memberName';
 import { styles } from './styles';
+import { threadTitle } from './threadTitle';
 
 /** Below this width the thread floats over the channel instead of sitting beside it. */
 export const THREAD_FLOAT_BREAKPOINT = 760;
 
+const MAX_FOLLOWER_AVATARS = 3;
+
+/** Agents and people this thread notifies; nobody yet means the composer asks for a mention. */
 const ThreadFollowers = ({ detail, threadId }: { detail: ChannelDetail; threadId: string }) => {
   const { t } = useTranslation('channel');
   const { members = [], threads = [] } = detail;
   const followerIds = threads.find((entry) => entry.id === threadId)?.followerMemberIds ?? [];
   const followers = members.filter((member) => member.active && followerIds.includes(member.id));
+  if (!followers.length) return null;
   const names = followers.map((member) => memberName(member, t('deletedMember'))).join('、');
+  const overflow = followers.length - MAX_FOLLOWER_AVATARS;
   return (
     <Flexbox
       horizontal
       align="center"
-      aria-label={followers.length ? t('followers', { names }) : t('noFollowers')}
+      aria-label={t('followers', { names })}
       gap={4}
-      title={followers.length ? t('followers', { names }) : t('noFollowers')}
+      role="img"
+      title={t('followers', { names })}
     >
-      {followers.slice(0, 3).map((member) => (
+      {followers.slice(0, MAX_FOLLOWER_AVATARS).map((member) => (
         <Avatar
           avatar={memberAvatar(member)}
           key={member.id}
@@ -37,9 +45,11 @@ const ThreadFollowers = ({ detail, threadId }: { detail: ChannelDetail; threadId
           title={memberName(member, t('deletedMember'))}
         />
       ))}
-      <Text fontSize={12} type="secondary">
-        {followers.length}
-      </Text>
+      {overflow > 0 && (
+        <Text fontSize={12} type="secondary">
+          +{overflow}
+        </Text>
+      )}
     </Flexbox>
   );
 };
@@ -63,6 +73,16 @@ export function ThreadPanel({
   const narrow = availableWidth < THREAD_FLOAT_BREAKPOINT;
   const maxWidth = narrow ? availableWidth : availableWidth - 360;
   const width = Math.min(preferredWidth, maxWidth);
+  const channelId = detail.channel?.id ?? '';
+  // Same name as the sidebar entry: the first line of the message the thread branched from.
+  const threadView = useChannelStore(
+    channelSelectors.detail({ channelId, threadId: lastThreadId }),
+  );
+  const rootMessageId = detail.threads.find((entry) => entry.id === lastThreadId)?.rootMessageId;
+  const title =
+    threadTitle(
+      threadView?.rootMessage ?? detail.messages.find((message) => message.id === rootMessageId),
+    ) || t('thread');
 
   return (
     <RightPanel
@@ -90,10 +110,15 @@ export function ThreadPanel({
             paddingInline={8}
             showTogglePanelButton={false}
             left={
-              <Flexbox horizontal align="center" gap={8} style={{ marginInlineStart: 4 }}>
+              <Flexbox
+                horizontal
+                align="center"
+                gap={8}
+                style={{ marginInlineStart: 4, minWidth: 0 }}
+              >
                 <Icon icon={GitBranch} size={18} />
-                <Text ellipsis fontSize={14}>
-                  {t('thread')}
+                <Text ellipsis fontSize={14} title={title}>
+                  {title}
                 </Text>
               </Flexbox>
             }

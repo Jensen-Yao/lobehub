@@ -1,11 +1,12 @@
 import type { ChannelDetail, ChannelPublicJob, ChannelPublicMessage } from '@lobechat/types';
-import { Avatar, Button, Flexbox, Popover, Text } from '@lobehub/ui';
+import { Avatar, Button, Flexbox, Popover, Text, usePopoverContext } from '@lobehub/ui';
 import * as stylex from '@stylexjs/stylex';
-import { ChevronDown, ChevronUp, Square } from 'lucide-react';
+import { ChevronDown, ChevronUp, ExternalLink, Square } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import AsyncError from '@/components/AsyncError';
+import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
 import { channelActions } from '@/store/channel';
 
 import { ChannelStatus } from './ChannelStatus';
@@ -14,17 +15,21 @@ import { memberAvatar, memberName } from './memberName';
 import { statusStyles, styles } from './styles';
 
 function ReceiptDetail({
+  agentId,
   channelId,
   job,
   name,
   avatar,
 }: {
+  agentId?: string | null;
   avatar: string;
   channelId: string;
   job: ChannelPublicJob;
   name: string;
 }) {
   const { t } = useTranslation('channel');
+  const navigate = useWorkspaceAwareNavigate();
+  const { close } = usePopoverContext();
   const [stopping, setStopping] = useState(false);
   const [error, setError] = useState<unknown>();
   const stop = async () => {
@@ -47,9 +52,14 @@ function ReceiptDetail({
           {name}
         </Text>
       </Flexbox>
-      <ChannelStatus label={t(channelJobStatus(job))} tone={channelJobTone(job)} />
-      {isChannelJobActive(job) && (
-        <Flexbox horizontal>
+      <Flexbox gap={4}>
+        <ChannelStatus label={t(channelJobStatus(job))} tone={channelJobTone(job)} />
+        {job.status === 'failed' && (
+          <span {...stylex.props(styles.muted)}>{t('receipt.failedHint')}</span>
+        )}
+      </Flexbox>
+      <Flexbox horizontal gap={4} wrap="wrap">
+        {isChannelJobActive(job) && (
           <Button
             danger
             icon={Square}
@@ -60,8 +70,21 @@ function ReceiptDetail({
           >
             {t('stopReply')}
           </Button>
-        </Flexbox>
-      )}
+        )}
+        {agentId && (
+          <Button
+            icon={ExternalLink}
+            size="small"
+            type="text"
+            onClick={() => {
+              close();
+              navigate(`/agent/${agentId}`);
+            }}
+          >
+            {t('openAgent')}
+          </Button>
+        )}
+      </Flexbox>
       {error !== undefined && <AsyncError error={error} variant="inline" />}
     </Flexbox>
   );
@@ -89,10 +112,23 @@ export function MessageReceipts({
 
   const receipts = jobs.map((job) => {
     const member = members.find((entry) => entry.id === job.memberId);
-    return { avatar: memberAvatar(member), job, name: memberName(member, t('unnamedAgent')) };
+    return {
+      agentId: member?.agentId,
+      avatar: memberAvatar(member),
+      job,
+      name: memberName(member, t('unnamedAgent')),
+    };
   });
+  const tones = jobs.map(channelJobTone);
   // Finished replies fold into one avatar row so the timeline stays quiet.
-  const settled = jobs.every((job) => ['done', 'quiet'].includes(channelJobTone(job)));
+  const settled = tones.every((tone) => tone === 'done' || tone === 'quiet');
+  const replied = tones.filter((tone) => tone === 'done').length;
+  const stopped = tones.length - replied;
+  // The same words the expanded chips use, so the folded row never says less than they do.
+  const summary =
+    replied && stopped
+      ? t('receipt.mixed', { replied, stopped })
+      : t(replied ? 'receipt.replied' : 'receipt.stopped', { count: replied || stopped });
 
   return (
     <Flexbox align="flex-start" gap={4} {...stylex.props(statusStyles.receipts)}>
@@ -108,21 +144,25 @@ export function MessageReceipts({
             {receipts.map(({ avatar, job, name }) => (
               <Avatar avatar={avatar} key={job.id} size={16} title={name} />
             ))}
-            <span {...stylex.props(styles.muted)}>
-              {t('receipt.settled', { count: receipts.length })}
-            </span>
+            <span {...stylex.props(styles.muted)}>{summary}</span>
           </Flexbox>
         </Button>
       )}
       {(!settled || expanded) && (
         <Flexbox horizontal align="center" gap={4} role="status" wrap="wrap">
-          {receipts.map(({ avatar, job, name }) => (
+          {receipts.map(({ agentId, avatar, job, name }) => (
             <Popover
               key={job.id}
               placement="bottomLeft"
               trigger="click"
               content={
-                <ReceiptDetail avatar={avatar} channelId={channel.id} job={job} name={name} />
+                <ReceiptDetail
+                  agentId={agentId}
+                  avatar={avatar}
+                  channelId={channel.id}
+                  job={job}
+                  name={name}
+                />
               }
             >
               <Button

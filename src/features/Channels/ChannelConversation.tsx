@@ -18,7 +18,7 @@ import { channelActions, channelSelectors, useChannelStore } from '@/store/chann
 import { visibleChannelDetail } from './channelAccess';
 import { Composer } from './Composer';
 import { isChannelJobActive } from './jobStatus';
-import { authorAvatar, memberName } from './memberName';
+import { authorAvatar, memberAvatar, memberName } from './memberName';
 import { MessageAttachments } from './MessageAttachments';
 import { MessageReceipts } from './MessageReceipts';
 import { styles } from './styles';
@@ -179,6 +179,14 @@ const Timeline = ({
   };
 
   const activeMembers = detail?.members.filter((member) => member.active) ?? [];
+  // Unmentioned messages go to every Agent on the main conversation, to followers in a Thread.
+  const followerIds = threadId
+    ? (detail?.threads.find((entry) => entry.id === threadId)?.followerMemberIds ?? [])
+    : undefined;
+  const defaultRecipientIds = activeMembers
+    .filter((member) => member.actorType === 'agent')
+    .filter((member) => !followerIds || followerIds.includes(member.id))
+    .map((member) => member.id);
   const replying = detail?.jobs.some(
     (job) => (job.threadId ?? null) === threadId && isChannelJobActive(job),
   );
@@ -283,11 +291,15 @@ const Timeline = ({
               </WideScreenContainer>
             ) : (
               <Composer
+                defaultRecipientIds={defaultRecipientIds}
                 draftKey={channelDraftKey(channelId, threadId)}
+                inThread={!!threadId}
                 key={channelDraftKey(channelId, threadId)}
                 placeholder={t(threadId ? 'threadComposer' : 'composer')}
                 replying={replying}
                 members={activeMembers.map((member) => ({
+                  actorType: member.actorType,
+                  avatar: memberAvatar(member),
                   id: member.id,
                   name: memberName(member, t('deletedMember')),
                 }))}

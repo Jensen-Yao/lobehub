@@ -11,6 +11,7 @@ import { channelActions } from '@/store/channel';
 
 import { styles } from '../styles';
 import { AgentSelection } from './AgentSelection';
+import { useChannelAgentOptions } from './useChannelAgentOptions';
 
 /** Matches the `title` bound in `apps/server/src/routers/lambda/channel.ts`. */
 const TITLE_MAX_LENGTH = 100;
@@ -43,6 +44,7 @@ function CreateChannel({ existing, onCreated }: CreateChannelProps) {
   const [agents, setAgents] = useState<ChannelAgentSelection[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>();
+  const options = useChannelAgentOptions();
   const dirty = (!existing && !!title.trim()) || agents.length > 0;
 
   // A mask click must not drop what the user typed or picked; ✕ and Esc still close.
@@ -119,7 +121,17 @@ function CreateChannel({ existing, onCreated }: CreateChannelProps) {
       </Flexbox>
     );
 
-  const pendingDirectory = agents.some((agent) => agent.deviceId && !agent.workingDirectory);
+  // The server rejects these; say which choice is missing before Create is pressed.
+  const missingDevice = agents.some(
+    (agent) =>
+      !agent.deviceId && !!options.agents?.find((entry) => entry.id === agent.agentId)?.runtime,
+  );
+  const missingDirectory = agents.some((agent) => agent.deviceId && !agent.workingDirectory);
+  const blockedReason = missingDevice
+    ? t('deviceRequired')
+    : missingDirectory
+      ? t('directoryRequired')
+      : undefined;
   return (
     <Flexbox gap={20}>
       <Flexbox horizontal align="center" gap={6}>
@@ -130,16 +142,21 @@ function CreateChannel({ existing, onCreated }: CreateChannelProps) {
       </Flexbox>
       <Flexbox gap={8} inert={busy}>
         <Text weight={500}>{t('agents')}</Text>
-        <AgentSelection exclude={existing?.agentIds} value={agents} onChange={setAgents} />
+        <AgentSelection
+          exclude={existing?.agentIds}
+          options={options}
+          value={agents}
+          onChange={setAgents}
+        />
       </Flexbox>
       {error !== undefined && <AsyncError error={error} variant="inline" />}
       <Flexbox horizontal align="center" gap={8} justify="flex-end">
-        {pendingDirectory && <span {...stylex.props(styles.muted)}>{t('directoryRequired')}</span>}
+        {blockedReason && <span {...stylex.props(styles.muted)}>{blockedReason}</span>}
         <Button disabled={busy} onClick={existing ? close : () => setStep('name')}>
           {existing ? t('cancel') : t('back', { ns: 'common' })}
         </Button>
         <Button
-          disabled={!agents.length || pendingDirectory}
+          disabled={!agents.length || !!blockedReason}
           loading={busy}
           type="primary"
           onClick={() => void submit()}

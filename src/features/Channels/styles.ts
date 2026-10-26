@@ -99,6 +99,16 @@ export const styles = stylex.create({
     flexShrink: 0,
     paddingBlockEnd: 8,
   },
+  /** Attach action and the recipient preview; yields width to the send button. */
+  composerTools: {
+    overflow: 'hidden',
+    flex: '1',
+    minWidth: 0,
+  },
+  recipients: {
+    overflow: 'hidden',
+    minWidth: 0,
+  },
   muted: {
     fontSize: 12,
     color: cssVar.colorTextSecondary,
@@ -151,18 +161,26 @@ export const statusStyles = stylex.create({
     overflowWrap: 'anywhere',
   },
   memberButton: {
-    position: 'relative',
     flex: 'none',
-    width: 32,
-    minWidth: 32,
+    gap: 4,
     height: 32,
     paddingBlock: 4,
     paddingInline: 4,
   },
+  memberAvatar: {
+    position: 'relative',
+    display: 'inline-flex',
+    flex: 'none',
+  },
+  /** Tall enough for a typical roster without scrolling; longer lists scroll. */
+  memberList: {
+    overflowY: 'auto',
+    maxHeight: 'min(520px, 60vh)',
+  },
   memberDot: {
     position: 'absolute',
-    insetBlockEnd: 3,
-    insetInlineEnd: 3,
+    insetBlockEnd: -1,
+    insetInlineEnd: -1,
     borderWidth: 2,
     borderStyle: 'solid',
     borderColor: cssVar.colorBgContainer,

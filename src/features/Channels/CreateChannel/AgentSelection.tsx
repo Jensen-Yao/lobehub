@@ -1,5 +1,6 @@
+import { getHeterogeneousTypeLabel } from '@lobechat/heterogeneous-agents';
 import { agentDisplayName } from '@lobechat/types';
-import { ActionIcon, Button, Checkbox, Flexbox, SearchBar, Select, Text } from '@lobehub/ui';
+import { ActionIcon, Button, Checkbox, Flexbox, SearchBar, Select, Tag, Text } from '@lobehub/ui';
 import { cssVar } from '@lobehub/ui/stylex/cssVar.stylex';
 import * as stylex from '@stylexjs/stylex';
 import { FolderOpen, X } from 'lucide-react';
@@ -12,8 +13,9 @@ import { DEFAULT_AVATAR } from '@/const/meta';
 import AgentSelectionEmpty from '@/features/AgentSelectionEmpty';
 import { openPickWorkingDirModal } from '@/features/WorkingDirectory';
 import type { ChannelAgentSelection } from '@/services/channel';
-import { useAgentStore } from '@/store/agent';
 import { useDeviceList } from '@/store/device/useDeviceList';
+
+import type { ChannelAgentOption, useChannelAgentOptions } from './useChannelAgentOptions';
 
 const styles = stylex.create({
   picker: {
@@ -48,21 +50,34 @@ const styles = stylex.create({
   directory: { maxWidth: '100%', overflow: 'hidden' },
 });
 
+/** Name plus the external runtime, which is why a coding Agent asks for a device. */
+const AgentLabel = ({ agent, fallback }: { agent?: ChannelAgentOption; fallback: string }) => (
+  <Flexbox horizontal align="center" flex={1} gap={6} style={{ minWidth: 0 }}>
+    <Text ellipsis>{agentDisplayName(agent, fallback)}</Text>
+    {agent?.runtime && (
+      <Tag size="small" style={{ flex: 'none' }}>
+        {getHeterogeneousTypeLabel(agent.runtime)}
+      </Tag>
+    )}
+  </Flexbox>
+);
+
 export const AgentSelection = ({
   exclude = [],
+  options,
   value,
   onChange,
 }: {
   /** Agents already in the Channel. */
   exclude?: string[];
   onChange: (value: ChannelAgentSelection[]) => void;
+  options: ReturnType<typeof useChannelAgentOptions>;
   value: ChannelAgentSelection[];
 }) => {
   const { t } = useTranslation(['channel', 'device', 'chat', 'common']);
-  const agentsSync = useAgentStore((s) => s.useFetchAvailableAgents)(true);
-  const agents = useAgentStore((s) => s.availableAgents);
+  const { agents } = options;
   const [search, setSearch] = useState('');
-  const available = (agents ?? []).filter((agent) => !agent.isInbox && !exclude.includes(agent.id));
+  const available = (agents ?? []).filter((agent) => !exclude.includes(agent.id));
   const filtered = available.filter((agent) =>
     `${agentDisplayName(agent, t('unnamedAgent'))} ${agent.description ?? ''}`
       .toLocaleLowerCase()
@@ -77,19 +92,24 @@ export const AgentSelection = ({
   const devices = useDeviceList({ refreshInterval: 15_000 });
   const change = (agentId: string, patch: Partial<ChannelAgentSelection>) =>
     onChange(value.map((item) => (item.agentId === agentId ? { ...item, ...patch } : item)));
+  const deviceOptions = (devices.data ?? []).map((device) => ({
+    disabled: !devices.isConfirmed || !device.online,
+    label: `${device.friendlyName || device.hostname || device.deviceId}${device.online ? '' : ` · ${t('offline')}`}`,
+    value: device.deviceId,
+  }));
   return (
     <Flexbox gap={12}>
       <AsyncBoundary
         data={agents}
-        error={agentsSync.error}
-        isLoading={!agents && !agentsSync.error}
-        onRetry={() => void useAgentStore.getState().getAvailableAgents()}
+        error={options.error}
+        isLoading={!agents && !options.error}
+        onRetry={options.retry}
       >
         <div {...stylex.props(styles.picker)}>
           <Flexbox gap={8} {...stylex.props(styles.pane)}>
             <SearchBar
               allowClear
-              placeholder={t('memberSelection.searchAgents', { ns: 'chat' })}
+              placeholder={t('searchAgents')}
               value={search}
               variant="filled"
               onChange={(event) => setSearch(event.target.value)}
@@ -103,11 +123,11 @@ export const AgentSelection = ({
                       onChange={() => toggle(agent.id)}
                     />
                     <Avatar
-                      avatar={agent.avatar || DEFAULT_AVATAR}
+                      avatar={typeof agent.avatar === 'string' ? agent.avatar : DEFAULT_AVATAR}
                       background={agent.backgroundColor ?? undefined}
                       size={28}
                     />
-                    <Text ellipsis>{agentDisplayName(agent, t('unnamedAgent'))}</Text>
+                    <AgentLabel agent={agent} fallback={t('unnamedAgent')} />
                   </label>
                 ))
               ) : (
@@ -126,70 +146,75 @@ export const AgentSelection = ({
               isLoading={devices.isLoading}
               onRetry={() => void devices.mutate()}
             >
-              {value.map((selection) => (
-                <Flexbox gap={8} key={selection.agentId}>
-                  <Flexbox horizontal align="center" gap={8} padding={8}>
-                    <Avatar
-                      size={28}
-                      avatar={
-                        agents?.find((agent) => agent.id === selection.agentId)?.avatar ||
-                        DEFAULT_AVATAR
-                      }
-                    />
-                    <Text ellipsis style={{ flex: 1 }}>
-                      {agentDisplayName(
-                        agents?.find((agent) => agent.id === selection.agentId),
-                        t('unnamedAgent'),
-                      )}
-                    </Text>
-                    <ActionIcon
-                      aria-label={t('group.removeMember', { ns: 'chat' })}
-                      icon={X}
-                      size="small"
-                      title={t('group.removeMember', { ns: 'chat' })}
-                      onClick={() => toggle(selection.agentId)}
-                    />
-                  </Flexbox>
-                  <Flexbox gap={8} {...stylex.props(styles.extra)}>
-                    <Select
-                      placeholder={t('noDevice')}
-                      value={selection.deviceId ?? ''}
-                      options={[
-                        { label: t('noDevice'), value: '' },
-                        ...(devices.data ?? []).map((device) => ({
-                          disabled: !devices.isConfirmed || !device.online,
-                          label: `${device.friendlyName || device.hostname || device.deviceId}${device.online ? '' : ` · ${t('offline')}`}`,
-                          value: device.deviceId,
-                        })),
-                      ]}
-                      onChange={(id) => {
-                        if (typeof id === 'string')
-                          change(selection.agentId, {
-                            deviceId: id || undefined,
-                            workingDirectory: undefined,
-                          });
-                      }}
-                    />
-                    {selection.deviceId && (
-                      <Button
-                        icon={FolderOpen}
-                        title={selection.workingDirectory || t('chooseDirectory')}
-                        {...stylex.props(styles.directory)}
-                        onClick={() =>
-                          openPickWorkingDirModal({
-                            defaultPath: selection.workingDirectory,
-                            deviceId: selection.deviceId,
-                            onPick: ({ path }) =>
-                              change(selection.agentId, { workingDirectory: path }),
-                          })
+              {value.map((selection) => {
+                const agent = agents?.find((entry) => entry.id === selection.agentId);
+                // Native Agents may reply without a device; coding Agents run on one.
+                const requiresDevice = !!agent?.runtime;
+                return (
+                  <Flexbox gap={8} key={selection.agentId}>
+                    <Flexbox horizontal align="center" gap={8} padding={8}>
+                      <Avatar
+                        avatar={typeof agent?.avatar === 'string' ? agent.avatar : DEFAULT_AVATAR}
+                        background={agent?.backgroundColor ?? undefined}
+                        size={28}
+                      />
+                      <AgentLabel agent={agent} fallback={t('unnamedAgent')} />
+                      <ActionIcon
+                        aria-label={t('group.removeMember', { ns: 'chat' })}
+                        icon={X}
+                        size="small"
+                        title={t('group.removeMember', { ns: 'chat' })}
+                        onClick={() => toggle(selection.agentId)}
+                      />
+                    </Flexbox>
+                    <Flexbox gap={8} {...stylex.props(styles.extra)}>
+                      <Select
+                        // Nothing to pick; the hint below says how to get a device.
+                        disabled={requiresDevice && !deviceOptions.length}
+                        placeholder={t(requiresDevice ? 'chooseDevice' : 'noDevice')}
+                        required={requiresDevice}
+                        options={
+                          requiresDevice
+                            ? deviceOptions
+                            : [{ label: t('noDevice'), value: '' }, ...deviceOptions]
                         }
-                      >
-                        <Text ellipsis>{selection.workingDirectory || t('chooseDirectory')}</Text>
-                      </Button>
-                    )}
+                        value={
+                          requiresDevice ? (selection.deviceId ?? null) : (selection.deviceId ?? '')
+                        }
+                        onChange={(id) => {
+                          if (typeof id === 'string')
+                            change(selection.agentId, {
+                              deviceId: id || undefined,
+                              workingDirectory: undefined,
+                            });
+                        }}
+                      />
+                      {requiresDevice && !deviceOptions.length && (
+                        <Text fontSize={12} type="secondary">
+                          {t('noDevices')}
+                        </Text>
+                      )}
+                      {selection.deviceId && (
+                        <Button
+                          icon={FolderOpen}
+                          title={selection.workingDirectory || t('chooseDirectory')}
+                          {...stylex.props(styles.directory)}
+                          onClick={() =>
+                            openPickWorkingDirModal({
+                              defaultPath: selection.workingDirectory,
+                              deviceId: selection.deviceId,
+                              onPick: ({ path }) =>
+                                change(selection.agentId, { workingDirectory: path }),
+                            })
+                          }
+                        >
+                          <Text ellipsis>{selection.workingDirectory || t('chooseDirectory')}</Text>
+                        </Button>
+                      )}
+                    </Flexbox>
                   </Flexbox>
-                </Flexbox>
-              ))}
+                );
+              })}
             </AsyncBoundary>
           </Flexbox>
         </div>

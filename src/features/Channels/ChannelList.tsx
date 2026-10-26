@@ -1,4 +1,3 @@
-import type { ChannelDetail } from '@lobechat/types';
 import {
   AccordionHeader,
   AccordionItem,
@@ -31,16 +30,8 @@ import { labPreferSelectors, preferenceSelectors } from '@/store/user/selectors'
 
 import { openCreateChannel } from './CreateChannel';
 import { channelPath, matchChannel } from './paths';
+import { threadTitle } from './threadTitle';
 import { useChannelEvents } from './useChannelEvents';
-
-const THREAD_TITLE_LENGTH = 60;
-
-/** A thread is named after the message it branched from, when that message is loaded. */
-const threadTitle = (detail: ChannelDetail, rootMessageId: string) => {
-  const root = detail.messages.find((message) => message.id === rootMessageId);
-  const line = root?.content.trim().split('\n')[0];
-  return line ? line.slice(0, THREAD_TITLE_LENGTH) : undefined;
-};
 
 const ChannelThreads = ({
   channelId,
@@ -69,7 +60,10 @@ const ChannelThreads = ({
             icon={GitBranch}
             iconSize={14}
             key={thread.id}
-            title={threadTitle(detail, thread.rootMessageId) || `${t('thread')} ${index + 1}`}
+            title={
+              threadTitle(detail.messages.find((message) => message.id === thread.rootMessageId)) ||
+              `${t('thread')} ${index + 1}`
+            }
             onClick={() => navigate(path)}
           />
         );
@@ -114,7 +108,7 @@ const EnabledChannelList = () => {
         <AccordionHeader>
           <AccordionTrigger style={{ paddingBlock: 4, paddingInline: '8px 4px' }}>
             <Text ellipsis fontSize={12} type="secondary" weight={500}>
-              {`${t('title')} ${channels?.length || ''}`}
+              {t('title')}
             </Text>
           </AccordionTrigger>
           <Flexbox
