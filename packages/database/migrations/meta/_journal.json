@@ -1309,6 +1309,13 @@
       "when": 1792919636489,
       "tag": "0186_project_sites_and_members",
       "breakpoints": true
+    },
+    {
+      "idx": 187,
+      "version": "7",
+      "when": 1792993367681,
+      "tag": "0187_agent_account_device_pins",
+      "breakpoints": true
     }
   ],
   "version": "6"
