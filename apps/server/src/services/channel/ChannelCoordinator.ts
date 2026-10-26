@@ -1,3 +1,4 @@
+import { ChannelIdentifier } from '@lobechat/builtin-tool-channel';
 import type { LobeChatDatabase } from '@lobechat/database';
 import { buildChannelPrompt, CHANNEL_INSTRUCTIONS } from '@lobechat/prompts';
 import type { ChannelExecutionConfig } from '@lobechat/types';
@@ -179,6 +180,7 @@ export class ChannelCoordinator {
       if (!(await this.executions.heartbeat(job.id, lease)))
         throw new Error('The Channel dispatch lease expired before submission');
       const result = await this.service(topic.userId, workspaceId).execAgent({
+        additionalPluginIds: [ChannelIdentifier],
         agentId: member.agentId,
         agentConfigSnapshot: config,
         appContext: { topicId: topic.id },

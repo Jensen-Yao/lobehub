@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getTestDB } from '../../../core/getTestDB';
 import { agents, channelMembers, channelMessages, channels, users } from '../../../schemas';
 import { ChannelExecutionRepository, ChannelRepository } from '..';
+import { readManifestMessages } from '../manifest';
 import { createChannelFixture, jobsOf, lease } from './testUtils';
 
 const db = await getTestDB();
@@ -193,8 +194,8 @@ describe('direct Channel identity', () => {
       mentions: [nextAgent.id],
     });
     const [nextJob] = await jobsOf(db, next.id);
-    await execution.claim(group.channel.id, nextJob.id, lease);
-    expect(await execution.input(group.channel.id, nextJob.id)).toEqual(
+    const nextClaim = (await execution.claim(group.channel.id, nextJob.id, lease))!;
+    expect(await readManifestMessages(db, group.channel.id, nextClaim.job.manifest!)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: replyId,

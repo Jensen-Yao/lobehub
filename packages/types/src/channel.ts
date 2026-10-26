@@ -132,12 +132,43 @@ export interface ChannelContextMessage {
   threadId: string | null;
 }
 
+/** Read-only history of the current Channel operation; scope is never supplied by the model. */
+export interface ChannelReadMessagesParams {
+  /** Exclusive sequence cursor returned by the preceding page. */
+  beforeSequence?: number;
+  limit?: number;
+}
+
+export interface ChannelReadMessageParams {
+  messageId: string;
+  /** Character offset for reading a long message without flooding the context. */
+  offset?: number;
+}
+
+export interface ChannelHistoryMessage extends ChannelContextMessage {
+  contentLength: number;
+  truncated: boolean;
+}
+
+export interface ChannelHistoryPage {
+  cutoffSequence: number;
+  messages: ChannelHistoryMessage[];
+  nextBeforeSequence: number | null;
+}
+
+export interface ChannelHistoryMessageDetail {
+  attachments?: Array<{ fileType: string; id: string; name: string; size: number; url: string }>;
+  message: ChannelHistoryMessage;
+  nextOffset: number | null;
+  offset: number;
+}
+
 /**
- * A run's input, frozen at claim time as a cutoff rather than a copy of the messages: the run
- * receives new branch messages in (afterSequence, cutoffSequence], read on demand.
+ * Frozen conversation scope. Only requestMessageId is delivered eagerly; history tools may
+ * read the entire branch up to cutoffSequence, independently of the continuation cursor.
  */
 export interface ChannelInputManifest {
-  /** Exclusive lower bound: already consumed public input in the continued topic. */
+  /** Last delivered request cursor for continuation; never a lower bound on history reads. */
   afterSequence: number;
   /** Immutable at claim time; later public messages belong to the next run. */
   cutoffSequence: number;

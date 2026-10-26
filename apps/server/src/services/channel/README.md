@@ -68,3 +68,13 @@ sending a new message with an explicit mention remains available.
 `routing_decided` audit details record the model/provider, prompt version, scenario, probabilities,
 token count and latency. No raw provider errors are stored. Runtime hooks still receive
 `trigger: channel`, the message ID and attempt for billing/routing observability.
+
+## Responder context
+
+Responder dispatch sends only the current request. Native agents receive the hidden `lobe-channel`
+builtin; external agents can call `lh channel history --json` and `lh channel message <id> --json`.
+Both use `ChannelHistoryService`, with operation identity supplied by the runtime, never model
+arguments. Reads are bounded, paginated and fixed to the request cutoff and current branch.
+`readMessage` expands long text and resolves shared attachment URLs. Membership removal, archive,
+revocation or operation completion prevents subsequent reads. The routing classifier's bounded
+history above remains separate from the responder's on-demand context.

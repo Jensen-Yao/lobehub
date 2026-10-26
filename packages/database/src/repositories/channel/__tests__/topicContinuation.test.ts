@@ -78,9 +78,7 @@ describe('Channel topic continuation', () => {
       expect(second.topic.id === first.topic.id).toBe(reuse);
       expect(second.job.operationId).not.toBe(first.job.operationId);
       expect(second.job.topicId).toBe(second.topic.id);
-      expect(await state.input(second.job.id)).toEqual(
-        reuse ? ['Request 2'] : ['Request 1', 'Answer 1', 'Request 2'],
-      );
+      expect(await state.input(second.job.id)).toEqual(['Request 2']);
       expect(await db.select().from(topics).where(eq(topics.id, first.topic.id))).toHaveLength(1);
     },
   );
@@ -175,7 +173,7 @@ describe('Channel topic continuation', () => {
     await state.finish(delayed.job.id);
     const next = (await state.claim((await state.send()).id))!;
     expect(next.topic.id).toBe(delayed.topic.id);
-    expect(await state.input(next.job.id)).toEqual(['Request 1', 'Answer 1', 'Request 2']);
+    expect(await state.input(next.job.id)).toEqual(['Request 2']);
   });
 
   it('blocks a deleted Agent reference while retaining the public request', async () => {

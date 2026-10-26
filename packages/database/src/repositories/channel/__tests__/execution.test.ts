@@ -212,8 +212,8 @@ describe('ChannelExecutionRepository', () => {
     });
     const contents = async (jobId: string) =>
       (await execution.input(channel.id, jobId)).map((message) => message.content);
-    expect(await contents(mainJob.id)).toEqual(['root', 'main-after-root', 'main-request']);
-    expect(await contents(threadJob.id)).toEqual(['root', 'thread-request']);
+    expect(await contents(mainJob.id)).toEqual(['main-request']);
+    expect(await contents(threadJob.id)).toEqual(['thread-request']);
   });
 
   it('answers in message order and holds one writer per member', async () => {

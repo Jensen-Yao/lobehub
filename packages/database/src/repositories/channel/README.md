@@ -80,13 +80,19 @@ starts a new topic instead of inheriting later context. Failed/unknown execution
 environments and unavailable topics also start afresh. An adapter's explicit “new conversation”
 feature is outside this foundation.
 
-A fresh topic receives the full branch through the triggering request: a Thread gets the main
-prefix through its root plus its own messages. Continuation receives only public messages in
-`(manifest.afterSequence, manifest.cutoffSequence]`. Its own published answers are excluded because
-they already exist in the ordinary transcript, including answers published after another request
-was queued. Other participants' messages remain new input. The manifest freezes bounds and the
-execution scope, not a duplicate transcript; later messages cannot change an earlier input.
-Author names and attachment availability are resolved at read time.
+Every dispatch receives only the triggering request, its author and attachment references. Public
+history is read on demand through `lobe-channel.readMessages` / `readMessage` in Native runs, or
+`lh channel history` / `lh channel message` in external runtimes. A Thread can read the main prefix
+through its root plus its own messages; the frozen request cutoff excludes later arrivals. Reads
+include published Agent answers and are independent of the continuation cursor. Existing private
+Agent transcripts stay in their ordinary topic and are never exposed through these tools.
+
+`ChannelHistoryRepository` binds reads to the live operation and rechecks requester/Agent membership,
+workspace access, thread availability and revocation under the Channel lock. The caller cannot
+choose a Channel or Thread. History pages contain at most 20 messages with 2000-character excerpts;
+individual messages are read in 12000-character chunks. Names and attachments resolve at read time.
+External operation tokens receive `channel:read` only for a reserved Channel dispatch; ordinary
+runs and sub-agents do not inherit it.
 
 Pending routing is part of member FIFO even before a job exists. An earlier main-channel
 decision blocks later claims until its recipients are known; an earlier Thread decision blocks
@@ -153,7 +159,7 @@ of this exact schema, not conversion from earlier development-only versions. A s
 deployed prototype needs an explicit inventory and conversion plan before cutover.
 
 Focused integration tests cover storage separation, ordinary access boundaries, attachment
-retention, continuation/expiry, incremental input, routing, stops and writer locks. Run with PGlite
+retention, continuation/expiry, request-only input, bounded history reads, routing, stops and writer locks. Run with PGlite
 and with PostgreSQL (`vitest.config.server.mts`); the two concurrent claim/sequence tests require
 real PostgreSQL row locking. Runtime and UI integration require separate product acceptance;
 storage tests alone do not verify the user-visible Channel flow.

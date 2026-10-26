@@ -8,6 +8,8 @@ import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { ChannelService } from '@/server/services/channel/ChannelService';
 
+import { channelHistoryProcedures } from './channelHistory';
+
 const channelId = z.string().regex(/^chn_[\dA-Za-z]{12}$/);
 const threadId = z.string().regex(/^cht_[\dA-Za-z]{12}$/);
 const agentSelection = z.object({
@@ -31,6 +33,7 @@ const channelProcedure = wsCompatProcedure.use(serverDatabase).use(async ({ ctx,
 });
 
 export const channelRouter = router({
+  ...channelHistoryProcedures,
   userCandidates: channelProcedure
     .input(z.object({ channelId, search: z.string().max(100).optional() }))
     .query(async ({ ctx, input }) => ({
