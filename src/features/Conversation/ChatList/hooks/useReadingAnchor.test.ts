@@ -174,6 +174,22 @@ describe('useReadingAnchor', () => {
     expect(handle.scrollToIndex).not.toHaveBeenCalled();
   });
 
+  it('clears the anchor when that input cancels the restore on the header', async () => {
+    saveReadingAnchor(KEY, { messageId: 'msg_25', offset: 0, savedAt: Date.now() });
+    const { handle, scroller, unmount } = renderAnchor({ dataSource: ids(10) });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    handle.scrollOffset = 20;
+    act(() => {
+      scroller.dispatchEvent(new Event('keydown'));
+    });
+    unmount();
+
+    expect(loadReadingAnchor(KEY)).toBeNull();
+  });
+
   it('stops re-aiming once the reader takes over', async () => {
     saveReadingAnchor(KEY, { messageId: 'msg_3', offset: 0, savedAt: Date.now() });
     const { handle, scroller } = renderAnchor({ dataSource: ids(10) });

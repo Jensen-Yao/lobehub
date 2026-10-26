@@ -97,23 +97,6 @@ export const useReadingAnchor = ({
     resolved: targetIndex >= 0,
   });
 
-  // While pages load, input that cannot scroll (Home at the top, an upward
-  // wheel) fires no scroll event, so listen for the input itself.
-  const isPending = !!pending;
-  useEffect(() => {
-    const scroller = getScroller();
-    if (!isPending || !scroller) return;
-    const cancel = () => setPending(null);
-    for (const type of USER_SCROLL_INPUT_EVENTS) {
-      scroller.addEventListener(type, cancel, { passive: true });
-    }
-    return () => {
-      for (const type of USER_SCROLL_INPUT_EVENTS) {
-        scroller.removeEventListener(type, cancel);
-      }
-    };
-  }, [getScroller, isPending]);
-
   useEffect(() => {
     const ref = virtuaRef.current;
     if (!pending || targetIndex < 0 || !ref) return;
@@ -163,6 +146,33 @@ export const useReadingAnchor = ({
     else clearReadingAnchor(write.key);
   }, []);
 
+  /** Queues the viewport's top message, or a clear when it is on the header. */
+  const recordPosition = useCallback(() => {
+    const ref = virtuaRef.current;
+    if (!ref) return;
+
+    const row = ref.findItemIndex(ref.scrollOffset);
+    const messageIndex = row - headerOffset;
+    const messages = dataSourceRef.current;
+    let anchor: ReadingAnchor | null;
+    if (messageIndex < 0) {
+      anchor = null;
+    } else if (messageIndex < messages.length) {
+      anchor = {
+        messageId: messages[messageIndex],
+        offset: Math.max(0, ref.scrollOffset - ref.getItemOffset(row)),
+        savedAt: Date.now(),
+      };
+    } else {
+      // Footer and spacer rows carry no message to come back to.
+      return;
+    }
+
+    pendingWriteRef.current = { anchor, key: contextKeyRef.current };
+    if (flushTimerRef.current) return;
+    flushTimerRef.current = setTimeout(flush, FLUSH_THROTTLE_MS);
+  }, [flush, headerOffset, virtuaRef]);
+
   /**
    * Call on every scroll event. Records the landing position of smooth-scroll
    * and momentum tails too, which arrive after the reader's input has ended.
@@ -176,33 +186,31 @@ export const useReadingAnchor = ({
       } else if (pendingRef.current || restoringRef.current) {
         return;
       }
-
-      const ref = virtuaRef.current;
-      if (!ref) return;
-
-      const row = ref.findItemIndex(ref.scrollOffset);
-      const messageIndex = row - headerOffset;
-      const messages = dataSourceRef.current;
-      let anchor: ReadingAnchor | null;
-      if (messageIndex < 0) {
-        anchor = null;
-      } else if (messageIndex < messages.length) {
-        anchor = {
-          messageId: messages[messageIndex],
-          offset: Math.max(0, ref.scrollOffset - ref.getItemOffset(row)),
-          savedAt: Date.now(),
-        };
-      } else {
-        // Footer and spacer rows carry no message to come back to.
-        return;
-      }
-
-      pendingWriteRef.current = { anchor, key: contextKeyRef.current };
-      if (flushTimerRef.current) return;
-      flushTimerRef.current = setTimeout(flush, FLUSH_THROTTLE_MS);
+      recordPosition();
     },
-    [enabled, flush, headerOffset, virtuaRef],
+    [enabled, recordPosition],
   );
+
+  // While pages load, input that cannot scroll (Home at the top, an upward
+  // wheel) fires no scroll event, so listen for the input itself and record
+  // where the reader is: on the header that clears the stale anchor.
+  const isPending = !!pending;
+  useEffect(() => {
+    const scroller = getScroller();
+    if (!isPending || !scroller) return;
+    const cancel = () => {
+      setPending(null);
+      recordPosition();
+    };
+    for (const type of USER_SCROLL_INPUT_EVENTS) {
+      scroller.addEventListener(type, cancel, { passive: true });
+    }
+    return () => {
+      for (const type of USER_SCROLL_INPUT_EVENTS) {
+        scroller.removeEventListener(type, cancel);
+      }
+    };
+  }, [getScroller, isPending, recordPosition]);
 
   useEffect(() => {
     window.addEventListener('pagehide', flush);
