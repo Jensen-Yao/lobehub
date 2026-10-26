@@ -16,6 +16,21 @@ const cancel = (operationId: string) =>
   executeDeviceOperation({ apiName: 'cancelNativeOperation', operationId }, unused);
 
 describe('Native device operation lifetime', () => {
+  it('refuses a Native scope on Windows, where exit cannot be confirmed', async () => {
+    const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
+    Object.defineProperty(process, 'platform', { ...platform, value: 'win32' });
+    try {
+      expect(await begin('windows')).toMatchObject({
+        state: { registered: false },
+        success: false,
+      });
+      // No scope was created, so nothing can later wait on an unprovable exit.
+      expect((await cancel('windows')).success).toBe(false);
+    } finally {
+      Object.defineProperty(process, 'platform', platform);
+    }
+  });
+
   it('fences delayed calls and does not acknowledge an unknown/restarted operation', async () => {
     expect((await cancel('missing')).success).toBe(false);
     await begin('delayed');

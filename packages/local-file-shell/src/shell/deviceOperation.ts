@@ -62,6 +62,14 @@ export async function executeDeviceOperation<T extends ToolResult>(
   if (lifecycle && !operationId)
     return { content: 'Operation identity is required', success: false };
   let operation = operationId ? operations.get(operationId) : undefined;
+  if (apiName === 'beginNativeOperation' && process.platform === 'win32')
+    // Windows cannot prove that a naturally exited command left no descendants, so a scope
+    // could never confirm exit and would hold its directory forever. Refuse before any run.
+    return {
+      content: 'Native Channel execution is not supported on Windows devices yet',
+      state: { registered: false },
+      success: false,
+    };
   if (apiName === 'beginNativeOperation' && operationId) {
     if (!operation) {
       operation = { closed: false, pending: 0, resources: new Set() };

@@ -60,6 +60,12 @@ export class ChannelService {
           'FORBIDDEN',
           'Choose an accessible device shared with this workspace',
         );
+      // Early feedback only; the device itself refuses the Native scope. See executeDeviceOperation.
+      if (runtime === 'native' && device.platform === 'win32')
+        throw new ChannelError(
+          'BAD_REQUEST',
+          'Native Channel execution is not supported on Windows devices yet',
+        );
       if (!input.workingDirectory?.trim())
         throw new ChannelError('BAD_REQUEST', 'Choose a working directory for this device');
       const path = await deviceGateway.statPath({
