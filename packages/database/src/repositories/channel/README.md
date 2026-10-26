@@ -75,9 +75,10 @@ topic must exist in the same user/workspace scope and not be trashed.
 Like the Discord bridge, the main timeline starts a new topic when the previous topic's
 `updatedAt` is more than four hours old. This is checked when the next request arrives; it is not a
 timer and does not delete old topics. Channel Threads keep their topic despite idle time. A
-late-routed request older than the previous input cutoff starts a new topic instead of inheriting
-later context. Failed/unknown executions, changed environments and unavailable topics also start
-afresh. An adapter's explicit “new conversation” feature is outside this foundation.
+request explicitly retried after routing failed may be older than the previous input cutoff; it
+starts a new topic instead of inheriting later context. Failed/unknown executions, changed
+environments and unavailable topics also start afresh. An adapter's explicit “new conversation”
+feature is outside this foundation.
 
 A fresh topic receives the full branch through the triggering request: a Thread gets the main
 prefix through its root plus its own messages. Continuation receives only public messages in
@@ -86,6 +87,13 @@ they already exist in the ordinary transcript, including answers published after
 was queued. Other participants' messages remain new input. The manifest freezes bounds and the
 execution scope, not a duplicate transcript; later messages cannot change an earlier input.
 Author names and attachment availability are resolved at read time.
+
+Pending routing is part of member FIFO even before a job exists. An earlier main-channel
+decision blocks later claims until its recipients are known; an earlier Thread decision blocks
+only that Thread's following members. Skipped, failed or stopped routing releases this barrier.
+Branches opened while their root is pending inherit its eventual responders, preserving explicit
+invitations. Their unmentioned replies stay pending until then, including replies sent with the
+all-candidate fallback. Stopping a reply still fences it; root completion never revives it.
 
 ## Access and runtime integration
 

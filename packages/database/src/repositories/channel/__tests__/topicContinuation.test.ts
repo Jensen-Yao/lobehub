@@ -150,16 +150,21 @@ describe('Channel topic continuation', () => {
     expect(await state.input(third.job.id)).toEqual(['Request 3']);
   });
 
-  it('continues the most recently claimed delivery after an older request is routed late', async () => {
+  it('starts a new topic when failed routing is explicitly retried after a newer delivery', async () => {
     const state = await setup();
     const early = await state.asMember.send(state.channel.id, {
       content: 'Delayed request',
       requestKey: 'delayed',
       routing: 'jev',
     });
+    await execution.resolveRouting(state.channel.id, early.id, early.routingAttempt, {
+      reason: 'Decision unavailable',
+      status: 'unassigned',
+    });
     const first = (await state.claim((await state.send()).id))!;
     await state.finish(first.job.id);
-    await execution.resolveRouting(state.channel.id, early.id, early.routingAttempt, {
+    const retried = await state.asMember.retryRouting(state.channel.id, early.id);
+    await execution.resolveRouting(state.channel.id, early.id, retried.routingAttempt, {
       memberIds: [state.agent.id],
       reason: 'Agent can help',
       status: 'assigned',

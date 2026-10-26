@@ -17,23 +17,29 @@ export interface ChannelViewParams {
 }
 
 class ChannelService {
+  addUser = (channelId: string, userId: string) =>
+    lambdaClient.channel.addUser.mutate({ channelId, userId });
+  userCandidates = async (channelId: string, search: string) =>
+    (await lambdaClient.channel.userCandidates.query({ channelId, search })).data;
   addAgent = (channelId: string, agent: ChannelAgentSelection) =>
     lambdaClient.channel.addAgent.mutate({ agent, channelId });
   create = (input: { agents: ChannelAgentSelection[]; title: string }) =>
     lambdaClient.channel.create.mutate(input);
-  createThread = (channelId: string, rootMessageId: string, followerMemberIds: string[]) =>
-    lambdaClient.channel.createThread.mutate({ channelId, followerMemberIds, rootMessageId });
   detail = async (params: ChannelViewParams): Promise<ChannelDetail> =>
     (await lambdaClient.channel.detail.query(params)).data;
   list = async (): Promise<ChannelListItem[]> => (await lambdaClient.channel.list.query()).data;
   markRead = (channelId: string, sequence: number) =>
     lambdaClient.channel.markRead.mutate({ channelId, sequence });
+  remove = (channelId: string) => lambdaClient.channel.remove.mutate({ channelId });
+  removeThread = (channelId: string, threadId: string) =>
+    lambdaClient.channel.removeThread.mutate({ channelId, threadId });
   send = (input: {
     channelId: string;
     content: string;
     fileIds?: string[];
     mentions: string[];
     requestKey: string;
+    rootMessageId?: string;
     threadId?: string | null;
   }) => lambdaClient.channel.send.mutate(input);
   stop = (channelId: string, scope: { jobId: string } | { threadId: string | null }) =>

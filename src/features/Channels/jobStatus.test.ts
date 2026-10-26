@@ -1,7 +1,12 @@
 import type { ChannelPublicJob } from '@lobechat/types';
 import { describe, expect, it } from 'vitest';
 
-import { channelJobStatus, channelJobTone, memberCurrentJob } from './jobStatus';
+import {
+  channelJobStatus,
+  channelJobTone,
+  memberCurrentJob,
+  messageReceiptJobs,
+} from './jobStatus';
 
 describe('Channel task status', () => {
   const job = (patch: Partial<ChannelPublicJob>) =>
@@ -21,6 +26,12 @@ describe('Channel task status', () => {
     expect(
       channelJobStatus(job({ status: 'cancelled', publicationRevoked: true, writerHeld: true })),
     ).toBe('status.stopping');
+  });
+  it('shows a newly queued task as preparing, not waiting behind another Agent', () => {
+    expect(channelJobStatus(job({ blockedCode: null }))).toBe('status.preparing');
+  });
+  it('explains when an earlier reply from the same Agent must finish first', () => {
+    expect(channelJobStatus(job({ blockedCode: 'member_busy' }))).toBe('blocked.member_busy');
   });
   it('explains why a queued task is waiting', () => {
     expect(channelJobStatus(job({}))).toBe('blocked.directory_locked');
@@ -56,6 +67,44 @@ describe('Channel task tone', () => {
 
   it('keeps a failure visible after its publication was revoked', () => {
     expect(channelJobTone(job({ publicationRevoked: true, status: 'failed' }))).toBe('error');
+  });
+
+  it('shows only unfinished or failed receipts in a mixed reply group', () => {
+    const jobs = [
+      job({ id: 'done', status: 'completed' }),
+      job({ id: 'preparing' }),
+      job({ id: 'waiting', blockedCode: 'directory_locked' }),
+      job({ id: 'running', status: 'running' }),
+      job({ id: 'stopping', status: 'cancelled', publicationRevoked: true, writerHeld: true }),
+      job({ id: 'failed', status: 'failed' }),
+      job({ id: 'failed-revoked', status: 'failed', publicationRevoked: true }),
+      job({ id: 'cancelled', status: 'cancelled' }),
+      job({ id: 'stopped', status: 'running', publicationRevoked: true }),
+    ];
+    expect(messageReceiptJobs(jobs).map((entry) => entry.id)).toEqual([
+      'preparing',
+      'waiting',
+      'running',
+      'stopping',
+      'failed',
+      'failed-revoked',
+    ]);
+  });
+
+  it('leaves no receipt row when all three Agents have replied', () => {
+    expect(
+      messageReceiptJobs(['codex', 'pi', 'native'].map((id) => job({ id, status: 'completed' }))),
+    ).toEqual([]);
+  });
+
+  it('removes a receipt immediately after publication without waiting for writer cleanup', () => {
+    expect(messageReceiptJobs([job({ status: 'completed', writerHeld: true })])).toEqual([]);
+  });
+
+  it('removes stopping feedback only when physical exit is confirmed', () => {
+    const stopping = job({ status: 'cancelled', publicationRevoked: true, writerHeld: true });
+    expect(messageReceiptJobs([stopping])).toEqual([stopping]);
+    expect(messageReceiptJobs([{ ...stopping, writerHeld: false }])).toEqual([]);
   });
 
   it("picks a member's running reply before its queued ones", () => {

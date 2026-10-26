@@ -1,20 +1,21 @@
 import { getHeterogeneousTypeLabel } from '@lobechat/heterogeneous-agents';
 import { agentDisplayName } from '@lobechat/types';
-import { ActionIcon, Button, Checkbox, Flexbox, SearchBar, Select, Tag, Text } from '@lobehub/ui';
+import { Checkbox, Flexbox, SearchBar, Tag, Text } from '@lobehub/ui';
 import { cssVar } from '@lobehub/ui/stylex/cssVar.stylex';
 import * as stylex from '@stylexjs/stylex';
-import { FolderOpen, X } from 'lucide-react';
+import type { Dispatch, SetStateAction } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import AsyncBoundary from '@/components/AsyncBoundary';
+import AsyncError from '@/components/AsyncError';
 import Avatar from '@/components/Avatar';
 import { DEFAULT_AVATAR } from '@/const/meta';
 import AgentSelectionEmpty from '@/features/AgentSelectionEmpty';
-import { openPickWorkingDirModal } from '@/features/WorkingDirectory';
-import type { ChannelAgentSelection } from '@/services/channel';
 import { useDeviceList } from '@/store/device/useDeviceList';
 
+import type { ChannelAgentDraft } from './agentEnvironment';
+import { SelectedAgent } from './SelectedAgent';
 import type { ChannelAgentOption, useChannelAgentOptions } from './useChannelAgentOptions';
 
 const styles = stylex.create({
@@ -46,8 +47,6 @@ const styles = stylex.create({
     borderRadius: cssVar.borderRadius,
     backgroundColor: { 'default': 'transparent', ':hover': cssVar.colorFillTertiary },
   },
-  extra: { paddingInlineStart: 44, paddingInlineEnd: 8, paddingBlockEnd: 12, minWidth: 0 },
-  directory: { maxWidth: '100%', overflow: 'hidden' },
 });
 
 /** Name plus the external runtime, which is why a coding Agent asks for a device. */
@@ -70,9 +69,9 @@ export const AgentSelection = ({
 }: {
   /** Agents already in the Channel. */
   exclude?: string[];
-  onChange: (value: ChannelAgentSelection[]) => void;
+  onChange: Dispatch<SetStateAction<ChannelAgentDraft[]>>;
   options: ReturnType<typeof useChannelAgentOptions>;
-  value: ChannelAgentSelection[];
+  value: ChannelAgentDraft[];
 }) => {
   const { t } = useTranslation(['channel', 'device', 'chat', 'common']);
   const { agents } = options;
@@ -84,19 +83,13 @@ export const AgentSelection = ({
       .includes(search.trim().toLocaleLowerCase()),
   );
   const toggle = (agentId: string) =>
-    onChange(
-      value.some((item) => item.agentId === agentId)
-        ? value.filter((item) => item.agentId !== agentId)
-        : [...value, { agentId }],
+    onChange((current) =>
+      current.some((item) => item.agentId === agentId)
+        ? current.filter((item) => item.agentId !== agentId)
+        : [...current, { agentId, initialized: false, issue: 'configurationLoading' }],
     );
   const devices = useDeviceList({ refreshInterval: 15_000 });
-  const change = (agentId: string, patch: Partial<ChannelAgentSelection>) =>
-    onChange(value.map((item) => (item.agentId === agentId ? { ...item, ...patch } : item)));
-  const deviceOptions = (devices.data ?? []).map((device) => ({
-    disabled: !devices.isConfirmed || !device.online,
-    label: `${device.friendlyName || device.hostname || device.deviceId}${device.online ? '' : ` · ${t('offline')}`}`,
-    value: device.deviceId,
-  }));
+
   return (
     <Flexbox gap={12}>
       <AsyncBoundary
@@ -140,87 +133,29 @@ export const AgentSelection = ({
               {t('memberSelection.selectedAgents', { ns: 'chat', count: value.length })}
             </Text>
             {!value.length && <AgentSelectionEmpty variant="noSelected" />}
-            <AsyncBoundary
-              data={devices.data}
-              error={devices.error}
-              isLoading={devices.isLoading}
-              onRetry={() => void devices.mutate()}
-            >
-              {value.map((selection) => {
-                const agent = agents?.find((entry) => entry.id === selection.agentId);
-                // Native Agents may reply without a device; coding Agents run on one.
-                const requiresDevice = !!agent?.runtime;
-                return (
-                  <Flexbox gap={8} key={selection.agentId}>
-                    <Flexbox horizontal align="center" gap={8} padding={8}>
-                      <Avatar
-                        avatar={typeof agent?.avatar === 'string' ? agent.avatar : DEFAULT_AVATAR}
-                        background={agent?.backgroundColor ?? undefined}
-                        size={28}
-                      />
-                      <AgentLabel agent={agent} fallback={t('unnamedAgent')} />
-                      <ActionIcon
-                        aria-label={t('group.removeMember', { ns: 'chat' })}
-                        icon={X}
-                        size="small"
-                        title={t('group.removeMember', { ns: 'chat' })}
-                        onClick={() => toggle(selection.agentId)}
-                      />
-                    </Flexbox>
-                    <Flexbox gap={8} {...stylex.props(styles.extra)}>
-                      <Select
-                        // Nothing to pick; the hint below says how to get a device.
-                        disabled={requiresDevice && !deviceOptions.length}
-                        placeholder={t(requiresDevice ? 'chooseDevice' : 'noDevice')}
-                        required={requiresDevice}
-                        options={
-                          requiresDevice
-                            ? deviceOptions
-                            : [{ label: t('noDevice'), value: '' }, ...deviceOptions]
-                        }
-                        value={
-                          requiresDevice ? (selection.deviceId ?? null) : (selection.deviceId ?? '')
-                        }
-                        onChange={(id) => {
-                          if (typeof id === 'string')
-                            change(selection.agentId, {
-                              deviceId: id || undefined,
-                              workingDirectory: undefined,
-                            });
-                        }}
-                      />
-                      {requiresDevice && !deviceOptions.length && (
-                        <Text fontSize={12} type="secondary">
-                          {t('noDevices')}
-                        </Text>
-                      )}
-                      {selection.deviceId && (
-                        <Button
-                          icon={FolderOpen}
-                          title={selection.workingDirectory || t('chooseDirectory')}
-                          {...stylex.props(styles.directory)}
-                          onClick={() =>
-                            openPickWorkingDirModal({
-                              defaultPath: selection.workingDirectory,
-                              deviceId: selection.deviceId,
-                              onPick: ({ path }) =>
-                                change(selection.agentId, { workingDirectory: path }),
-                            })
-                          }
-                        >
-                          <Text ellipsis>{selection.workingDirectory || t('chooseDirectory')}</Text>
-                        </Button>
-                      )}
-                    </Flexbox>
-                  </Flexbox>
-                );
-              })}
-            </AsyncBoundary>
+            {!!devices.error && (
+              <AsyncError
+                error={devices.error}
+                retrying={devices.isValidating}
+                title={t('environment.devicesFailed')}
+                variant="inline"
+                onRetry={() => void devices.mutate()}
+              />
+            )}
+            {value.map((draft) => (
+              <SelectedAgent
+                agent={agents?.find((agent) => agent.id === draft.agentId)}
+                devices={devices}
+                draft={draft}
+                key={draft.agentId}
+                setDrafts={onChange}
+              />
+            ))}
           </Flexbox>
         </div>
       </AsyncBoundary>
       <Text fontSize={12} type="secondary">
-        {t('environmentHint')}
+        {t('environment.defaultsHint')}
       </Text>
     </Flexbox>
   );

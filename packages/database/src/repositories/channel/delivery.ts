@@ -27,7 +27,13 @@ export const findThread = async (
   const [thread] = await tx
     .select()
     .from(channelThreads)
-    .where(and(eq(channelThreads.channelId, channelId), eq(channelThreads.id, threadId)));
+    .where(
+      and(
+        eq(channelThreads.channelId, channelId),
+        eq(channelThreads.id, threadId),
+        eq(channelThreads.archived, false),
+      ),
+    );
   if (!thread) throw new ChannelError('NOT_FOUND', 'Thread not found');
 
   return thread;

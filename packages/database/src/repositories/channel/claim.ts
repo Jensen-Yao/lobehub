@@ -1,5 +1,5 @@
 import type { ChannelJobBlockCode, LobeAgentConfig } from '@lobechat/types';
-import { and, asc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import type { PartialDeep } from 'type-fest';
 
 import type { ChannelItem, ChannelJobItem, ChannelMemberItem, TopicItem } from '../../schemas';
@@ -9,6 +9,7 @@ import {
   channelMemberGrants,
   channelMembers,
   channelMessages,
+  channelThreads,
   devices,
 } from '../../schemas';
 import type { Transaction } from '../../type';
@@ -180,6 +181,36 @@ export const claimJob = async (
     );
   if (!job) return null;
 
+  const [request] = await tx
+    .select()
+    .from(channelMessages)
+    .where(eq(channelMessages.id, job.messageId));
+  // An earlier undecided message may still enqueue this member. Checking only jobs
+  // would let an explicit follow-up overtake it while another worker routes it.
+  const [pendingRoute] = await tx
+    .select({ id: channelMessages.id })
+    .from(channelMessages)
+    .leftJoin(channelThreads, eq(channelThreads.id, channelMessages.threadId))
+    .where(
+      and(
+        eq(channelMessages.channelId, channel.id),
+        eq(channelMessages.routingStatus, 'pending'),
+        lt(channelMessages.sequence, request.sequence),
+        or(
+          isNull(channelMessages.threadId),
+          and(
+            eq(channelThreads.archived, false),
+            sql`${channelThreads.followerMemberIds} @> ${JSON.stringify([job.memberId])}::jsonb`,
+          ),
+        ),
+      ),
+    )
+    .limit(1);
+  if (pendingRoute) {
+    await block(tx, job, 'member_busy', 'Waiting for an earlier routing decision');
+    return null;
+  }
+
   // Each member answers in message order.
   const [head] = await tx
     .select({ id: channelJobs.id })
@@ -188,7 +219,10 @@ export const claimJob = async (
     .where(and(eq(channelJobs.memberId, job.memberId), eq(channelJobs.status, 'queued')))
     .orderBy(asc(channelMessages.sequence), asc(channelJobs.createdAt))
     .limit(1);
-  if (head?.id !== job.id) return null;
+  if (head?.id !== job.id) {
+    await block(tx, job, 'member_busy', 'Waiting for an earlier reply from this Agent');
+    return null;
+  }
 
   const [member] = await tx
     .select()
@@ -207,12 +241,11 @@ export const claimJob = async (
       ),
     )
     .limit(1);
-  if (busy) return null;
+  if (busy) {
+    await block(tx, job, 'member_busy', 'Waiting for an earlier reply from this Agent');
+    return null;
+  }
 
-  const [request] = await tx
-    .select()
-    .from(channelMessages)
-    .where(eq(channelMessages.id, job.messageId));
   // The requester is the execution identity; without them there is nobody to run as.
   const [requester] = await tx
     .select({ id: channelMembers.id, userId: channelMembers.userId })

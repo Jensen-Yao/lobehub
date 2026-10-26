@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, getTableColumns, inArray, isNull, lt } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, inArray, isNull, lt, sql } from 'drizzle-orm';
 
 import {
   agentOperations,
@@ -105,7 +105,7 @@ export const readChannelView = async (
     tx
       .select()
       .from(channelThreads)
-      .where(eq(channelThreads.channelId, channelId))
+      .where(and(eq(channelThreads.channelId, channelId), eq(channelThreads.archived, false)))
       .orderBy(asc(channelThreads.createdAt)),
     tx
       .select({
@@ -115,6 +115,9 @@ export const readChannelView = async (
         threadId: channelJobs.threadId,
         status: channelJobs.status,
         blockedCode: channelJobs.blockedCode,
+        // Only a bounded diagnostic message crosses the public boundary, never the raw error.
+        errorMessage: sql<string | null>`CASE WHEN ${channelJobs.status} = 'failed'
+          THEN left(${agentOperations.error}->>'message', 2000) ELSE NULL END`,
         writerHeld: channelJobs.writerHeld,
         operationStatus: agentOperations.status,
         createdAt: channelJobs.createdAt,
@@ -182,7 +185,7 @@ export const readChannelView = async (
 export const createChannelThread = async (
   tx: Transaction,
   channelId: string,
-  input: { followerMemberIds: string[]; rootMessageId: string },
+  input: { followerMemberIds?: string[]; rootMessageId: string },
 ) => {
   const [root] = await tx
     .select()
@@ -195,14 +198,49 @@ export const createChannelThread = async (
   const [existing] = await tx
     .select()
     .from(channelThreads)
-    .where(and(eq(channelThreads.channelId, channelId), eq(channelThreads.rootMessageId, root.id)));
+    .where(
+      and(
+        eq(channelThreads.channelId, channelId),
+        eq(channelThreads.rootMessageId, root.id),
+        eq(channelThreads.archived, false),
+      ),
+    );
   if (existing) return existing;
-  const followers = await activeMembers(tx, channelId, [...new Set(input.followerMemberIds)]);
+  // Explicit selections are validated; inferred recipients may have left since the root.
+  const followers = input.followerMemberIds
+    ? await activeMembers(tx, channelId, input.followerMemberIds)
+    : root.recipientMemberIds.length
+      ? await tx
+          .select({ id: channelMembers.id })
+          .from(channelMembers)
+          .where(
+            and(
+              eq(channelMembers.channelId, channelId),
+              eq(channelMembers.active, true),
+              inArray(channelMembers.id, root.recipientMemberIds),
+            ),
+          )
+      : [];
+  // An Agent reply has no recipients. Branching from it must still carry its author
+  // into the thread, without substituting a removed or rebound member's new Agent.
+  const authors = root.agentId
+    ? await tx
+        .select({ id: channelMembers.id })
+        .from(channelMembers)
+        .where(
+          and(
+            eq(channelMembers.channelId, channelId),
+            eq(channelMembers.agentId, root.agentId),
+            eq(channelMembers.actorType, 'agent'),
+            eq(channelMembers.active, true),
+          ),
+        )
+    : [];
   const [thread] = await tx
     .insert(channelThreads)
     .values({
       channelId,
-      followerMemberIds: followers.map((member) => member.id),
+      followerMemberIds: [...new Set([...followers, ...authors].map((member) => member.id))],
       rootMessageId: root.id,
       rootSequence: root.sequence,
     })

@@ -3,6 +3,7 @@ import { buildChannelPrompt, CHANNEL_INSTRUCTIONS } from '@lobechat/prompts';
 import type { ChannelExecutionConfig } from '@lobechat/types';
 import { isRecord } from '@lobechat/utils/object';
 import { and, eq } from 'drizzle-orm';
+import { groupBy } from 'es-toolkit';
 import pMap from 'p-map';
 
 import { getServerDB } from '@/database/core/db-adaptor';
@@ -20,10 +21,13 @@ import { getScopedOnlineDevices } from '@/server/services/deviceGateway/scopedDe
 import { isQueueAgentRuntimeEnabled } from '@/server/services/queue/impls';
 
 import { resolveChannelAttachments } from './attachments';
+import { ChannelRoutingService } from './ChannelRoutingService';
 import { notifyChannel } from './notify';
 import { registerLocalChannelAdvance, wakeChannel } from './queue';
 
 const LEASE_MS = 60_000;
+// Limit startup IO, not the number of Agents that may execute concurrently.
+const STARTUP_CONCURRENCY = 5;
 
 /** Source-side coordination. Both Native and Codex execute through the ordinary Agent pipeline. */
 export class ChannelCoordinator {
@@ -40,47 +44,61 @@ export class ChannelCoordinator {
   advance = async (channelId: string) => {
     const [channel] = await this.db.select().from(channels).where(eq(channels.id, channelId));
     if (!channel) return;
+    if (!channel.archived) await new ChannelRoutingService(this.db).advance(channelId);
     const { heads, inFlight } = await this.executions.candidates(channelId);
-    const pending = inFlight.length + heads.length;
+    const pending = [...inFlight, ...heads];
 
-    // Reserve the next recovery before dispatch. A worker can die after the device
-    // accepted a run but before this invocation reaches its end.
-    if (pending) await wakeChannel(channelId, LEASE_MS);
+    // Persist recovery before dispatch; a worker can die after the device accepts a run.
+    if (pending.length) await wakeChannel(channelId, LEASE_MS);
 
-    // Settle first: a confirmed release can unblock a member's next request.
-    for (const job of inFlight)
-      await this.complete(channelId, job.id, job.operationId ?? undefined);
-    if (heads.length) {
-      const members = await this.db
-        .select({ config: channelMembers.config })
-        .from(channelMembers)
-        .where(and(eq(channelMembers.channelId, channelId), eq(channelMembers.active, true)));
-      const owners = [
-        ...new Set(
-          members.flatMap(({ config }) => (config?.deviceOwnerId ? [config.deviceOwnerId] : [])),
-        ),
-      ];
-      const presence = await pMap(
-        owners,
-        (owner) => getScopedOnlineDevices(this.db, owner, channel.workspaceId ?? undefined),
-        { concurrency: 5 },
+    const members = heads.length
+      ? await this.db
+          .select({ config: channelMembers.config })
+          .from(channelMembers)
+          .where(and(eq(channelMembers.channelId, channelId), eq(channelMembers.active, true)))
+      : [];
+    const owners = [
+      ...new Set(
+        members.flatMap(({ config }) => (config?.deviceOwnerId ? [config.deviceOwnerId] : [])),
+      ),
+    ];
+    const presence = await pMap(
+      owners,
+      (owner) => getScopedOnlineDevices(this.db, owner, channel.workspaceId ?? undefined),
+      { concurrency: 5 },
+    );
+    const onlineDeviceIds = presence
+      .flat()
+      .filter((device) => device.online)
+      .map((device) => device.deviceId);
+
+    try {
+      await pMap(
+        Object.values(groupBy(pending, (job) => job.memberId)),
+        async (jobs) => {
+          // Recover earlier runs before claiming this member, without delaying other members.
+          for (const job of jobs) {
+            if (job.status !== 'queued') {
+              await this.complete(channelId, job.id, job.operationId ?? undefined);
+              continue;
+            }
+            const claim = await this.executions.claim(channelId, job.id, {
+              leaseMs: LEASE_MS,
+              leaseOwner: crypto.randomUUID(),
+              onlineDeviceIds,
+              serverDefaultAgentConfig: getServerDefaultAgentConfig(),
+            });
+            await Promise.all([
+              notifyChannel(this.db, channelId),
+              claim ? this.dispatch(claim, channel.workspaceId) : undefined,
+            ]);
+          }
+        },
+        { concurrency: STARTUP_CONCURRENCY, stopOnError: false },
       );
-      const onlineDeviceIds = presence
-        .flat()
-        .filter((device) => device.online)
-        .map((device) => device.deviceId);
-
-      for (const job of heads) {
-        const claim = await this.executions.claim(channelId, job.id, {
-          leaseMs: LEASE_MS,
-          leaseOwner: crypto.randomUUID(),
-          onlineDeviceIds,
-          serverDefaultAgentConfig: getServerDefaultAgentConfig(),
-        });
-        if (claim) await this.dispatch(claim, channel.workspaceId);
-      }
+    } finally {
+      if (pending.length) await notifyChannel(this.db, channelId);
     }
-    if (pending) await notifyChannel(this.db, channelId);
   };
 
   private async dispatch({ job, member, topic }: ChannelClaim, workspaceId: string | null) {
@@ -195,6 +213,7 @@ export class ChannelCoordinator {
     } finally {
       clearInterval(renew);
       await this.executions.finishDispatch(job.channelId, job.id, lease.leaseOwner);
+      await notifyChannel(this.db, job.channelId);
       await wakeChannel(job.channelId);
     }
   }

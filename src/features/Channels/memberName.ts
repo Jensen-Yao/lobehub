@@ -9,5 +9,17 @@ export const memberAvatar = (member: ChannelPublicMember | undefined) =>
     ? member.userAvatar || DEFAULT_USER_AVATAR
     : member?.avatar || DEFAULT_AVATAR;
 
+/** Only the viewer's own human messages may use their live personal avatar. */
+export const isCurrentUserAuthor = (
+  author: ChannelPublicMessage['author'],
+  currentUserId: string | undefined,
+) => !!currentUserId && author.type === 'user' && author.id === currentUserId;
+
+/** Mention/menu identities use the same viewer-owned avatar as the timeline. */
+export const isCurrentUserMember = (
+  member: Pick<ChannelPublicMember, 'actorType' | 'userId'>,
+  currentUserId: string | undefined,
+) => !!currentUserId && member.actorType === 'user' && member.userId === currentUserId;
+
 export const authorAvatar = (author: ChannelPublicMessage['author']) =>
   author.avatar || (author.type === 'user' ? DEFAULT_USER_AVATAR : DEFAULT_AVATAR);

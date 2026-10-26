@@ -1,3 +1,4 @@
+import type { ChannelListItem } from '@lobechat/types';
 import {
   AccordionHeader,
   AccordionItem,
@@ -13,7 +14,7 @@ import {
   Text,
   toast,
 } from '@lobehub/ui';
-import { Copy, GitBranch, Hash, MoreHorizontal, Plus } from 'lucide-react';
+import { Copy, GitBranch, Hash, MoreHorizontal, Plus, Trash } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useActiveWorkspaceSlug } from '@/business/client/hooks/useActiveWorkspaceSlug';
@@ -32,6 +33,8 @@ import { openCreateChannel } from './CreateChannel';
 import { channelPath, matchChannel } from './paths';
 import { threadTitle } from './threadTitle';
 import { useChannelEvents } from './useChannelEvents';
+import { useRemoveChannel } from './useRemoveChannel';
+import { useRemoveThread } from './useRemoveThread';
 
 const ChannelThreads = ({
   channelId,
@@ -43,6 +46,7 @@ const ChannelThreads = ({
   const { t } = useTranslation('channel');
   const navigate = useWorkspaceAwareNavigate();
   const slug = useActiveWorkspaceSlug();
+  const removeThread = useRemoveThread();
   // The open Channel's page already loads this view; the sidebar only reads it.
   const detail = useChannelStore(channelSelectors.detail({ channelId, threadId: null }));
   if (!detail?.threads.length) return null;
@@ -52,14 +56,39 @@ const ChannelThreads = ({
       {detail.threads.map((thread, index) => {
         const path = channelPath(channelId, thread.id);
         const active = thread.id === threadId;
+        const items = detail.channel.canDelete
+          ? [
+              {
+                danger: true,
+                icon: Trash,
+                key: 'deleteThread',
+                label: t('deleteThread'),
+                onClick: () => removeThread(detail.channel, thread.id),
+              },
+            ]
+          : [];
         return (
           <NavItem
             active={active}
             aria-current={active ? 'page' : undefined}
+            contextMenuItems={items.length ? () => items : undefined}
             href={buildWorkspaceAwarePath(path, slug)}
             icon={GitBranch}
             iconSize={14}
             key={thread.id}
+            actions={
+              items.length
+                ? () => (
+                    <DropdownMenu items={items}>
+                      <ActionIcon
+                        icon={MoreHorizontal}
+                        size="small"
+                        title={t('more', { ns: 'common' })}
+                      />
+                    </DropdownMenu>
+                  )
+                : undefined
+            }
             title={
               threadTitle(detail.messages.find((message) => message.id === thread.rootMessageId)) ||
               `${t('thread')} ${index + 1}`
@@ -82,17 +111,18 @@ const EnabledChannelList = () => {
   const channels = useChannelStore(channelSelectors.list);
   useChannelEvents();
 
+  const remove = useRemoveChannel();
   const activeChannelId = matchChannel(pathname);
   const create = () => openCreateChannel({ onCreated: (id) => navigate(channelPath(id)) });
   const activeThreadId = new URLSearchParams(search).get('thread');
-  const menuItems = (id: string) => [
+  const menuItems = (channel: ChannelListItem) => [
     {
       icon: Copy,
       key: 'copyId',
       label: t('copyId'),
       onClick: async () => {
         try {
-          await copyToClipboard(id);
+          await copyToClipboard(channel.id);
           toast.success(t('copyIdSuccess'));
         } catch (error) {
           console.error('Failed to copy Channel id', error);
@@ -100,6 +130,18 @@ const EnabledChannelList = () => {
         }
       },
     },
+    ...(channel.canDelete
+      ? [
+          { type: 'divider' as const },
+          {
+            danger: true,
+            icon: Trash,
+            key: 'delete',
+            label: t('delete'),
+            onClick: () => remove(channel),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -152,13 +194,13 @@ const EnabledChannelList = () => {
                   <NavItem
                     active={open && !activeThreadId}
                     aria-current={open && !activeThreadId ? 'page' : undefined}
-                    contextMenuItems={() => menuItems(channel.id)}
+                    contextMenuItems={() => menuItems(channel)}
                     data-channel-id={channel.id}
                     href={buildWorkspaceAwarePath(path, slug)}
                     icon={Hash}
                     title={channel.title}
                     actions={() => (
-                      <DropdownMenu items={menuItems(channel.id)}>
+                      <DropdownMenu items={menuItems(channel)}>
                         <ActionIcon
                           icon={MoreHorizontal}
                           size="small"

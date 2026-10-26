@@ -3,8 +3,10 @@ import type { ChannelPublicJob } from '@lobechat/types';
 export const channelJobStatus = (job: ChannelPublicJob) =>
   job.publicationRevoked && job.writerHeld
     ? 'status.stopping'
-    : job.status === 'queued' && job.blockedCode
-      ? (`blocked.${job.blockedCode}` as const)
+    : job.status === 'queued'
+      ? job.blockedCode
+        ? (`blocked.${job.blockedCode}` as const)
+        : 'status.preparing'
       : (`status.${job.status}` as const);
 
 /** Colour family of a status: working blue, attention amber, error red, settled grey. */
@@ -22,6 +24,15 @@ export const channelJobTone = (job: ChannelPublicJob): ChannelStatusTone => {
 /** Still able to publish a reply, so the user can stop it. */
 export const isChannelJobActive = (job: ChannelPublicJob) =>
   !job.publicationRevoked && (job.status === 'queued' || job.status === 'running');
+
+/** Receipts show unfinished work and failures, not a second history of published replies. */
+export const messageReceiptJobs = (jobs: ChannelPublicJob[]) =>
+  jobs.filter(
+    (job) =>
+      isChannelJobActive(job) ||
+      (job.publicationRevoked && job.writerHeld) ||
+      job.status === 'failed',
+  );
 
 /** What a member is busy with now: a running reply first, then the next queued one. */
 export const memberCurrentJob = (jobs: ChannelPublicJob[], memberId: string) => {

@@ -31,6 +31,7 @@ vi.mock('@/server/services/deviceGateway/scopedDevices', () => ({
   getScopedOnlineDevices: vi.fn(),
 }));
 vi.mock('@/server/services/queue/impls', () => ({ isQueueAgentRuntimeEnabled: vi.fn() }));
+vi.mock('./ChannelRoutingService', () => ({ ChannelRoutingService: vi.fn() }));
 vi.mock('./attachments', () => ({ resolveChannelAttachments: vi.fn() }));
 vi.mock('./notify', () => ({ notifyChannel: vi.fn() }));
 vi.mock('./queue', () => ({ registerLocalChannelAdvance: vi.fn(), wakeChannel: vi.fn() }));

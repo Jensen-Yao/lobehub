@@ -41,6 +41,13 @@ interface LocalFilePreviewKeyParams {
   workingDirectory: string;
 }
 
+export const channelKeys = {
+  userCandidates: def(
+    'channel:userCandidates',
+    (channelId: string, search: string) => ['channel:userCandidates', channelId, search] as const,
+  ),
+};
+
 // ---- message ------------------------------------------------------------
 export interface MessageListQueryContext {
   agentId?: string | null;

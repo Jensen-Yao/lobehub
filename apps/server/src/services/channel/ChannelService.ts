@@ -17,6 +17,7 @@ import { FileService } from '@/server/services/file';
 import { ChannelCoordinator } from './ChannelCoordinator';
 import { notifyChannel } from './notify';
 import { wakeChannel } from './queue';
+import { resolveChannelRoutingConfig } from './routingConfig';
 
 /** Environment selection is a request, never trusted device ownership or canonical-path data. */
 export interface ChannelAgentSelection {
@@ -105,6 +106,12 @@ export class ChannelService {
     return member;
   };
 
+  addUser = async (channelId: string, userId: string) => {
+    const member = await this.repository.addUser(channelId, userId);
+    await this.changed(channelId);
+    return member;
+  };
+
   changed = (channelId: string) => notifyChannel(this.db, channelId);
 
   detail = async (channelId: string, options: Parameters<ChannelRepository['detail']>[1]) => {
@@ -122,9 +129,32 @@ export class ChannelService {
     };
   };
 
+  remove = async (channelId: string) => {
+    await this.repository.remove(channelId);
+    // The coordinator physically stops revoked runs and retries unconfirmed exits.
+    // Keep receipts and directory locks until then, without holding this request open.
+    // A scheduling failure propagates; repeating the deletion safely schedules it again.
+    await Promise.all([wakeChannel(channelId), this.changed(channelId)]);
+  };
+
+  removeThread = async (channelId: string, threadId: string) => {
+    await this.repository.removeThread(channelId, threadId);
+    await Promise.all([wakeChannel(channelId), this.changed(channelId)]);
+  };
+
   send = async (channelId: string, input: Omit<ChannelSendInput, 'routing'>) => {
-    const message = await this.repository.send(channelId, { ...input, routing: 'fallback' });
+    const config = await resolveChannelRoutingConfig(this.db, this.userId);
+    const message = await this.repository.send(channelId, {
+      ...input,
+      routing: config ? 'jev' : 'fallback',
+    });
     // Do not swallow a queue failure: the client can retry the SAME request key safely.
+    await Promise.all([wakeChannel(channelId), this.changed(channelId)]);
+    return message;
+  };
+
+  retryRouting = async (channelId: string, messageId: string) => {
+    const message = await this.repository.retryRouting(channelId, messageId);
     await Promise.all([wakeChannel(channelId), this.changed(channelId)]);
     return message;
   };

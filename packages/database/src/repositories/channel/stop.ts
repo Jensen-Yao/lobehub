@@ -37,7 +37,7 @@ interface StopCandidate {
 export const stopScope = async (
   tx: Transaction,
   channelId: string,
-  scope: ChannelStopScope,
+  scope: ChannelStopScope | { all: true },
 ): Promise<ChannelJobItem[]> => {
   let jobs: StopCandidate[];
 
@@ -47,10 +47,13 @@ export const stopScope = async (
       .from(channelJobs)
       .where(and(eq(channelJobs.channelId, channelId), eq(channelJobs.id, scope.jobId)));
   } else {
-    await findThread(tx, channelId, scope.threadId);
-    const inBranch = scope.threadId
-      ? eq(channelMessages.threadId, scope.threadId)
-      : isNull(channelMessages.threadId);
+    if ('threadId' in scope) await findThread(tx, channelId, scope.threadId);
+    const inBranch =
+      'threadId' in scope
+        ? scope.threadId
+          ? eq(channelMessages.threadId, scope.threadId)
+          : isNull(channelMessages.threadId)
+        : undefined;
     await tx
       .update(channelMessages)
       .set({
@@ -72,7 +75,11 @@ export const stopScope = async (
       .where(
         and(
           eq(channelJobs.channelId, channelId),
-          scope.threadId ? eq(channelJobs.threadId, scope.threadId) : isNull(channelJobs.threadId),
+          'threadId' in scope
+            ? scope.threadId
+              ? eq(channelJobs.threadId, scope.threadId)
+              : isNull(channelJobs.threadId)
+            : undefined,
         ),
       );
   }

@@ -1,3 +1,4 @@
+import type { ChannelPublicMember } from '@lobechat/types';
 import {
   INSERT_MENTION_COMMAND,
   ReactCodePlugin,
@@ -32,8 +33,10 @@ import { systemStatusSelectors } from '@/store/global/selectors';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
 
 import { ComposerRecipients } from './ComposerRecipients';
+import { MemberAvatar } from './MemberAvatar';
+import { memberAvatar, memberName } from './memberName';
 import { $insertChannelMentionBoundary, channelMentionIds } from './mentions';
-import { type ComposerMember, composerRecipients } from './recipients';
+import { composerRecipients } from './recipients';
 import { styles } from './styles';
 import { useAttachments } from './useAttachments';
 import { useComposerDraft } from './useComposerDraft';
@@ -50,12 +53,12 @@ export function Composer({
   onStop,
   placeholder,
 }: {
-  /** Agents that reply when the message mentions nobody. */
+  /** Agents eligible when the message mentions nobody. */
   defaultRecipientIds: string[];
   /** Where unsent input is kept; see {@link useComposerDraft}. */
   draftKey: string;
   inThread?: boolean;
-  members: ComposerMember[];
+  members: ChannelPublicMember[];
   replying?: boolean;
   onStop?: () => void;
   placeholder?: string;
@@ -173,7 +176,12 @@ export function Composer({
                     recipients={composerRecipients({
                       defaultRecipientIds,
                       inThread,
-                      members,
+                      members: members.map((member) => ({
+                        actorType: member.actorType,
+                        avatar: memberAvatar(member),
+                        id: member.id,
+                        name: memberName(member, t('deletedMember')),
+                      })),
                       mentionIds,
                     })}
                   />
@@ -208,8 +216,9 @@ export function Composer({
             variant="chat"
             mentionOption={{
               items: members.map((member) => ({
+                icon: <MemberAvatar member={member} size={24} />,
                 key: member.id,
-                label: member.name,
+                label: memberName(member, t('deletedMember')),
                 metadata: { type: 'channel-member', id: member.id },
               })),
               searchKeys: ['label'],

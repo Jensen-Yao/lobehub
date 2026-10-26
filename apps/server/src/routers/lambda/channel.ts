@@ -31,10 +31,22 @@ const channelProcedure = wsCompatProcedure.use(serverDatabase).use(async ({ ctx,
 });
 
 export const channelRouter = router({
+  userCandidates: channelProcedure
+    .input(z.object({ channelId, search: z.string().max(100).optional() }))
+    .query(async ({ ctx, input }) => ({
+      data: await ctx.channelService.repository.userCandidates(input.channelId, input.search),
+      success: true,
+    })),
   addAgent: channelProcedure
     .input(z.object({ channelId, agent: agentSelection }))
     .mutation(async ({ ctx, input }) => ({
       data: await ctx.channelService.addAgent(input.channelId, input.agent),
+      success: true,
+    })),
+  addUser: channelProcedure
+    .input(z.object({ channelId, userId: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => ({
+      data: await ctx.channelService.addUser(input.channelId, input.userId),
       success: true,
     })),
   create: channelProcedure
@@ -46,18 +58,6 @@ export const channelRouter = router({
     )
     .mutation(async ({ ctx, input }) => ({
       data: await ctx.channelService.create(input),
-      success: true,
-    })),
-  createThread: channelProcedure
-    .input(
-      z.object({
-        channelId,
-        followerMemberIds: z.array(z.uuid()).max(100),
-        rootMessageId: z.uuid(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => ({
-      data: await ctx.channelService.repository.createThread(input.channelId, input),
       success: true,
     })),
   detail: channelProcedure
@@ -83,6 +83,22 @@ export const channelRouter = router({
       data: await ctx.channelService.repository.markRead(input.channelId, input.sequence),
       success: true,
     })),
+  remove: channelProcedure.input(z.object({ channelId })).mutation(async ({ ctx, input }) => {
+    await ctx.channelService.remove(input.channelId);
+    return { success: true };
+  }),
+  removeThread: channelProcedure
+    .input(z.object({ channelId, threadId }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.channelService.removeThread(input.channelId, input.threadId);
+      return { success: true };
+    }),
+  retryRouting: channelProcedure
+    .input(z.object({ channelId, messageId: z.uuid() }))
+    .mutation(async ({ ctx, input }) => ({
+      data: await ctx.channelService.retryRouting(input.channelId, input.messageId),
+      success: true,
+    })),
   send: channelProcedure
     .input(
       z.object({
@@ -91,6 +107,7 @@ export const channelRouter = router({
         fileIds: z.array(z.string().min(1)).max(CHANNEL_LIMITS.attachments).optional(),
         mentions: z.array(z.uuid()).max(100).optional(),
         requestKey: z.string().min(1).max(200),
+        rootMessageId: z.uuid().optional(),
         threadId: threadId.nullish(),
       }),
     )

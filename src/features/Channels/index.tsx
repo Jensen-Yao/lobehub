@@ -4,7 +4,7 @@ import { useSize } from 'ahooks';
 import { Hash } from 'lucide-react';
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams, useSearchParams } from 'react-router';
+import { useParams } from 'react-router';
 
 import NotFound from '@/components/404';
 import NavHeader from '@/features/NavHeader';
@@ -17,13 +17,13 @@ import { ChannelConversation } from './ChannelConversation';
 import { MemberStatus } from './MemberStatus';
 import { styles } from './styles';
 import { THREAD_FLOAT_BREAKPOINT, ThreadPanel } from './ThreadPanel';
+import { useThreadPanel } from './useThreadPanel';
 
 /** One Channel: the main conversation, with a thread beside it. */
 function EnabledChannelPage() {
   const { t } = useTranslation('channel');
   const { channelId } = useParams<{ channelId: string }>();
-  const [params, setParams] = useSearchParams();
-  const threadId = params.get('thread');
+  const panel = useThreadPanel(channelId ?? '');
   const conversationRef = useRef<HTMLDivElement>(null);
   const conversationWidth = useSize(conversationRef)?.width;
   // Shares the main conversation's request; the header and thread panel read the same view.
@@ -31,14 +31,6 @@ function EnabledChannelPage() {
   const sync = channelActions.useFetchDetail(channelId ? view : null);
   const detail = visibleChannelDetail(useChannelStore(channelSelectors.detail(view)), sync.error);
   if (!channelId) return null;
-
-  const setThread = (id: string | null) =>
-    setParams((current) => {
-      const next = new URLSearchParams(current);
-      if (id) next.set('thread', id);
-      else next.delete('thread');
-      return next;
-    });
 
   return (
     <Flexbox {...stylex.props(styles.layout)}>
@@ -56,17 +48,23 @@ function EnabledChannelPage() {
       <Flexbox horizontal ref={conversationRef} {...stylex.props(styles.conversations)}>
         <ChannelConversation
           channelId={channelId}
-          inert={!!threadId && (conversationWidth ?? 1000) < THREAD_FLOAT_BREAKPOINT}
           key={channelId}
-          onOpenThread={(id) => setThread(threadId === id ? null : id)}
+          inert={
+            !!(panel.threadId || panel.draft) &&
+            (conversationWidth ?? 1000) < THREAD_FLOAT_BREAKPOINT
+          }
+          onOpenThread={panel.openThread}
+          onStartThread={panel.openDraft}
         />
         {detail && (
           <ThreadPanel
             availableWidth={conversationWidth}
             detail={detail}
+            draft={panel.draft}
             key={`thread:${channelId}`}
-            threadId={threadId}
-            onClose={() => setThread(null)}
+            threadId={panel.threadId}
+            onClose={panel.close}
+            onSendDraft={panel.send}
           />
         )}
       </Flexbox>

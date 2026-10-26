@@ -1,4 +1,18 @@
 export default {
+  'people.title': 'Add workspace members',
+  'people.description':
+    'Members added here can read this channel’s history and join the conversation.',
+  'people.search': 'Search workspace members',
+  'people.add': 'Add',
+  'people.addName': 'Add {{name}}',
+  'people.added': '{{name}} can now participate in this channel.',
+  'people.addFailed': 'Could not add this member. Check their workspace membership and try again.',
+  'people.empty': 'All available workspace members have joined',
+  'people.noMatches': 'No matching workspace members',
+  'people.searchMore': 'Showing the first 50 members. Search to find more.',
+  'receipt.errorReason': 'Failure reason',
+  'receipt.errorUnavailable':
+    'No detailed reason was recorded. Check the Agent’s model and device settings before sending again.',
   'title': 'Channels',
   'create': 'Create channel',
   'description':
@@ -16,6 +30,36 @@ export default {
   'cancel': 'Cancel',
   'environmentHint':
     'Native Agents can reply without a device. Coding Agents need an online device and a working directory.',
+  'environment.agentUnavailable':
+    'This Agent is no longer available. Remove it and choose another.',
+  'environment.checkingDevice': 'Checking status',
+  'environment.chooseDevice': 'Choose a device',
+  'environment.completeRequired': 'Complete the highlighted settings before continuing.',
+  'environment.configurationFailed': 'Could not load this Agent’s settings. Try again.',
+  'environment.configurationLoading': 'Loading this Agent’s settings…',
+  'environment.defaultsHint':
+    'Starts with each Agent’s device and working directory. Changes here apply only to this channel.',
+  'environment.deviceLabel': 'Device for {{name}}',
+  'environment.deviceOffline': 'This device is offline. Reconnect it or choose another device.',
+  'environment.deviceRequired': 'Choose an online device for this coding Agent.',
+  'environment.deviceUnavailable':
+    'This device is unavailable in the current space. Choose an accessible device.',
+  'environment.devicesFailed':
+    'Could not confirm device status. Refresh the device list and try again.',
+  'environment.devicesLoading': 'Checking device status…',
+  'environment.directoryLabel': 'Working directory for {{name}}',
+  'environment.directoryRequired': 'Choose a working directory on this device.',
+  'environment.directoryUnavailable':
+    'Could not verify the directory. Check the device connection and choose the directory again.',
+  'environment.executionRequired':
+    'Choose an online device and working directory for every coding Agent.',
+  'environment.permissionRequired':
+    'You do not have permission to save these members. Check channel and Agent access.',
+  'environment.saveFailed':
+    'Could not save channel members. Your choices are preserved; try again.',
+  'environment.signInRequired': 'Sign in again before saving channel members.',
+  'environment.unavailableDevice': 'Previously selected device (unavailable)',
+  'environment.unsupportedRuntime': 'This Agent cannot run in a channel yet. Choose another Agent.',
   'directoryRequired': 'Choose a working directory for each device.',
   'deviceRequired': 'Choose an online device and a working directory for each coding Agent.',
   'noDevice': 'No device',
@@ -23,6 +67,17 @@ export default {
   'noDevices': 'No device is connected. Connect one, then choose it here.',
   'offline': 'Offline',
   'chooseDirectory': 'Choose directory',
+  'delete': 'Delete Channel',
+  'deleteConfirm':
+    'Delete “{{title}}”? This channel will disappear for all its members and can no longer be opened. Running tasks will be requested to stop. Agents and local files will not be deleted.',
+  'deleteFailed': 'Could not confirm the deletion. Try again.',
+  'deleteForbidden': 'Only the channel owner or an administrator can delete this channel.',
+  'deleteSuccess': 'Channel deleted',
+  'deleteThread': 'Delete thread',
+  'deleteThreadConfirm':
+    'Delete this thread? Its replies will disappear for all channel members and cannot be restored. Running tasks in this thread will be requested to stop. The original channel message, Agents and local files will be kept.',
+  'deleteThreadForbidden': 'Only the channel owner or an administrator can delete threads.',
+  'deleteThreadSuccess': 'Thread deleted',
   'deletedMember': 'Former member',
   'membersTitle': 'Members',
   'membersCount': 'Members · {{count}}',
@@ -53,7 +108,7 @@ export default {
   'attachments.upload': 'Attach files',
   'attachments.failed': 'Upload failed. Try again.',
   'attachments.limit': 'Attach up to {{count}} files.',
-  'routing.pending': 'Choosing who replies…',
+  'routing.receiving': 'Agents receiving your message…',
   'routing.unassigned': 'No reply assigned. Mention an Agent to continue.',
   'receipt.memberLabel': '{{name}}: {{state}}',
   'receipt.replied': '{{count}} replied',
@@ -69,7 +124,7 @@ export default {
   'status.idle': 'Idle',
   'status.paused': 'Paused',
   'status.stopping': 'Stopping · waiting for execution to end',
-  'status.queued': 'Queued',
+  'status.preparing': 'Preparing…',
   'status.running': 'Replying…',
   'status.completed': 'Replied',
   'status.failed': 'Reply failed',
@@ -77,6 +132,7 @@ export default {
   'blocked.device_approval_pending': 'Waiting for device approval',
   'blocked.device_offline': 'Waiting for device to connect',
   'blocked.directory_locked': 'Waiting for this directory to be released',
+  'blocked.member_busy': 'Waiting for the previous reply',
   'blocked.unavailable': 'Agent unavailable',
   'blocked.workspace_changed': 'Workspace changed',
 };

@@ -1,20 +1,26 @@
 import { Button, createModal, Flexbox, Icon, Input, Text, useModalContext } from '@lobehub/ui';
-import * as stylex from '@stylexjs/stylex';
 import { t } from 'i18next';
 import { Hash } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import AsyncError from '@/components/AsyncError';
-import type { ChannelAgentSelection } from '@/services/channel';
 import { channelActions } from '@/store/channel';
 
-import { styles } from '../styles';
+import type { ChannelAgentDraft } from './agentEnvironment';
+import { canSubmitChannelAgents, toChannelAgentSelection } from './agentEnvironment';
 import { AgentSelection } from './AgentSelection';
+import { getChannelSaveErrorKey } from './saveError';
 import { useChannelAgentOptions } from './useChannelAgentOptions';
 
 /** Matches the `title` bound in `apps/server/src/routers/lambda/channel.ts`. */
 const TITLE_MAX_LENGTH = 100;
+
+type ChannelStep = 'members' | 'name';
+const MODAL_WIDTH: Record<ChannelStep, string> = {
+  members: 'min(90vw, 800px)',
+  name: 'min(90vw, 480px)',
+};
 
 interface CreateChannelProps {
   /** Set when adding members to a Channel that already exists. */
@@ -22,26 +28,37 @@ interface CreateChannelProps {
   onCreated?: (id: string) => void;
 }
 
-export const openCreateChannel = (props: CreateChannelProps = {}) =>
-  createModal({
-    content: <CreateChannel {...props} />,
+export const openCreateChannel = (props: CreateChannelProps = {}) => {
+  const modal = createModal({
+    content: (
+      <CreateChannel
+        {...props}
+        onStepChange={(step) => modal.update({ width: MODAL_WIDTH[step] })}
+      />
+    ),
     footer: null,
     title: t(props.existing ? 'addMembers' : 'create', { ns: 'channel' }),
-    width: 'min(90vw, 800px)',
+    width: MODAL_WIDTH[props.existing ? 'members' : 'name'],
   });
+  return modal;
+};
 
 /**
  * Creating asks for the name first, so the name rule is the only thing that can fail on that
  * screen; choosing members and where each one runs comes after. Adding members to an existing
  * Channel starts on the member step.
  */
-function CreateChannel({ existing, onCreated }: CreateChannelProps) {
+function CreateChannel({
+  existing,
+  onCreated,
+  onStepChange,
+}: CreateChannelProps & { onStepChange: (step: ChannelStep) => void }) {
   const { t } = useTranslation(['channel', 'common']);
   const { close, setCanDismissByClickOutside } = useModalContext();
-  const [step, setStep] = useState<'members' | 'name'>(existing ? 'members' : 'name');
+  const [step, setStep] = useState<ChannelStep>(existing ? 'members' : 'name');
   const [title, setTitle] = useState(existing?.title ?? '');
   const [titleInvalid, setTitleInvalid] = useState(false);
-  const [agents, setAgents] = useState<ChannelAgentSelection[]>([]);
+  const [agents, setAgents] = useState<ChannelAgentDraft[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>();
   const options = useChannelAgentOptions();
@@ -52,24 +69,30 @@ function CreateChannel({ existing, onCreated }: CreateChannelProps) {
     setCanDismissByClickOutside(!dirty && !busy);
   }, [busy, dirty, setCanDismissByClickOutside]);
 
+  const changeStep = (next: ChannelStep) => {
+    setStep(next);
+    onStepChange(next);
+  };
+
   const openMembers = () => {
     if (!title.trim()) {
       setTitleInvalid(true);
       return;
     }
-    setStep('members');
+    changeStep('members');
   };
 
   const submit = async () => {
-    if (busy || !agents.length) return;
+    if (busy || !canSubmitChannelAgents(agents)) return;
     setBusy(true);
     setError(undefined);
     try {
+      const selections = agents.map(toChannelAgentSelection);
       if (existing) {
-        await channelActions.addAgents(existing.id, agents);
+        await channelActions.addAgents(existing.id, selections);
         close();
       } else {
-        const id = await channelActions.create({ agents, title: title.trim() });
+        const id = await channelActions.create({ agents: selections, title: title.trim() });
         close();
         onCreated?.(id);
       }
@@ -121,17 +144,7 @@ function CreateChannel({ existing, onCreated }: CreateChannelProps) {
       </Flexbox>
     );
 
-  // The server rejects these; say which choice is missing before Create is pressed.
-  const missingDevice = agents.some(
-    (agent) =>
-      !agent.deviceId && !!options.agents?.find((entry) => entry.id === agent.agentId)?.runtime,
-  );
-  const missingDirectory = agents.some((agent) => agent.deviceId && !agent.workingDirectory);
-  const blockedReason = missingDevice
-    ? t('deviceRequired')
-    : missingDirectory
-      ? t('directoryRequired')
-      : undefined;
+  const canSubmit = canSubmitChannelAgents(agents);
   return (
     <Flexbox gap={20}>
       <Flexbox horizontal align="center" gap={6}>
@@ -149,18 +162,19 @@ function CreateChannel({ existing, onCreated }: CreateChannelProps) {
           onChange={setAgents}
         />
       </Flexbox>
-      {error !== undefined && <AsyncError error={error} variant="inline" />}
+      {error !== undefined && (
+        <AsyncError error={error} title={t(getChannelSaveErrorKey(error))} variant="inline" />
+      )}
       <Flexbox horizontal align="center" gap={8} justify="flex-end">
-        {blockedReason && <span {...stylex.props(styles.muted)}>{blockedReason}</span>}
-        <Button disabled={busy} onClick={existing ? close : () => setStep('name')}>
+        {agents.length > 0 && !canSubmit && (
+          <Text fontSize={12} type="secondary">
+            {t('environment.completeRequired')}
+          </Text>
+        )}
+        <Button disabled={busy} onClick={existing ? close : () => changeStep('name')}>
           {existing ? t('cancel') : t('back', { ns: 'common' })}
         </Button>
-        <Button
-          disabled={!agents.length || !!blockedReason}
-          loading={busy}
-          type="primary"
-          onClick={() => void submit()}
-        >
+        <Button disabled={!canSubmit} loading={busy} type="primary" onClick={() => void submit()}>
           {t(existing ? 'addMembers' : 'submit')}
         </Button>
       </Flexbox>

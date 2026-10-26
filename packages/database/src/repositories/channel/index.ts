@@ -2,22 +2,34 @@ import type { ChannelMemberRole, ChannelVisibility } from '@lobechat/types';
 import { and, desc, eq, isNull, or } from 'drizzle-orm';
 
 import type { ChannelItem, ChannelJobItem, ChannelMessageItem } from '../../schemas';
-import { channelJobs, channelMembers, channelMessages, channels } from '../../schemas';
+import {
+  channelJobs,
+  channelMembers,
+  channelMessages,
+  channels,
+  channelThreads,
+} from '../../schemas';
 import type { LobeChatDatabase, Transaction } from '../../type';
 import { normalizeWorkspaceId } from '../../utils/workspace';
 import type { ChannelAddAgentInput } from './agent';
 import { addAgentMember, requireChannelAgent } from './agent';
 import { ChannelError } from './error';
+import { addChannelUser, channelUserCandidates } from './people';
 import { retryRouting } from './routing';
 import type { ChannelSendInput } from './send';
 import { sendMessage } from './send';
 import type { ChannelStopScope } from './stop';
 import { stopScope } from './stop';
-import { lockChannel } from './transaction';
+import { audit, lockChannel } from './transaction';
 import type { ChannelAccess, ChannelWriteOptions } from './types';
 import { createChannelThread, readChannelView } from './view';
 
 export type { ChannelAddAgentInput } from './agent';
+export {
+  CHANNEL_ROUTING_BATCH_SIZE,
+  CHANNEL_ROUTING_LEASE_MS,
+  ChannelRoutingRepository,
+} from './ChannelRoutingRepository';
 export type { ChannelClaim, ChannelClaimOptions } from './claim';
 export type { ChannelErrorCode } from './error';
 export { ChannelError } from './error';
@@ -112,13 +124,24 @@ export class ChannelRepository {
       minRole: 'admin',
     });
 
+  addUser = async (channelId: string, userId: string) =>
+    this.write(channelId, (tx, access) => addChannelUser(tx, access, userId), { minRole: 'admin' });
+
+  userCandidates = async (channelId: string, search?: string) =>
+    this.write(channelId, (tx, access) => channelUserCandidates(tx, access, search), {
+      minRole: 'admin',
+    });
+
   detail = async (channelId: string, options?: Parameters<typeof readChannelView>[2]) =>
     this.write(
       channelId,
-      async (tx, access) => ({
-        channel: access.channel,
-        ...(await readChannelView(tx, channelId, options)),
-      }),
+      async (tx, access) => {
+        if (access.channel.archived) throw new ChannelError('NOT_FOUND', 'Channel not found');
+        return {
+          channel: { ...access.channel, canDelete: hasRole(access.member.role, 'admin') },
+          ...(await readChannelView(tx, channelId, options)),
+        };
+      },
       { allowArchived: true },
     );
 
@@ -143,15 +166,15 @@ export class ChannelRepository {
     );
 
   /** Active channels the caller belongs to in the current scope, newest first. */
-  list = async (): Promise<ChannelItem[]> => {
+  list = async (): Promise<Array<ChannelItem & { canDelete: boolean }>> => {
     const rows = await this.db
-      .select({ channel: channels })
+      .select({ channel: channels, role: channelMembers.role })
       .from(channels)
       .innerJoin(channelMembers, eq(channelMembers.channelId, channels.id))
       .where(and(this.membershipWhere(), eq(channels.archived, false)))
       .orderBy(desc(channels.createdAt));
 
-    return rows.map((row) => row.channel);
+    return rows.map(({ channel, role }) => ({ ...channel, canDelete: hasRole(role, 'admin') }));
   };
 
   /** Read access. Returns undefined when the channel is missing or the caller is no member. */
@@ -220,6 +243,44 @@ export class ChannelRepository {
         return stopScope(tx, channelId, scope);
       },
       { allowArchived: true, minRole: 'threadId' in scope ? 'admin' : 'member' },
+    );
+
+  /** Soft-delete under the same lock as dispatch/publication; retain receipts until exit. */
+  remove = async (channelId: string): Promise<ChannelJobItem[]> =>
+    this.write(
+      channelId,
+      async (tx, { channel }) => {
+        const writers = await stopScope(tx, channelId, { all: true });
+        if (!channel.archived) {
+          await tx.update(channels).set({ archived: true }).where(eq(channels.id, channelId));
+          await audit(tx, channelId, 'archived', channelId);
+        }
+        return writers;
+      },
+      { allowArchived: true, minRole: 'admin' },
+    );
+
+  /** Retain job receipts and history internally, but make this branch inaccessible. */
+  removeThread = async (channelId: string, threadId: string): Promise<void> =>
+    this.write(
+      channelId,
+      async (tx) => {
+        const [thread] = await tx
+          .select()
+          .from(channelThreads)
+          .where(and(eq(channelThreads.channelId, channelId), eq(channelThreads.id, threadId)));
+        if (!thread) throw new ChannelError('NOT_FOUND', 'Thread not found');
+        // A retry after a scheduling failure must still be authorized, but must not
+        // repeat the archive or release a writer before the coordinator confirms exit.
+        if (thread.archived) return;
+        await stopScope(tx, channelId, { threadId });
+        await tx
+          .update(channelThreads)
+          .set({ archived: true })
+          .where(eq(channelThreads.id, threadId));
+        await audit(tx, channelId, 'thread_archived', threadId);
+      },
+      { minRole: 'admin' },
     );
 
   /** Sends an unassigned message back to Jev. Its author or an admin may retry. */

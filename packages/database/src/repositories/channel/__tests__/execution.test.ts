@@ -173,12 +173,12 @@ describe('ChannelExecutionRepository', () => {
     const threadAgent = await fixture.addAgent(channel.id, 'Thread', nativeConfig);
     const send = (requestKey: string, input: Partial<ChannelSendInput> = {}) =>
       asMember.send(channel.id, { content: requestKey, requestKey, routing: 'jev', ...input });
-    const root = await send('root');
+    const root = await send('root', { mentions: [member.id] });
     const [thread] = await db
       .insert(channelThreads)
       .values({ channelId: channel.id, rootMessageId: root.id, rootSequence: root.sequence })
       .returning();
-    await send('main-after-root');
+    await send('main-after-root', { mentions: [member.id] });
     const mainRequest = await send('main-request', { mentions: [mainAgent.id] });
     const threadRequest = await send('thread-request', {
       mentions: [threadAgent.id],
@@ -227,12 +227,38 @@ describe('ChannelExecutionRepository', () => {
     const [nextJob] = await jobsOf(db, next.id);
 
     expect(await execution.claim(channel.id, nextJob.id, lease)).toBeNull();
+    expect(await jobById(nextJob.id)).toMatchObject({ blockedCode: 'member_busy' });
     expect(await execution.claim(channel.id, job.id, lease)).not.toBeNull();
     expect(await execution.claim(channel.id, nextJob.id, lease)).toBeNull();
+    expect(await jobById(nextJob.id)).toMatchObject({ blockedCode: 'member_busy' });
 
     await execution.fail(channel.id, job.id, { message: 'boom', notSubmitted: true });
     expect(await jobById(job.id)).toMatchObject({ status: 'failed', writerHeld: false });
     expect(await execution.claim(channel.id, nextJob.id, lease)).not.toBeNull();
+    expect(await jobById(nextJob.id)).toMatchObject({ blockedCode: null });
+  });
+
+  it('claims independent Agents concurrently while keeping a shared directory exclusive', async () => {
+    const { asMember, channel } = await fixture.createTeamChannel();
+    const first = await fixture.addAgent(channel.id, 'First', deviceConfig());
+    const second = await fixture.addAgent(channel.id, 'Second', deviceConfig());
+    const native = await fixture.addAgent(channel.id, 'Native', nativeConfig);
+    const message = await asMember.send(channel.id, {
+      content: 'Together',
+      mentions: [first.id, second.id, native.id],
+      requestKey: 'parallel',
+      routing: 'jev',
+    });
+    const jobs = await jobsOf(db, message.id);
+    const claims = await Promise.all(jobs.map((job) => execution.claim(channel.id, job.id, lease)));
+    expect(claims.filter(Boolean)).toHaveLength(2);
+    expect(claims.some((claim) => claim?.member.id === native.id)).toBe(true);
+    const blocked = jobs[claims.findIndex((claim) => !claim)];
+    expect(await jobById(blocked.id)).toMatchObject({
+      blockedCode: 'directory_locked',
+      status: 'queued',
+      writerHeld: false,
+    });
   });
 
   it('blocks a job while another channel uses the same device directory', async () => {

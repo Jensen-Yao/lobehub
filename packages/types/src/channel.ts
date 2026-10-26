@@ -76,7 +76,7 @@ export interface ChannelExecutionConfig extends LobeAgentConfig, ChannelMemberCo
  * - `directed`: carried explicit @mentions; jobs were created in the send transaction.
  * - `pending`: waiting for Jev to pick responders.
  * - `assigned`: Jev (or the no-model fallback) picked at least one Agent.
- * - `unassigned`: Jev was unsure or failed; no Agent was woken and the user may retry.
+ * - `unassigned`: routing could not complete; no Agent was woken and the user may retry.
  * - `skipped`: Jev decided nobody needs to reply. Not a failure.
  * - `reply`: an Agent's published reply; replies never enter routing.
  */
@@ -110,6 +110,7 @@ export type ChannelJobBlockCode =
   | 'device_approval_pending'
   | 'device_offline'
   | 'directory_locked'
+  | 'member_busy'
   | 'unavailable'
   | 'workspace_changed';
 
@@ -154,6 +155,8 @@ export type ChannelAuditDetails = Record<string, boolean | number | string | str
 /** Public client projection. No execution configuration, private topic or draft fields. */
 export interface ChannelListItem {
   archived: boolean;
+  /** Server-computed for the current member. Missing in older cached projections. */
+  canDelete?: boolean;
   createdAt: Date;
   id: string;
   sequence: number;
@@ -199,6 +202,8 @@ export interface ChannelPublicMessage {
 
 export interface ChannelPublicJob {
   blockedCode: ChannelJobBlockCode | null;
+  /** Failure diagnostic only; optional for cached projections from older servers. */
+  errorMessage?: string | null;
   id: string;
   memberId: string;
   messageId: string;
