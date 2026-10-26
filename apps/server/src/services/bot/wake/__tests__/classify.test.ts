@@ -37,7 +37,7 @@ describe('createWakeClassify', () => {
     const [payload, options] = mockGenerateObject.mock.calls[0];
     expect(options.tracing).toMatchObject({
       agentId: 'agt',
-      promptVersion: 'v1',
+      promptVersion: 'v2',
       scenario: 'bot_wake_classifier',
       schemaName: 'bot_wake_classifier',
     });
@@ -46,6 +46,58 @@ describe('createWakeClassify', () => {
     expect(payload.schema.name).toBe('bot_wake_classifier');
     expect(payload.messages[1].content).toContain('billing only');
     expect(payload.messages[1].content).toContain('is the deploy done?');
+  });
+
+  it('reads the model the bot’s name and the conversation, with the bot labelled as the assistant', async () => {
+    mockGenerateObject.mockResolvedValue({ addressedToBot: 0.9, kind: 'request', reason: 'named' });
+
+    await createWakeClassify({ agentId: 'agt', db: {} as never, userId: 'u1' })(
+      {
+        conversation: {
+          botNames: ['Shadow Arvin'],
+          lastBotMessage: 'The rollout starts at noon.',
+          recent: [
+            {
+              at: 1,
+              authorId: 'bot-1',
+              authorName: 'Shadow Arvin',
+              id: 'm1',
+              isBot: true,
+              text: 'The rollout starts at noon.',
+            },
+            {
+              at: 2,
+              authorId: 'u2',
+              authorName: 'Bob',
+              id: 'm2',
+              isBot: false,
+              text: 'is it live?',
+            },
+          ],
+        },
+        signal: { ...signal, applicationId: 'bot-1', message: 'Shadow Arvin 听得到吗' },
+      },
+      new AbortController().signal,
+    );
+
+    const content = mockGenerateObject.mock.calls[0][0].messages[1].content as string;
+    expect(content).toContain('The assistant is called: Shadow Arvin');
+    expect(content).toContain("Assistant's last message:");
+    expect(content).toContain('Assistant: The rollout starts at noon.\nBob: is it live?');
+    expect(content).toContain('Shadow Arvin 听得到吗');
+  });
+
+  it('judges a message with no conversation on the text alone, as before', async () => {
+    mockGenerateObject.mockResolvedValue({ addressedToBot: 0.4, kind: 'other', reason: 'x' });
+
+    await createWakeClassify({ db: {} as never, userId: 'u1' })(
+      { signal },
+      new AbortController().signal,
+    );
+
+    const content = mockGenerateObject.mock.calls[0][0].messages[1].content as string;
+    expect(content).not.toContain('The assistant is called');
+    expect(content).not.toContain('Earlier messages');
   });
 
   it.each([

@@ -50,6 +50,8 @@ import {
   summarizeMessageAttachments,
 } from './utils';
 import {
+  type BotWakeEntryPoint,
+  type BotWakeInitiation,
   botWakeKindFor,
   type BotWakeObservation,
   type BotWakeReason,
@@ -232,11 +234,35 @@ export function registerHandlers(
       workspaceId: workspaceId ?? undefined,
     }),
     db: serverDB,
+    botNames: client.getBotNames && (async () => (await client.getBotNames!()) ?? []),
     operatorUserId,
     platform,
     settings: info.settings,
     userId,
     workspaceId: workspaceId ?? undefined,
+  });
+
+  const observationOf = (
+    entryPoint: BotWakeObservation['entryPoint'],
+    message: WakeMessageLike,
+    thread: { id: string },
+    outcome: BotWakeObservation['outcome'],
+    reason: BotWakeObservation['reason'],
+    threadSubscribed = false,
+  ): BotWakeObservation => ({
+    entryPoint,
+    message: {
+      attachments: message.attachments,
+      author: message.author,
+      id: message.id,
+      isMention: message.isMention,
+      raw: message.raw,
+      text: message.text,
+    },
+    outcome,
+    reason,
+    threadId: thread.id,
+    threadSubscribed,
   });
 
   const observe = (
@@ -247,21 +273,69 @@ export function registerHandlers(
     reason: BotWakeObservation['reason'],
     threadSubscribed = false,
   ) =>
-    wakeRecorder.record({
+    wakeRecorder.record(
+      observationOf(entryPoint, message, thread, outcome, reason, threadSubscribed),
+    );
+
+  /**
+   * Keeps what people said, everyone and not just the owner, in the channel's shared log so a later
+   * judgement can read it. A whole burst at once: the SDK hands over the latest message and parks
+   * the rest in `context.skipped`. Fire-and-forget; never throws.
+   */
+  const remember = (
+    entryPoint: BotWakeEntryPoint,
+    messages: WakeMessageLike[],
+    thread: { id: string },
+  ) => {
+    for (const message of messages) {
+      void wakeRecorder.remember(
+        observationOf(entryPoint, message, thread, 'skip', 'not-addressed'),
+      );
+    }
+  };
+
+  /**
+   * Records a skipped burst: the latest message with the same sender's earlier ones merged into
+   * it (the text that was judged), and every other person's parked message as a decision of its
+   * own, so what the bot did not answer is visible beside what it did.
+   */
+  const observeBurst = (
+    entryPoint: BotWakeEntryPoint,
+    message: Parameters<typeof mergeSkippedMessages>[0],
+    context: MessageContext | undefined,
+    thread: { id: string },
+    threadSubscribed = false,
+  ) => {
+    const sameSender = new Set(getSameSenderMessages(message, context?.skipped));
+    for (const other of context?.skipped ?? []) {
+      if (!sameSender.has(other)) {
+        observe(entryPoint, other, thread, 'skip', 'not-addressed', threadSubscribed);
+      }
+    }
+    observe(
       entryPoint,
-      message: {
-        attachments: message.attachments,
-        author: message.author,
-        id: message.id,
-        isMention: message.isMention,
-        raw: message.raw,
-        text: message.text,
-      },
-      outcome,
-      reason,
-      threadId: thread.id,
+      mergeSkippedMessages(message, context),
+      thread,
+      'skip',
+      'not-addressed',
       threadSubscribed,
-    });
+    );
+  };
+
+  /**
+   * Whether a message nobody addressed to the bot should wake it anyway: it says the bot's name,
+   * or arrives in the follow-up window and the classifier agrees. Always `undefined` unless the
+   * owner switched the rules to `enforce`. `message` is the burst merged, as it would run.
+   */
+  const initiate = (
+    entryPoint: BotWakeEntryPoint,
+    message: WakeMessageLike,
+    thread: { id: string },
+    threadSubscribed = false,
+  ): Promise<BotWakeInitiation | undefined> =>
+    wakeRecorder.initiate(
+      observationOf(entryPoint, message, thread, 'skip', 'not-addressed', threadSubscribed),
+    );
 
   const gateFollowup = createFollowupGate({
     applicationId,
@@ -272,6 +346,7 @@ export function registerHandlers(
   });
 
   bot.onNewMention(async (thread, message, context?: MessageContext) => {
+    remember('onNewMention', [...(context?.skipped ?? []), message], thread);
     const replyLocale = detectReplyLocale(message);
     // Record the original @mentioner so the first follow-up in
     // `onSubscribedMessage` recognises them as participant #1 instead of
@@ -400,6 +475,7 @@ export function registerHandlers(
       ...(context?.skipped ?? []),
       message,
     ]);
+    remember('onSubscribedMessage', [...(context?.skipped ?? []), message], thread);
     if (message.author.isBot === true) return;
     const replyLocale = detectReplyLocale(message);
 
@@ -458,7 +534,19 @@ export function registerHandlers(
           messageMatchesWatchKeyword(m.text, watchKeywords),
         ) === true);
 
-    if (!isAddressedToBot && !isCommand && !matchesWatchKeyword) {
+    // Nobody addressed the bot. With the rules enforcing it may still speak up: its name is in the
+    // text, or it spoke lately and the classifier agrees. Judged on the whole burst, as it would run.
+    const initiation =
+      !isAddressedToBot && !isCommand && !matchesWatchKeyword
+        ? await initiate(
+            'onSubscribedMessage',
+            mergeSkippedMessages(message, context),
+            thread,
+            true,
+          )
+        : undefined;
+
+    if (!isAddressedToBot && !isCommand && !matchesWatchKeyword && !initiation) {
       log(
         'onSubscribedMessage: skip non-mention in group thread, agent=%s, platform=%s, author=%s, thread=%s',
         agentId,
@@ -487,11 +575,11 @@ export function registerHandlers(
           log('onSubscribedMessage: mention-mode announcement failed: %O', error);
         }
       }
-      observe('onSubscribedMessage', message, thread, 'skip', 'not-addressed', true);
+      observeBurst('onSubscribedMessage', message, context, thread, true);
       return;
     }
 
-    if (matchesWatchKeyword && !isAddressedToBot && !isCommand) {
+    if ((matchesWatchKeyword || initiation) && !isAddressedToBot && !isCommand) {
       if (!(await isMessageMonitoringAllowed('onSubscribedMessage', thread.id))) {
         observe('onSubscribedMessage', message, thread, 'skip', 'monitoring-not-allowed', true);
         return;
@@ -578,7 +666,7 @@ export function registerHandlers(
           ? 'solo-conversation'
           : matchesWatchKeyword && !isCommand
             ? 'watch-keyword'
-            : 'addressed';
+            : (initiation?.reason ?? 'addressed');
     // Only a wake nobody asked for may end in silence; a DM, @mention, command or solo
     // conversation is always answered, exactly as before. Until the bot-wake rollout reaches this
     // bot's owner nothing may: every wake is answered, as it was before the pipeline existed.
@@ -588,6 +676,8 @@ export function registerHandlers(
       (await gateFollowup({
         entryPoint: 'onSubscribedMessage',
         merged,
+        // Already judged by `initiate`: do not judge again.
+        initiated: !!initiation,
         parked: [...(context?.skipped ?? []), message],
         thread,
         threadSubscribed: true,
@@ -686,11 +776,14 @@ export function registerHandlers(
     displayToolCalls,
     dmSettings,
     gateFollowup,
+    initiate,
     isMessageMonitoringAllowed,
+    observeBurst,
     operatorUserId,
     passGatesOrNotify,
     platform,
     observe,
+    remember,
     reactionMode,
     serverDB,
     userId,

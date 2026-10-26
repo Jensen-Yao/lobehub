@@ -63,12 +63,15 @@ function isSubscribableThread(platformThreadId: string): boolean {
   return guildId === '@me' || !!discordThreadId;
 }
 
+const BOT_NAMES_TTL_MS = 60 * 60 * 1000;
+
 class DiscordGatewayClient implements PlatformClient {
   readonly id = 'discord';
   readonly applicationId: string;
 
   private abort = new AbortController();
   private bot: ChatBot<any> | null = null;
+  private botNames?: { expiresAt: number; names: string[] };
   private config: BotProviderConfig;
   private context: BotPlatformRuntimeContext;
   private discord: DiscordApi;
@@ -483,6 +486,16 @@ class DiscordGatewayClient implements PlatformClient {
     const [, guildId, , discordThreadId] = threadId.split(':');
     return guildId === '@me' || !discordThreadId;
   }
+
+  /** The bot account's names, read once an hour: renaming a bot is rare, and each read is a REST call. */
+  getBotNames = async (): Promise<string[]> => {
+    if (this.botNames && this.botNames.expiresAt > Date.now()) return this.botNames.names;
+
+    const names = await this.discord.getBotNames();
+    this.botNames = { expiresAt: Date.now() + BOT_NAMES_TTL_MS, names };
+
+    return names;
+  };
 
   /**
    * Spawn a Discord thread off the triggering message when the bot wakes

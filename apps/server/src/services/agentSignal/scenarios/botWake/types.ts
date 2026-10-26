@@ -65,6 +65,32 @@ export interface WakeChannelKeys {
   threadKey?: string;
 }
 
+/** One message of a channel's recent conversation, as kept for context. Never the full history. */
+export interface WakeConversationLine {
+  /** Epoch ms the message was sent. */
+  at: number;
+  authorId?: string;
+  authorName?: string;
+  /** Platform message id; the same message seen by two bots is one line. */
+  id: string;
+  /** Another bot, or this one. */
+  isBot: boolean;
+  text: string;
+}
+
+/**
+ * What was said around a message: who the bot is, what it last said and the messages just before.
+ * Read from a log shared by every bot in the channel, so it holds other people's words too.
+ */
+export interface WakeConversation {
+  /** Names people may call the bot by (its platform username and display name). */
+  botNames: string[];
+  /** The bot's own latest message in this conversation, when it is still in the log. */
+  lastBotMessage?: string;
+  /** The messages before the one being judged, oldest first. */
+  recent: WakeConversationLine[];
+}
+
 /**
  * Everything a wake policy may read besides the signal. The runner resolves it once per
  * evaluation, so policies stay pure and never touch the database, Redis or the clock.
@@ -72,6 +98,8 @@ export interface WakeChannelKeys {
 export interface WakeStateSnapshot {
   /** Channel state read from Redis, merged over the channel and thread keys. */
   channel?: WakeChannelState;
+  /** Who the bot is and what was said just before; absent when no conversation could be read. */
+  conversation?: WakeConversation;
   /** The message @-mentions the bot. */
   explicitMention: boolean;
   /** Epoch ms of the bot's latest reply in the thread, when known. */

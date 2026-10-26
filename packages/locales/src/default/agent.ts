@@ -437,7 +437,7 @@ export default {
     'No keywords added yet — bot only wakes on @mention or DM in subscribed channels.',
   'channel.botWakeEnabled': 'Judge unprompted follow-ups',
   'channel.botWakeEnabledHint':
-    "Turns on the rules below. They decide whether the bot may answer a message nobody addressed to it: a watch keyword in a thread it was not mentioned in, or a message continuing a conversation it already joined. Plain channel chatter is only judged and recorded, never answered. Off keeps today's behavior, where a watch keyword wakes the bot without a rule check.",
+    "Turns on the rules below. They decide whether the bot may answer a message nobody addressed to it: a watch keyword in a thread it was not mentioned in, or a message continuing a conversation it already joined. Plain channel chatter is only judged and recorded, unless the rules are set to Enforce: then a message that calls the bot by name, or comes soon after it spoke, can start a reply. Off keeps today's behavior, where a watch keyword wakes the bot without a rule check.",
   'channel.botWakeMode': 'Rules',
   'channel.botWakeModeHint': 'How the built-in rules and the settings below are applied.',
   'channel.botWakeModeOff': 'Off',
@@ -445,7 +445,8 @@ export default {
   'channel.botWakeModeShadow': 'Record only',
   'channel.botWakeModeShadowHint': 'Rules are evaluated and recorded, but never stop a reply.',
   'channel.botWakeModeEnforce': 'Enforce',
-  'channel.botWakeModeEnforceHint': 'A rule that says no stops the bot from joining.',
+  'channel.botWakeModeEnforceHint':
+    'A rule that says no stops the bot from joining. A message that calls the bot by name, or comes soon after it spoke, can also start a reply, even without an @mention.',
   'channel.botWakeScope': 'Where it may join',
   'channel.botWakeScopeHint': 'Limits the places where the bot may join unprompted.',
   'channel.botWakeScopeAll': 'Everywhere it can see',

@@ -13,6 +13,7 @@ import { z } from 'zod';
 
 import type { LobeChatDatabase } from '@/database/type';
 import { initModelRuntimeFromDB } from '@/server/modules/ModelRuntime';
+import { describeLine } from '@/server/services/agentSignal/scenarios/botWake/conversation';
 import type {
   WakeClassification,
   WakeClassify,
@@ -59,8 +60,17 @@ export const createWakeClassify = ({
   userId,
   workspaceId,
 }: CreateWakeClassifyOptions): WakeClassify => {
-  return async ({ customInstructions, signal }, abortSignal): Promise<WakeClassification> => {
-    const chain = chainBotWakeClassifier({ customInstructions, message: signal.message });
+  return async (
+    { conversation, customInstructions, signal },
+    abortSignal,
+  ): Promise<WakeClassification> => {
+    const chain = chainBotWakeClassifier({
+      botNames: conversation?.botNames,
+      customInstructions,
+      lastBotMessage: conversation?.lastBotMessage,
+      message: signal.message,
+      recentMessages: conversation?.recent.map((line) => describeLine(line, signal.applicationId)),
+    });
     const runtime = await initModelRuntimeFromDB(db, userId, provider, workspaceId);
 
     log('classify model=%s provider=%s thread=%s', model, provider, signal.platformThreadId);
