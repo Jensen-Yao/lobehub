@@ -8,7 +8,7 @@ import { useMutation } from '@tanstack/react-query';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { type CredsApi } from '../useCredsApi';
+import { createExtras, type CredsApi } from '../useCredsApi';
 
 const styles = stylex.create({
   connectionOption: { display: 'flex', gap: '8px', alignItems: 'center' },
@@ -66,6 +66,7 @@ const OAuthCredForm: FC<OAuthCredFormProps> = ({ credsApi, disabled, onBack, onS
         key: values.key,
         name: values.name,
         oauthConnectionId: values.oauthConnectionId,
+        ...createExtras(credsApi),
       });
     },
     onSuccess: () => {

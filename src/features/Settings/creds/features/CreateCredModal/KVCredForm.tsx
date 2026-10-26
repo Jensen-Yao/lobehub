@@ -8,7 +8,7 @@ import { Minus, Plus } from 'lucide-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { type CredsApi } from '../useCredsApi';
+import { createExtras, type CredsApi } from '../useCredsApi';
 
 const styles = stylex.create({
   footer: { display: 'flex', gap: '8px', justifyContent: 'flex-end', marginBlockStart: '24px' },
@@ -58,6 +58,7 @@ const KVCredForm: FC<KVCredFormProps> = ({ credsApi, type, disabled, onBack, onS
         name: values.name,
         type,
         values: valuesObj,
+        ...createExtras(credsApi),
       });
     },
     onSuccess: () => {
