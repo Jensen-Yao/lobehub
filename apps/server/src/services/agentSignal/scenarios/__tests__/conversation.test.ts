@@ -77,6 +77,19 @@ describe('conversation lines', () => {
     expect(describeLine(theirs, 'bot-1')).toBe('Alice: thanks');
     expect(describeLine({ ...theirs, authorName: undefined }, 'bot-1')).toBe('someone: thanks');
   });
+
+  it('marks the bot’s owner, so their name is not read as just another person', () => {
+    const owner = toConversationLine({
+      ...base,
+      authorId: 'owner-1',
+      authorName: 'arvin',
+      text: 'ok',
+    });
+
+    expect(describeLine(owner, 'bot-1', 'owner-1')).toBe('arvin (owner): ok');
+    expect(describeLine(owner, 'bot-1', 'someone-else')).toBe('arvin: ok');
+    expect(describeLine(owner, 'bot-1')).toBe('arvin: ok');
+  });
 });
 
 describe('matchesBotName', () => {

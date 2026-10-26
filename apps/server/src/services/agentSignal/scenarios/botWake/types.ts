@@ -83,10 +83,19 @@ export interface WakeConversationLine {
  * Read from a log shared by every bot in the channel, so it holds other people's words too.
  */
 export interface WakeConversation {
+  /** The agent behind the bot: its name and its title (identity or role). */
+  agent?: { name?: string; title?: string };
   /** Names people may call the bot by (its platform username and display name). */
   botNames: string[];
   /** The bot's own latest message in this conversation, when it is still in the log. */
   lastBotMessage?: string;
+  /** The bot owner's id on the platform, to mark their lines in the transcript. */
+  ownerId?: string;
+  /**
+   * What the owner is called: their LobeHub name and the names they go by on the platform. Their
+   * name is a person's, so a message that only says it is not addressed to the bot.
+   */
+  ownerNames?: string[];
   /** The messages before the one being judged, oldest first. */
   recent: WakeConversationLine[];
 }

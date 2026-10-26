@@ -149,14 +149,55 @@ describe('createWakeClassify with a decision model (the default)', () => {
     expect(result).toMatchObject({ addressedToBot: 0.93, kind: 'request' });
     expect(mockGenerateObject).not.toHaveBeenCalled();
     const [payload, options] = mockDecide.mock.calls[0];
-    expect(mockInit.mock.calls[0][2]).toBe('openai');
-    expect(payload.model).toBe('gpt-6-luna:decision');
+    expect(mockInit.mock.calls[0][2]).toBe('openrouter');
+    expect(payload.model).toBe('typesafe/jev-1.13');
     expect(payload.questions.addressed.type).toBe('boolean');
     expect(payload.state).toContain('The assistant is called: Shadow Arvin');
     expect(payload.state).toContain('Shadow Arvin 听得到吗');
     // The deadline reaches the upstream call, so a late answer stops costing.
     expect(options.signal).toBe(abort.signal);
     expect(options.metadata.trigger).toBe('bot');
+  });
+
+  it('writes the decision call to llm_generation_tracing like any other generation', async () => {
+    mockDecide.mockResolvedValue(answer(0.5));
+
+    await createWakeClassify({ agentId: 'agt', db: {} as never, userId: 'u1' })(
+      { signal },
+      new AbortController().signal,
+    );
+
+    expect(mockDecide.mock.calls[0][1].tracing).toMatchObject({
+      agentId: 'agt',
+      promptVersion: 'decision-v1',
+      scenario: 'bot_wake_classifier',
+      schemaName: 'bot_wake_decision',
+    });
+  });
+
+  it('tells the model which agent the bot is and who owns it, and marks the owner’s lines', async () => {
+    mockDecide.mockResolvedValue(answer(0.5));
+
+    await createWakeClassify({ db: {} as never, userId: 'u1' })(
+      {
+        conversation: {
+          agent: { name: 'Arvin Agent', title: 'Release helper' },
+          botNames: ['Shadow Arvin'],
+          ownerId: 'owner-1',
+          ownerNames: ['Arvin Zhang'],
+          recent: [
+            { at: 1, authorId: 'owner-1', authorName: 'arvin', id: 'm1', isBot: false, text: 'hi' },
+          ],
+        },
+        signal,
+      },
+      new AbortController().signal,
+    );
+
+    const state = mockDecide.mock.calls[0][0].state as string;
+    expect(state).toContain('Its agent is named Arvin Agent (title: Release helper)');
+    expect(state).toContain('is called: Arvin Zhang');
+    expect(state).toContain('arvin (owner): hi');
   });
 
   it('can be pointed at a chat model such as DeepSeek flash instead', async () => {

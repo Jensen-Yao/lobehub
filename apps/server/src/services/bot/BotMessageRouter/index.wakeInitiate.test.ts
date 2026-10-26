@@ -43,6 +43,13 @@ vi.mock('../wake/scheduler', () => ({
   resolveWakeScheduler: () => undefined,
 }));
 vi.mock('../wake/classify', () => ({ createWakeClassify: () => mocks.classify }));
+vi.mock('../wake/identity', () => ({
+  createWakeIdentityLoader: () => async () => ({
+    agentName: 'Arvin Agent',
+    agentTitle: 'Release helper',
+    ownerNames: ['Arvin Zhang'],
+  }),
+}));
 vi.mock('@/server/featureFlags', async () => (await import('./testUtils')).featureFlagsModule());
 vi.mock('@/database/core/db-adaptor', async () => (await import('./testUtils')).dbAdaptorModule());
 vi.mock('@/database/models/agentBotProvider', async () =>
@@ -230,6 +237,22 @@ describe('BotMessageRouter: a message that only names the bot', () => {
       ['skip', 'not-addressed'],
       ['wake', 'followup-window'],
     ]);
+  });
+
+  it('gives the classifier the agent’s name and title and the owner’s name, with the owner’s lines marked', async () => {
+    mocks.channel.current = { botLastSpokeAt: Date.now() - 60_000, silentWakes: 0 };
+    mocks.classify.mockResolvedValue({ addressedToBot: 0.9, kind: 'request', reason: 'x' });
+    await boot({ ...enforcing, classifier: { mode: 'enforce', threshold: 0.5 } });
+
+    await catchAll()(thread(), message({ id: '100000000000000001', text: 'ship it' }));
+    await catchAll()(thread(), message({ id: '100000000000000002', text: '那现在呢?' }));
+    await flush();
+
+    const { conversation } = mocks.classify.mock.calls.at(-1)![0];
+    expect(conversation.agent).toEqual({ name: 'Arvin Agent', title: 'Release helper' });
+    expect(conversation.ownerId).toBe(OWNER);
+    expect(conversation.ownerNames).toContain('Arvin Zhang');
+    expect(conversation.ownerNames).toContain('arvin');
   });
 
   it('records every message of a burst, not just the last one', async () => {

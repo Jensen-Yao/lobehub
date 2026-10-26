@@ -163,6 +163,15 @@ export interface BotWakeRecorderOptions {
   /** Model call for the classifier policy; without it the classifier is not evaluated. */
   classify?: WakeClassify;
   db: LobeChatDatabase;
+  /**
+   * Who the bot's agent is and what the owner is called, so the classifier can tell the assistant
+   * from the person who set it up. Called lazily; the loader is expected to cache.
+   */
+  identity?: () => Promise<{
+    agentName?: string;
+    agentTitle?: string;
+    ownerNames?: readonly string[];
+  }>;
   /** The bot owner's user id on this platform (`settings.userId`). */
   operatorUserId?: string;
   platform: string;
@@ -402,24 +411,66 @@ export const createBotWakeRecorder = (options: BotWakeRecorderOptions): BotWakeR
     }
   };
 
+  const resolveIdentity = async () => {
+    try {
+      return (await options.identity?.()) ?? {};
+    } catch (error) {
+      // Without an identity the classifier still judges, from the bot's names and the transcript.
+      log('identity lookup failed: %O', error);
+
+      return {};
+    }
+  };
+
   const readConversation = async (
     observation: BotWakeObservation,
   ): Promise<WakeConversation | undefined> => {
     const logKey = logKeyFor(observation);
-    const [botNames, lines] = await Promise.all([
+    const [botNames, identity, lines] = await Promise.all([
       resolveBotNames(),
+      resolveIdentity(),
       logKey && state.readRecentMessages
         ? state.readRecentMessages(logKey, CONVERSATION_READ_LINES, observation.message.id)
         : undefined,
     ]);
-    if (botNames.length === 0 && !lines) return;
+    const hasIdentity = !!(
+      identity.agentName ||
+      identity.agentTitle ||
+      identity.ownerNames?.length
+    );
+    if (botNames.length === 0 && !lines && !hasIdentity) return;
 
     const recent = lines ?? [];
     const lastBotLine = recent.findLast((line) => line.isBot && line.authorId === applicationId);
 
+    // The owner is known by their LobeHub name, and by whatever they go by on the platform: the
+    // name on their earlier lines and on the message being judged.
+    const { author } = observation.message;
+    const platformNames = [
+      ...recent
+        .filter((line) => operatorUserId !== undefined && line.authorId === operatorUserId)
+        .map((line) => line.authorName),
+      ...(operatorUserId !== undefined && author?.userId === operatorUserId
+        ? [author.userName, author.fullName]
+        : []),
+    ];
+    const ownerNames = [
+      ...new Set(
+        [...(identity.ownerNames ?? []), ...platformNames]
+          .map((name) => name?.trim())
+          .filter((name): name is string => !!name),
+      ),
+    ];
+
     return {
+      agent:
+        identity.agentName || identity.agentTitle
+          ? { name: identity.agentName, title: identity.agentTitle }
+          : undefined,
       botNames: [...botNames],
       lastBotMessage: lastBotLine?.text,
+      ownerId: operatorUserId,
+      ownerNames: ownerNames.length > 0 ? ownerNames : undefined,
       recent: recent.slice(-CONVERSATION_PROMPT_LINES),
     };
   };

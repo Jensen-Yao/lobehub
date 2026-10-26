@@ -235,6 +235,45 @@ describe('bot-wake recorder: initiating a wake nobody addressed', () => {
       ]);
     });
 
+    it('hands the classifier the agent, the owner, and what the owner goes by on the platform', async () => {
+      const classify = classifierAnswer(0.9);
+      const state = fakeState(spokeRecently());
+      state.logs.set('discord:g1:c1', [
+        { at: 1, authorId: OWNER, authorName: 'arvin_x', id: 'a', isBot: false, text: 'ship it' },
+      ]);
+      const recorder = make(WITH_CLASSIFIER('enforce'), state, {
+        classify,
+        identity: async () => ({
+          agentName: 'Arvin Agent',
+          agentTitle: 'Release helper',
+          ownerNames: ['Arvin Zhang'],
+        }),
+      });
+
+      await recorder.initiate(observation({}, plain));
+
+      const { conversation } = (classify as any).mock.calls[0][0];
+      expect(conversation.agent).toEqual({ name: 'Arvin Agent', title: 'Release helper' });
+      expect(conversation.ownerId).toBe(OWNER);
+      // The LobeHub name, the name on the log's lines, and the name on the message being judged.
+      expect(conversation.ownerNames).toEqual(['Arvin Zhang', 'arvin_x', 'arvin']);
+    });
+
+    it('still judges when the identity cannot be read', async () => {
+      const classify = classifierAnswer(0.9);
+      const recorder = make(WITH_CLASSIFIER('enforce'), fakeState(spokeRecently()), {
+        classify,
+        identity: async () => {
+          throw new Error('db down');
+        },
+      });
+
+      await expect(recorder.initiate(observation({}, plain))).resolves.toEqual({
+        reason: 'followup-window',
+      });
+      expect((classify as any).mock.calls[0][0].conversation.agent).toBeUndefined();
+    });
+
     it('does not read the message being judged as its own context', async () => {
       const classify = classifierAnswer(0.9);
       const state = fakeState(spokeRecently());

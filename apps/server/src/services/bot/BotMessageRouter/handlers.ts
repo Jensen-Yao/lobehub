@@ -30,6 +30,7 @@ import {
 } from '../platforms';
 import { renderThrownAgentError } from '../renderThrownError';
 import { createWakeClassify } from '../wake/classify';
+import { createWakeIdentityLoader } from '../wake/identity';
 import { resolveWakeScheduler } from '../wake/scheduler';
 import type { WakeMessageLike } from '../wake/signal';
 import { createAccessGate } from './accessGate';
@@ -235,6 +236,7 @@ export function registerHandlers(
     }),
     db: serverDB,
     botNames: client.getBotNames && (async () => (await client.getBotNames!()) ?? []),
+    identity: createWakeIdentityLoader({ agentId, db: serverDB, userId }),
     operatorUserId,
     platform,
     settings: info.settings,

@@ -116,6 +116,36 @@ describe('application generation chains', () => {
     expect(messages[0].content).toContain('never the name of another person');
   });
 
+  it('tells both forms of the classifier which agent the bot is and who owns it', () => {
+    const input = {
+      agent: { name: 'Arvin Agent', title: 'Release helper' },
+      botNames: ['Shadow Arvin'],
+      message: 'Arvin, can you look?',
+      ownerNames: ['Arvin Zhang', 'arvin'],
+    };
+
+    for (const state of [
+      chainBotWakeClassifier(input).messages[1].content as string,
+      chainBotWakeDecision(input).state,
+    ]) {
+      expect(state).toContain('The assistant is called: Shadow Arvin');
+      expect(state).toContain('Its agent is named Arvin Agent (title: Release helper)');
+      expect(state).toContain('Its owner, the person who set it up, is called: Arvin Zhang, arvin');
+    }
+    // The owner's name is a person's: the guideline is in both prompts.
+    expect(chainBotWakeClassifier(input).messages[0].content).toContain("owner's own name");
+    expect(JSON.stringify(chainBotWakeDecision(input).questions.addressed)).toContain(
+      "owner's own name",
+    );
+  });
+
+  it('leaves out the agent and owner lines when there is nothing to say', () => {
+    const state = chainBotWakeDecision({ agent: {}, message: 'hi', ownerNames: [' '] }).state;
+
+    expect(state).not.toContain('Its agent');
+    expect(state).not.toContain('Its owner');
+  });
+
   it('omits the optional bot-wake classifier sections when they are empty', () => {
     const { messages } = chainBotWakeClassifier({ customInstructions: '  ', message: 'hi' });
 

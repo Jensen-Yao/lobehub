@@ -9,6 +9,7 @@ import type { GenerateObjectPayload, ModelRuntime } from '@lobechat/model-runtim
 import {
   BOT_WAKE_CLASSIFIER_JSON_SCHEMA,
   BOT_WAKE_CLASSIFIER_PROMPT_VERSION,
+  BOT_WAKE_DECISION_PROMPT_VERSION,
   BOT_WAKE_MESSAGE_KINDS,
   type BotWakeClassifierInput,
   chainBotWakeClassifier,
@@ -111,7 +112,16 @@ export const createWakeClassify = ({
 
     const response = await runtime.decide(
       { model, questions, state },
-      { metadata: { trigger: RequestTrigger.Bot }, signal: abortSignal },
+      {
+        metadata: { trigger: RequestTrigger.Bot },
+        signal: abortSignal,
+        tracing: {
+          agentId,
+          promptVersion: BOT_WAKE_DECISION_PROMPT_VERSION,
+          scenario: TRACING_SCENARIOS.BotWakeClassifier,
+          schemaName: 'bot_wake_decision',
+        } satisfies TracingOptions,
+      },
     );
 
     const { addressed, kind } = response.answers;
@@ -161,11 +171,15 @@ export const createWakeClassify = ({
 
   return async ({ conversation, customInstructions, signal }, abortSignal) => {
     const input: BotWakeClassifierInput = {
+      agent: conversation?.agent,
       botNames: conversation?.botNames,
       customInstructions,
       lastBotMessage: conversation?.lastBotMessage,
       message: signal.message,
-      recentMessages: conversation?.recent.map((line) => describeLine(line, signal.applicationId)),
+      ownerNames: conversation?.ownerNames,
+      recentMessages: conversation?.recent.map((line) =>
+        describeLine(line, signal.applicationId, conversation.ownerId),
+      ),
     };
 
     log(

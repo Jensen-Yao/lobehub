@@ -93,12 +93,23 @@ export const discordMessageTime = (id: string): number | undefined => {
   return Number(BigInt(id) >> 22n) + DISCORD_EPOCH_MS;
 };
 
-/** One line as the classifier reads it: the bot is "Assistant", everyone else is named. */
-export const describeLine = (line: WakeConversationLine, botAuthorId: string | undefined) => {
+/**
+ * One line as the classifier reads it: the bot is "Assistant", the bot's owner is marked, and
+ * everyone else is named.
+ */
+export const describeLine = (
+  line: WakeConversationLine,
+  botAuthorId: string | undefined,
+  ownerId?: string,
+) => {
+  const isOwner = ownerId !== undefined && line.authorId === ownerId;
+  const name = line.authorName?.trim() || 'someone';
   const speaker =
     line.isBot && botAuthorId !== undefined && line.authorId === botAuthorId
       ? 'Assistant'
-      : line.authorName?.trim() || 'someone';
+      : isOwner
+        ? `${name} (owner)`
+        : name;
 
   return `${speaker}: ${line.text}`;
 };
