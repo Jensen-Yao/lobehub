@@ -113,9 +113,9 @@ const isUnpersistedRuntimeOwner = async ({ db, operationId, userId }: OperationR
  * Workspace reads are member-wide (a teammate can open a topic another member's
  * run is still driving), but the Gateway stream and the run's terminal settle
  * stay with the user who started it: the gateway registers each operation under
- * that user's id and refuses every other `sub`. A missing row (the initial
- * insert is non-fatal) is not proof of a foreign owner, so it answers `false`
- * and leaves the caller's existing behaviour unchanged.
+ * that user's id and refuses every other `sub`. The initial insert is
+ * non-fatal, so a live run may have no row; its runtime metadata then names the
+ * starter, as in {@link isUnpersistedRuntimeOwner}.
  */
 export const isOperationOwnedByAnotherUser = async ({
   db,
@@ -128,5 +128,8 @@ export const isOperationOwnedByAnotherUser = async ({
     .where(eq(agentOperations.id, operationId))
     .limit(1);
 
-  return !!row && row.userId !== userId;
+  if (row) return row.userId !== userId;
+
+  const metadata = await createAgentStateManager().getOperationMetadata(operationId);
+  return !!metadata?.userId && metadata.userId !== userId;
 };

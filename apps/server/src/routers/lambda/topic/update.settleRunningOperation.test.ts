@@ -21,6 +21,14 @@ vi.mock('../_helpers/conversationResourceGuard', async (importOriginal) => ({
   assertCanUseTopicTargets: vi.fn(async () => []),
 }));
 
+// A live run whose non-fatal `agent_operations` insert failed is known only to
+// the runtime state.
+const mockGetOperationMetadata = vi.hoisted(() => vi.fn());
+vi.mock('@/server/modules/AgentRuntime/factory', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  createAgentStateManager: () => ({ getOperationMetadata: mockGetOperationMetadata }),
+}));
+
 const { topicRouter } = await import('./index');
 
 describe('topic.settleRunningOperation in a workspace', () => {
@@ -40,6 +48,7 @@ describe('topic.settleRunningOperation in a workspace', () => {
   });
 
   afterEach(async () => {
+    mockGetOperationMetadata.mockReset();
     await cleanupTestUser(testDB, teammateId);
     await cleanupTestUser(testDB, starterId);
   });
@@ -95,5 +104,17 @@ describe('topic.settleRunningOperation in a workspace', () => {
     await caller.settleRunningOperation({ id: topicId, operationId, status: 'active' });
 
     expect(await readMarker(topicId)).toBeUndefined();
+  });
+
+  it("guards a teammate's unpersisted run by its runtime metadata", async () => {
+    const { operationId, topicId } = await seedWaitingRun();
+    await testDB.delete(agentOperations).where(eq(agentOperations.id, operationId));
+    mockGetOperationMetadata.mockResolvedValue({ userId: starterId });
+    const caller = topicRouter.createCaller({ userId: teammateId, workspaceId } as any);
+
+    await expect(
+      caller.settleRunningOperation({ id: topicId, operationId, status: 'active' }),
+    ).resolves.toEqual({ activeOperationId: operationId, status: 'not_owner' });
+    expect(await readMarker(topicId)).toBe(operationId);
   });
 });
