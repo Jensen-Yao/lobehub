@@ -696,10 +696,18 @@ export class DocumentReviewModel {
         // `invalidate` only changes the status.
       }
 
+      // Keep the workspace predicate on the write itself: the locked read above is
+      // scoped, but a concurrent `rehomeDocumentReviews` could still move the row
+      // between the select and this update.
       const [result] = await tx
         .update(documentReviewCheckResults)
         .set(patch)
-        .where(eq(documentReviewCheckResults.id, id))
+        .where(
+          and(
+            eq(documentReviewCheckResults.id, id),
+            eq(documentReviewCheckResults.workspaceId, workspaceId),
+          ),
+        )
         .returning();
       return result;
     });
