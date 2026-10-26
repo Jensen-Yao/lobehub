@@ -480,6 +480,7 @@ export default {
   'pageEditor.review.impact.textual.desc': 'Text that differs from the compared version',
   'pageEditor.review.impact.textual.title': 'Direct wording changes',
   'pageEditor.review.impact.trigger': 'Changed text',
+  'pageEditor.review.rules.agentSuggested': 'Agent-suggested rules',
   'pageEditor.review.rules.confirmed': 'Confirmed',
   'pageEditor.review.rules.draft': 'Draft',
   'pageEditor.review.rules.draftHint': 'Confirm this rule set before running checks.',
