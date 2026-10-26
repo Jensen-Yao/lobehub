@@ -94,6 +94,11 @@ export const searchActivities = async (
 
   let query = ctx.db
     .select({
+      dossierId: userMemoriesActivities.dossierId,
+      injectable: userMemoriesActivities.injectable,
+      messageIds: userMemoriesActivities.messageIds,
+      projectId: userMemoriesActivities.projectId,
+      topicId: userMemoriesActivities.topicId,
       accessedAt: userMemoriesActivities.accessedAt,
       associatedLocations: userMemoriesActivities.associatedLocations,
       associatedObjects: userMemoriesActivities.associatedObjects,
@@ -151,6 +156,13 @@ export const searchContexts = async (
 
   let query = ctx.db
     .select({
+      firstSeenAt: userMemoriesContexts.firstSeenAt,
+      lastEvidenceAt: userMemoriesContexts.lastEvidenceAt,
+      nextSteps: userMemoriesContexts.nextSteps,
+      now: userMemoriesContexts.now,
+      openQuestions: userMemoriesContexts.openQuestions,
+      synthesizedAt: userMemoriesContexts.synthesizedAt,
+      userMemoryId: userMemoriesContexts.userMemoryId,
       accessedAt: userMemoriesContexts.accessedAt,
       associatedObjects: userMemoriesContexts.associatedObjects,
       associatedSubjects: userMemoriesContexts.associatedSubjects,
@@ -259,6 +271,12 @@ export const searchPreferences = async (
 
   let query = ctx.db
     .select({
+      appliesToEntityId: userMemoriesPreferences.appliesToEntityId,
+      evidenceCount: userMemoriesPreferences.evidenceCount,
+      evidenceSource: userMemoriesPreferences.evidenceSource,
+      holderEntityId: userMemoriesPreferences.holderEntityId,
+      lastEvidenceAt: userMemoriesPreferences.lastEvidenceAt,
+      scope: userMemoriesPreferences.scope,
       accessedAt: userMemoriesPreferences.accessedAt,
       capturedAt: userMemoriesPreferences.capturedAt,
       conclusionDirectives: userMemoriesPreferences.conclusionDirectives,

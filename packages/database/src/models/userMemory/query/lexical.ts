@@ -97,6 +97,11 @@ export async function searchActivitiesLexical(
 
   const rowsQuery = ctx.db
     .select({
+      dossierId: userMemoriesActivities.dossierId,
+      injectable: userMemoriesActivities.injectable,
+      messageIds: userMemoriesActivities.messageIds,
+      projectId: userMemoriesActivities.projectId,
+      topicId: userMemoriesActivities.topicId,
       accessedAt: userMemoriesActivities.accessedAt,
       associatedLocations: userMemoriesActivities.associatedLocations,
       associatedObjects: userMemoriesActivities.associatedObjects,
@@ -174,6 +179,13 @@ export async function searchContextsLexical(
   const contextCandidates = ctx.db.$with('lexical_context_candidates').as(
     ctx.db
       .select({
+        firstSeenAt: userMemoriesContexts.firstSeenAt,
+        lastEvidenceAt: userMemoriesContexts.lastEvidenceAt,
+        nextSteps: userMemoriesContexts.nextSteps,
+        now: userMemoriesContexts.now,
+        openQuestions: userMemoriesContexts.openQuestions,
+        synthesizedAt: userMemoriesContexts.synthesizedAt,
+        userMemoryId: userMemoriesContexts.userMemoryId,
         accessedAt: userMemoriesContexts.accessedAt,
         associatedObjects: userMemoriesContexts.associatedObjects,
         associatedSubjects: userMemoriesContexts.associatedSubjects,
@@ -232,6 +244,13 @@ export async function searchContextsLexical(
       type: contextCandidates.type,
       updatedAt: contextCandidates.updatedAt,
       userId: contextCandidates.userId,
+      firstSeenAt: contextCandidates.firstSeenAt,
+      lastEvidenceAt: contextCandidates.lastEvidenceAt,
+      nextSteps: contextCandidates.nextSteps,
+      now: contextCandidates.now,
+      openQuestions: contextCandidates.openQuestions,
+      synthesizedAt: contextCandidates.synthesizedAt,
+      userMemoryId: contextCandidates.userMemoryId,
       userMemoryIds: contextCandidates.userMemoryIds,
     })
     .from(contextCandidates)
@@ -373,6 +392,12 @@ export async function searchPreferencesLexical(
 
   const rowsQuery = ctx.db
     .select({
+      appliesToEntityId: userMemoriesPreferences.appliesToEntityId,
+      evidenceCount: userMemoriesPreferences.evidenceCount,
+      evidenceSource: userMemoriesPreferences.evidenceSource,
+      holderEntityId: userMemoriesPreferences.holderEntityId,
+      lastEvidenceAt: userMemoriesPreferences.lastEvidenceAt,
+      scope: userMemoriesPreferences.scope,
       accessedAt: userMemoriesPreferences.accessedAt,
       capturedAt: userMemoriesPreferences.capturedAt,
       conclusionDirectives: userMemoriesPreferences.conclusionDirectives,
@@ -442,6 +467,7 @@ export async function searchIdentitiesLexical(
 
   const rowsQuery = ctx.db
     .select({
+      entityId: userMemoriesIdentities.entityId,
       accessedAt: userMemoriesIdentities.accessedAt,
       capturedAt: userMemoriesIdentities.capturedAt,
       createdAt: userMemoriesIdentities.createdAt,
