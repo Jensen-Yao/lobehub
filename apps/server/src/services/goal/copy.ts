@@ -59,17 +59,43 @@ export class GoalCopyService {
     private readonly workspaceId?: string,
   ) {}
 
+  /**
+   * The readable fixture resources a copy will duplicate in the target scope,
+   * so the caller can check target permissions and storage before writing.
+   */
+  fixtureResources = async (
+    goalId: string,
+  ): Promise<{ documentIds: string[]; files: { id: string; size: number }[] }> => {
+    const source = await this.findSource(goalId);
+    const criteria = await new VerifyCriterionModel(
+      this.db,
+      this.userId,
+      this.workspaceId,
+    ).findByIds(source.config?.acceptance?.criteriaIds ?? []);
+    const documentIds = new Set<string>();
+    const fileIds = new Set<string>();
+    for (const criterion of criteria)
+      for (const { resource } of criterion.definition?.fixtures ?? [])
+        if (resource) (resource.type === 'document' ? documentIds : fileIds).add(resource.id);
+
+    const sourceDocuments = new DocumentModel(this.db, this.userId, this.workspaceId);
+    const sourceFiles = new FileModel(this.db, this.userId, this.workspaceId);
+    const readableDocumentIds: string[] = [];
+    for (const id of documentIds)
+      if (await sourceDocuments.findById(id)) readableDocumentIds.push(id);
+    const files: { id: string; size: number }[] = [];
+    for (const id of fileIds) {
+      const file = await sourceFiles.findById(id);
+      if (file) files.push({ id, size: file.size });
+    }
+    return { documentIds: readableDocumentIds, files };
+  };
+
   copyToWorkspace = async (
     goalId: string,
     targetWorkspaceId: string | null,
   ): Promise<{ goalId: string }> => {
-    const source = await new GoalModel(this.db, this.userId, this.workspaceId).findById(goalId);
-    if (!source)
-      throw new TRPCError({
-        cause: { data: { code: TransferErrorCode.ResourceNotFound } },
-        code: 'NOT_FOUND',
-        message: 'Goal not found',
-      });
+    const source = await this.findSource(goalId);
 
     const [problem] = await this.db
       .select({ description: goalNodes.description })
@@ -101,6 +127,17 @@ export class GoalCopyService {
       });
       return { goalId: graph.goal.id };
     });
+  };
+
+  private findSource = async (goalId: string) => {
+    const source = await new GoalModel(this.db, this.userId, this.workspaceId).findById(goalId);
+    if (!source)
+      throw new TRPCError({
+        cause: { data: { code: TransferErrorCode.ResourceNotFound } },
+        code: 'NOT_FOUND',
+        message: 'Goal not found',
+      });
+    return source;
   };
 
   /**

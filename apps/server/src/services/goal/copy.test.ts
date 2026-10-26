@@ -175,10 +175,14 @@ describe('GoalCopyService.copyToWorkspace', () => {
       },
     });
 
-    const { goalId } = await new GoalCopyService(serverDB, userId, workspaceId).copyToWorkspace(
-      source.goal.id,
-      null,
-    );
+    const service = new GoalCopyService(serverDB, userId, workspaceId);
+    // The preflight lists only resources the copy will duplicate.
+    expect(await service.fixtureResources(source.goal.id)).toEqual({
+      documentIds: [sourceDocument.id],
+      files: [{ id: 'goal-copy-fixture-file', size: 1 }],
+    });
+
+    const { goalId } = await service.copyToWorkspace(source.goal.id, null);
 
     const copy = (await new GoalModel(serverDB, userId).findById(goalId))!;
     const [criterion] = await new VerifyCriterionModel(serverDB, userId).findByIds(
