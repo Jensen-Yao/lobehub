@@ -2322,6 +2322,12 @@ export default {
   'goalEmpty.title': 'Chase goals without limits',
   'goalList.acceptanceProgress': '{{passed}}/{{total}} passed',
   'goalList.agentRuns': '{{count}} runs',
+  'goalList.contextMenu.copyConfirm': 'Copy',
+  'goalList.contextMenu.copyDescription':
+    'Copies the goal, its budget and acceptance criteria as a new draft. Progress, tasks and the agent are not copied; pick an agent there and start it.',
+  'goalList.contextMenu.copyFailed': 'Failed to copy goal',
+  'goalList.contextMenu.copySuccess': 'Goal copied',
+  'goalList.contextMenu.copyTitle': 'Copy goal',
   'goalList.empty': 'No goals yet',
   'goalList.taskProgress': '{{done}}/{{total}} tasks done',
   'goalList.findings': '{{count}} findings',

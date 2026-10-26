@@ -1,0 +1,154 @@
+import type { GoalConfig, GoalCreateConfig } from '@lobechat/types';
+import { TRPCError } from '@trpc/server';
+import { and, asc, eq } from 'drizzle-orm';
+
+import { DocumentModel } from '@/database/models/document';
+import { GoalModel } from '@/database/models/goal';
+import { VerifyCriterionModel } from '@/database/models/verifyCriterion';
+import { goalNodes } from '@/database/schemas';
+import type { LobeChatDatabase } from '@/database/type';
+import { TransferErrorCode } from '@/types/transferError';
+
+import { GoalService } from './GoalService';
+
+/**
+ * The part of a goal's config that is policy the owner chose and still means
+ * the same thing in another scope. Everything else is either runtime state
+ * (manager/supervisor/rollout receipts, planning leases, pause owners, change
+ * requests, reports) or names something in the source scope: the task agent,
+ * the planning model pair (dropped with the agent it overrides, as `setAgent`
+ * does), and the main-Agent policy, which `create` rejects without a goal agent.
+ */
+const copyableConfig = (config: GoalConfig | null, now: Date): GoalCreateConfig | undefined => {
+  if (!config) return undefined;
+  const { exploration, maxConcurrentTasks, recovery, rollout, schedule, supervision } = config;
+  const deadline = schedule?.deadline;
+  return {
+    // Criteria ids are re-pointed at the copied rows by the caller; numeric
+    // clauses only name series keys, which the copy samples afresh.
+    ...(config.acceptance?.metrics?.length
+      ? { acceptance: { metrics: config.acceptance.metrics } }
+      : {}),
+    ...(exploration ? { exploration } : {}),
+    ...(maxConcurrentTasks === undefined ? {} : { maxConcurrentTasks }),
+    ...(recovery ? { recovery } : {}),
+    ...(rollout ? { rollout } : {}),
+    // A deadline that already passed would pause the copy the moment it starts.
+    ...(deadline && new Date(deadline) > now ? { schedule: { deadline } } : {}),
+    ...(supervision?.maxIncidents === undefined
+      ? {}
+      : { supervision: { enabled: true, maxIncidents: supervision.maxIncidents } }),
+  };
+};
+
+/**
+ * Copy a goal into another scope (personal or a workspace).
+ *
+ * Like task copy, this clones the goal *definition* only: title, requirement,
+ * problem statement, budget, planning policy and acceptance criteria. The
+ * copy is a fresh `draft` with its own problem node — no graph progress,
+ * Tasks, events, traces, subscriptions or metric observations follow it, and
+ * it has no agent or project, since those name rows in the source scope. The
+ * owner picks an agent in the target and starts it from the goal page.
+ */
+export class GoalCopyService {
+  constructor(
+    private readonly db: LobeChatDatabase,
+    private readonly userId: string,
+    private readonly workspaceId?: string,
+  ) {}
+
+  copyToWorkspace = async (
+    goalId: string,
+    targetWorkspaceId: string | null,
+  ): Promise<{ goalId: string }> => {
+    const source = await new GoalModel(this.db, this.userId, this.workspaceId).findById(goalId);
+    if (!source)
+      throw new TRPCError({
+        cause: { data: { code: TransferErrorCode.ResourceNotFound } },
+        code: 'NOT_FOUND',
+        message: 'Goal not found',
+      });
+
+    const [problem] = await this.db
+      .select({ description: goalNodes.description })
+      .from(goalNodes)
+      .where(and(eq(goalNodes.goalId, source.id), eq(goalNodes.kind, 'problem')))
+      .orderBy(asc(goalNodes.createdAt))
+      .limit(1);
+
+    const targetScope = targetWorkspaceId ?? undefined;
+
+    return this.db.transaction(async (tx) => {
+      const db = tx as unknown as LobeChatDatabase;
+      const criteriaIds = await this.copyCriteria(
+        db,
+        source.config?.acceptance?.criteriaIds ?? [],
+        targetScope,
+      );
+      const config = copyableConfig(source.config, new Date());
+      const graph = await new GoalService(db, this.userId, targetScope).create({
+        config: criteriaIds.length
+          ? { ...config, acceptance: { ...config?.acceptance, criteriaIds } }
+          : config,
+        draft: true,
+        maxRounds: source.maxRounds ?? undefined,
+        maxTotalCost: source.maxTotalCost ?? undefined,
+        problemDescription: problem?.description ?? undefined,
+        requirement: source.requirement ?? undefined,
+        title: source.title,
+      });
+      return { goalId: graph.goal.id };
+    });
+  };
+
+  /**
+   * Clone the goal's acceptance criteria into the target scope, instruction
+   * documents included: criteria and their documents are scoped rows, so the
+   * copy cannot keep pointing at the source's. Returned ids keep the source order;
+   * a criterion the caller can no longer read is skipped.
+   */
+  private copyCriteria = async (
+    db: LobeChatDatabase,
+    ids: string[],
+    targetWorkspaceId: string | undefined,
+  ): Promise<string[]> => {
+    if (ids.length === 0) return [];
+    const sourceCriteria = new VerifyCriterionModel(db, this.userId, this.workspaceId);
+    const sourceDocuments = new DocumentModel(db, this.userId, this.workspaceId);
+    const targetCriteria = new VerifyCriterionModel(db, this.userId, targetWorkspaceId);
+    const targetDocuments = new DocumentModel(db, this.userId, targetWorkspaceId);
+
+    const rows = new Map((await sourceCriteria.findByIds(ids)).map((row) => [row.id, row]));
+    const copied: string[] = [];
+    for (const id of ids) {
+      const row = rows.get(id);
+      if (!row) continue;
+      const document = row.documentId ? await sourceDocuments.findById(row.documentId) : undefined;
+      const documentCopy = document
+        ? await targetDocuments.create({
+            content: document.content,
+            fileType: document.fileType,
+            source: document.source,
+            sourceType: document.sourceType,
+            title: document.title,
+            totalCharCount: document.totalCharCount,
+            totalLineCount: document.totalLineCount,
+          })
+        : undefined;
+      const criterion = await targetCriteria.create({
+        definition: row.definition,
+        description: row.description,
+        documentId: documentCopy?.id ?? null,
+        onFail: row.onFail,
+        required: row.required,
+        tags: row.tags,
+        title: row.title,
+        verifierConfig: row.verifierConfig,
+        verifierType: row.verifierType,
+      });
+      copied.push(criterion.id);
+    }
+    return copied;
+  };
+}
