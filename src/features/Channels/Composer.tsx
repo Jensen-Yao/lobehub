@@ -6,17 +6,12 @@ import {
   ReactListPlugin,
   ReactMentionPlugin,
 } from '@lobehub/editor';
-import {
-  ChatInput,
-  ChatInputActionBar,
-  Editor,
-  SendButton,
-  useEditor,
-} from '@lobehub/editor/react';
+import { ChatInput, Editor, SendButton, useEditor } from '@lobehub/editor/react';
 import { ActionIcon, Flexbox, Upload } from '@lobehub/ui';
 import * as stylex from '@stylexjs/stylex';
 import { $getSelection, $isRangeSelection } from 'lexical';
 import { Paperclip } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -28,13 +23,13 @@ import WideScreenContainer from '@/features/WideScreenContainer';
 import { useEnterToSend } from '@/hooks/useEnterToSend';
 import { usePermission } from '@/hooks/usePermission';
 import { useSingleton } from '@/hooks/useSingleton';
-import { useGlobalStore } from '@/store/global';
-import { systemStatusSelectors } from '@/store/global/selectors';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
+import { useUserStore } from '@/store/user';
+import { userProfileSelectors } from '@/store/user/selectors';
 
 import { ComposerRecipients } from './ComposerRecipients';
 import { MemberAvatar } from './MemberAvatar';
-import { memberAvatar, memberName } from './memberName';
+import { isCurrentUserMember, memberAvatar, memberName } from './memberName';
 import { $insertChannelMentionBoundary, channelMentionIds } from './mentions';
 import { composerRecipients } from './recipients';
 import { styles } from './styles';
@@ -44,6 +39,7 @@ import { useComposerDraft } from './useComposerDraft';
 const plugins = [ReactCodePlugin, ReactListPlugin, ReactLinkHighlightPlugin, ReactMentionPlugin];
 
 export function Composer({
+  activity,
   defaultRecipientIds,
   draftKey,
   inThread = false,
@@ -53,6 +49,8 @@ export function Composer({
   onStop,
   placeholder,
 }: {
+  /** Who is replying right now; shown on the line above the input. */
+  activity?: ReactNode;
   /** Agents eligible when the message mentions nobody. */
   defaultRecipientIds: string[];
   /** Where unsent input is kept; see {@link useComposerDraft}. */
@@ -73,7 +71,7 @@ export function Composer({
   const editor = useEditor();
   const draft = useComposerDraft(editor, draftKey);
   const shouldSendOnEnter = useEnterToSend();
-  const height = useGlobalStore(systemStatusSelectors.chatInputHeight);
+  const userId = useUserStore(userProfileSelectors.userId);
   const [content, setContent] = useState('');
   const [mentionIds, setMentionIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -95,6 +93,8 @@ export function Composer({
   usePasteFile(editor, upload);
   const hasDraft = !!content.trim() || attachments.items.length > 0;
   const memberIds = members.map((member) => member.id);
+  // Mentioning yourself notifies nobody and picks no reply.
+  const mentionable = members.filter((member) => !isCurrentUserMember(member, userId));
   const send = async () => {
     const value = String(editor.getDocument('markdown') || '').trim();
     const fileIds = attachments.readyFileIds();
@@ -124,139 +124,139 @@ export function Composer({
       setBusy(false);
     }
   };
+  const preview = attachments.items.length > 0 && (
+    <Flexbox horizontal gap={8} inert={busy} padding={8} wrap="wrap">
+      {attachments.items.map((item) =>
+        item.file.type.startsWith('image/') && item.status === 'success' ? (
+          <DraftImage
+            alt={item.file.name}
+            key={item.id}
+            src={item.fileUrl}
+            onRemove={() => attachments.remove(item.id)}
+          />
+        ) : (
+          <DraftFile
+            {...item}
+            key={item.id}
+            onRemove={() => attachments.remove(item.id)}
+            onRetry={() => attachments.retry(item.id)}
+          />
+        ),
+      )}
+    </Flexbox>
+  );
   return (
     <WideScreenContainer fullWidth paddingInline={24}>
-      <Flexbox {...stylex.props(styles.composer)} gap={8} {...getContainerProps()}>
-        {attachments.items.length > 0 && (
-          <Flexbox horizontal gap={8} inert={busy} wrap="wrap">
-            {attachments.items.map((item) =>
-              item.file.type.startsWith('image/') && item.status === 'success' ? (
-                <DraftImage
-                  alt={item.file.name}
-                  key={item.id}
-                  src={item.fileUrl}
-                  onRemove={() => attachments.remove(item.id)}
-                />
-              ) : (
-                <DraftFile
-                  {...item}
-                  key={item.id}
-                  onRemove={() => attachments.remove(item.id)}
-                  onRetry={() => attachments.retry(item.id)}
-                />
-              ),
-            )}
+      <Flexbox {...stylex.props(styles.composer)} gap={4} {...getContainerProps()}>
+        <div {...stylex.props(styles.composerStatus)}>
+          <Flexbox horizontal align="center" style={{ minWidth: 0 }}>
+            {activity}
           </Flexbox>
-        )}
-        <ChatInput
-          resize
-          defaultHeight={height || 32}
-          maxHeight={320}
-          minHeight={36}
-          footer={
-            <ChatInputActionBar
-              style={{ paddingRight: 8 }}
-              left={
-                <Flexbox horizontal align="center" gap={8} {...stylex.props(styles.composerTools)}>
-                  {enableUpload && (
-                    <Upload
-                      multiple
-                      disabled={busy || !canUpload}
-                      onFiles={(files) => void upload(files)}
-                    >
-                      <ActionIcon
-                        aria-label={t('attachments.upload')}
-                        disabled={busy || !canUpload}
-                        icon={Paperclip}
-                        title={reason || t('attachments.upload')}
-                      />
-                    </Upload>
-                  )}
-                  <ComposerRecipients
-                    recipients={composerRecipients({
-                      defaultRecipientIds,
-                      inThread,
-                      members: members.map((member) => ({
-                        actorType: member.actorType,
-                        avatar: memberAvatar(member),
-                        id: member.id,
-                        name: memberName(member, t('deletedMember')),
-                      })),
-                      mentionIds,
-                    })}
-                  />
-                </Flexbox>
-              }
-              right={
-                <SendButton
-                  aria-label={t(replying && !hasDraft ? 'stopReply' : 'send')}
-                  disabled={busy || !hasDraft || attachments.blocked}
-                  generating={replying && !hasDraft}
-                  loading={busy}
-                  onSend={() => void send()}
-                  onStop={onStop}
-                />
-              }
+          {hasDraft && (
+            <ComposerRecipients
+              recipients={composerRecipients({
+                defaultRecipientIds,
+                inThread,
+                members: members.map((member) => ({
+                  actorType: member.actorType,
+                  avatar: memberAvatar(member),
+                  id: member.id,
+                  name: memberName(member, t('deletedMember')),
+                })),
+                mentionIds,
+              })}
             />
-          }
-          onSizeChange={(chatInputHeight) =>
-            useGlobalStore.getState().updateSystemStatus({ chatInputHeight })
-          }
+          )}
+        </div>
+        <ChatInput
+          header={preview || undefined}
+          maxHeight={480}
+          minHeight={0}
+          resize={false}
+          styles={{ body: { overflow: 'visible', padding: 0 } }}
         >
-          <Editor
-            autoFocus
-            aria-label={placeholder || t('composer')}
-            content=""
-            editable={!busy}
-            editor={editor}
-            placeholder={placeholder || t('composer')}
-            plugins={plugins}
-            slashPlacement="top"
-            type="text"
-            variant="chat"
-            mentionOption={{
-              items: members.map((member) => ({
-                icon: <MemberAvatar member={member} size={24} />,
-                key: member.id,
-                label: memberName(member, t('deletedMember')),
-                metadata: { type: 'channel-member', id: member.id },
-              })),
-              searchKeys: ['label'],
-              markdownWriter: (node) => `@${node.label}`,
-              onSelect: (instance, option) => {
-                instance.dispatchCommand(INSERT_MENTION_COMMAND, {
-                  label: String(option.label),
-                  metadata: option.metadata,
-                });
-                // Leave the decorator's cursor node before the next @ is typed.
-                instance.getLexicalEditor()?.update(() => {
-                  const selection = $getSelection();
-                  if ($isRangeSelection(selection)) selection.insertText(' ');
-                });
-              },
-            }}
-            onBlur={() => draft.flush()}
-            onInit={() => requestAnimationFrame(draft.restore)}
-            onKeyDown={({ event }) => members.length > 0 && $insertChannelMentionBoundary(event)}
-            onChange={() => {
-              // onTextChange skips the first dirty update in the editor. A first
-              // paste/keystroke must enable Send, while caret moves keep retries idempotent.
-              const json = editor.getDocument('json');
-              const document = JSON.stringify(json);
-              if (document !== previousDocument.current) {
-                previousDocument.current = document;
-                setContent(String(editor.getDocument('markdown') || ''));
-                setMentionIds(channelMentionIds(json, memberIds));
-                requestKey.current = crypto.randomUUID();
-                draft.save();
-              }
-            }}
-            onPressEnter={({ event }) => {
-              if (event.isComposing || !shouldSendOnEnter(event)) return;
-              void send();
-              return true;
-            }}
-          />
+          <div {...stylex.props(styles.composerRow)}>
+            {enableUpload && (
+              <Upload
+                multiple
+                disabled={busy || !canUpload}
+                onFiles={(files) => void upload(files)}
+              >
+                <ActionIcon
+                  aria-label={t('attachments.upload')}
+                  disabled={busy || !canUpload}
+                  icon={Paperclip}
+                  title={reason || t('attachments.upload')}
+                />
+              </Upload>
+            )}
+            <div {...stylex.props(styles.composerEditor)}>
+              <Editor
+                autoFocus
+                aria-label={placeholder || t('composer')}
+                content=""
+                editable={!busy}
+                editor={editor}
+                placeholder={placeholder || t('composer')}
+                plugins={plugins}
+                slashPlacement="top"
+                type="text"
+                variant="chat"
+                mentionOption={{
+                  items: mentionable.map((member) => ({
+                    icon: <MemberAvatar member={member} size={24} />,
+                    key: member.id,
+                    label: memberName(member, t('deletedMember')),
+                    metadata: { type: 'channel-member', id: member.id },
+                  })),
+                  searchKeys: ['label'],
+                  markdownWriter: (node) => `@${node.label}`,
+                  onSelect: (instance, option) => {
+                    instance.dispatchCommand(INSERT_MENTION_COMMAND, {
+                      label: String(option.label),
+                      metadata: option.metadata,
+                    });
+                    // Leave the decorator's cursor node before the next @ is typed.
+                    instance.getLexicalEditor()?.update(() => {
+                      const selection = $getSelection();
+                      if ($isRangeSelection(selection)) selection.insertText(' ');
+                    });
+                  },
+                }}
+                onBlur={() => draft.flush()}
+                onInit={() => requestAnimationFrame(draft.restore)}
+                onChange={() => {
+                  // onTextChange skips the first dirty update in the editor. A first
+                  // paste/keystroke must enable Send, while caret moves keep retries idempotent.
+                  const json = editor.getDocument('json');
+                  const document = JSON.stringify(json);
+                  if (document !== previousDocument.current) {
+                    previousDocument.current = document;
+                    setContent(String(editor.getDocument('markdown') || ''));
+                    setMentionIds(channelMentionIds(json, memberIds));
+                    requestKey.current = crypto.randomUUID();
+                    draft.save();
+                  }
+                }}
+                onKeyDown={({ event }) =>
+                  mentionable.length > 0 && $insertChannelMentionBoundary(event)
+                }
+                onPressEnter={({ event }) => {
+                  if (event.isComposing || !shouldSendOnEnter(event)) return;
+                  void send();
+                  return true;
+                }}
+              />
+            </div>
+            <SendButton
+              aria-label={t(replying && !hasDraft ? 'stopReply' : 'send')}
+              disabled={busy || !hasDraft || attachments.blocked}
+              generating={replying && !hasDraft}
+              loading={busy}
+              onSend={() => void send()}
+              onStop={onStop}
+            />
+          </div>
         </ChatInput>
         {error && (
           <span {...stylex.props(styles.error)} role="alert">

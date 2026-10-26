@@ -15,6 +15,9 @@ import { visibleChannelDetail } from './channelAccess';
 import { ChannelMessage, ThreadRootMessage } from './ChannelMessage';
 import { Composer } from './Composer';
 import { isChannelJobActive } from './jobStatus';
+import { JoinEventLine } from './JoinEventLine';
+import { channelJoinEvents, channelTimeline } from './joinEvents';
+import { ReplyActivity } from './ReplyActivity';
 import { styles } from './styles';
 import type { ChannelThreadDraft } from './threadDraft';
 import { useChannelEvents } from './useChannelEvents';
@@ -83,6 +86,14 @@ const Timeline = ({
   const replying = detail?.jobs.some(
     (job) => (job.threadId ?? null) === threadId && isChannelJobActive(job),
   );
+  // Join lines belong to the main conversation; a thread starts from its root message.
+  const timeline = detail
+    ? channelTimeline(
+        detail.messages,
+        threadId ? [] : channelJoinEvents(detail.members),
+        !detail.hasMore && before === undefined,
+      )
+    : [];
 
   return (
     <Flexbox
@@ -108,7 +119,7 @@ const Timeline = ({
             )}
             <Flexbox
               aria-label={t(threadId ? 'thread' : 'main')}
-              justify={!threadId && !detail.messages.length ? 'center' : undefined}
+              justify={!threadId && !timeline.length ? 'center' : undefined}
               ref={feedRef}
               onScroll={(event) => {
                 const feed = event.currentTarget;
@@ -143,22 +154,26 @@ const Timeline = ({
                 {detail.rootMessage && (
                   <ThreadRootMessage detail={detail} root={detail.rootMessage} />
                 )}
-                {!detail.messages.length &&
+                {!timeline.length &&
                   (threadId ? (
                     <p {...stylex.props(styles.muted)}>{t('threadEmpty')}</p>
                   ) : (
                     <Empty icon={MessageSquare} title={t('conversationEmpty')} />
                   ))}
-                {detail.messages.map((message) => (
-                  <ChannelMessage
-                    detail={detail}
-                    key={message.id}
-                    message={message}
-                    threadId={threadId}
-                    onOpenThread={onOpenThread}
-                    onStartThread={onStartThread}
-                  />
-                ))}
+                {timeline.map((item) =>
+                  item.kind === 'event' ? (
+                    <JoinEventLine event={item.event} key={item.event.id} />
+                  ) : (
+                    <ChannelMessage
+                      detail={detail}
+                      key={item.message.id}
+                      message={item.message}
+                      threadId={threadId}
+                      onOpenThread={onOpenThread}
+                      onStartThread={onStartThread}
+                    />
+                  ),
+                )}
               </WideScreenContainer>
             </Flexbox>
             {actionError !== undefined && (
@@ -174,6 +189,7 @@ const Timeline = ({
               </WideScreenContainer>
             ) : (
               <Composer
+                activity={<ReplyActivity detail={detail} threadId={threadId} />}
                 defaultRecipientIds={defaultRecipientIds}
                 draftKey={channelDraftKey(channelId, threadId)}
                 inThread={!!threadId}

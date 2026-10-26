@@ -1,4 +1,5 @@
 import type { ChannelListItem } from '@lobechat/types';
+import { CHANNEL_LIMITS } from '@lobechat/types';
 import {
   AccordionHeader,
   AccordionItem,
@@ -14,11 +15,12 @@ import {
   Text,
   toast,
 } from '@lobehub/ui';
-import { Copy, GitBranch, Hash, MoreHorizontal, Plus, Trash } from 'lucide-react';
+import { Copy, GitBranch, Hash, MoreHorizontal, PencilLine, Plus, Trash } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useActiveWorkspaceSlug } from '@/business/client/hooks/useActiveWorkspaceSlug';
 import AsyncError from '@/components/AsyncError';
+import { openRenameModal } from '@/components/RenameModal';
 import EmptyNavItem from '@/features/NavPanel/components/EmptyNavItem';
 import NavItem from '@/features/NavPanel/components/NavItem';
 import SkeletonList from '@/features/NavPanel/components/SkeletonList';
@@ -28,6 +30,7 @@ import { useActiveLocation } from '@/hooks/useActiveLocation';
 import { channelActions, channelSelectors, useChannelStore } from '@/store/channel';
 import { useUserStore } from '@/store/user';
 import { labPreferSelectors, preferenceSelectors } from '@/store/user/selectors';
+import { isTrpcErrorCode } from '@/utils/trpcError';
 
 import { openCreateChannel } from './CreateChannel';
 import { channelPath, matchChannel } from './paths';
@@ -115,7 +118,25 @@ const EnabledChannelList = () => {
   const activeChannelId = matchChannel(pathname);
   const create = () => openCreateChannel({ onCreated: (id) => navigate(channelPath(id)) });
   const activeThreadId = new URLSearchParams(search).get('thread');
+  const rename = (channel: ChannelListItem) =>
+    openRenameModal({
+      defaultValue: channel.title,
+      maxLength: CHANNEL_LIMITS.titleLength,
+      title: t('rename'),
+      onSave: async (title) => {
+        try {
+          await channelActions.rename(channel.id, title);
+        } catch (error) {
+          console.error('Failed to rename Channel', error);
+          toast.error(t(isTrpcErrorCode(error, 'FORBIDDEN') ? 'renameForbidden' : 'renameFailed'));
+          throw error; // Keep the dialog open with the typed name.
+        }
+      },
+    });
   const menuItems = (channel: ChannelListItem) => [
+    ...(channel.canDelete
+      ? [{ icon: PencilLine, key: 'rename', label: t('rename'), onClick: () => rename(channel) }]
+      : []),
     {
       icon: Copy,
       key: 'copyId',

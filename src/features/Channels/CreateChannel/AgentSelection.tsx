@@ -102,6 +102,7 @@ export const AgentSelection = ({
           <Flexbox gap={8} {...stylex.props(styles.pane)}>
             <SearchBar
               allowClear
+              autoFocus
               placeholder={t('searchAgents')}
               value={search}
               variant="filled"

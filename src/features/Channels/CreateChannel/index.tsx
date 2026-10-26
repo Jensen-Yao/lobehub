@@ -1,3 +1,4 @@
+import { agentDisplayName, CHANNEL_LIMITS } from '@lobechat/types';
 import { Button, createModal, Flexbox, Icon, Input, Text, useModalContext } from '@lobehub/ui';
 import { t } from 'i18next';
 import { Hash } from 'lucide-react';
@@ -10,80 +11,61 @@ import { channelActions } from '@/store/channel';
 import type { ChannelAgentDraft } from './agentEnvironment';
 import { canSubmitChannelAgents, toChannelAgentSelection } from './agentEnvironment';
 import { AgentSelection } from './AgentSelection';
+import { defaultChannelTitle } from './channelTitle';
 import { getChannelSaveErrorKey } from './saveError';
 import { useChannelAgentOptions } from './useChannelAgentOptions';
 
-/** Matches the `title` bound in `apps/server/src/routers/lambda/channel.ts`. */
-const TITLE_MAX_LENGTH = 100;
-
-type ChannelStep = 'members' | 'name';
-const MODAL_WIDTH: Record<ChannelStep, string> = {
-  members: 'min(90vw, 800px)',
-  name: 'min(90vw, 480px)',
-};
-
 interface CreateChannelProps {
   /** Set when adding members to a Channel that already exists. */
-  existing?: { agentIds: string[]; id: string; title: string };
+  existing?: { agentIds: string[]; id: string };
   onCreated?: (id: string) => void;
 }
 
-export const openCreateChannel = (props: CreateChannelProps = {}) => {
-  const modal = createModal({
-    content: (
-      <CreateChannel
-        {...props}
-        onStepChange={(step) => modal.update({ width: MODAL_WIDTH[step] })}
-      />
-    ),
+export const openCreateChannel = (props: CreateChannelProps = {}) =>
+  createModal({
+    content: <CreateChannel {...props} />,
     footer: null,
     title: t(props.existing ? 'addMembers' : 'create', { ns: 'channel' }),
-    width: MODAL_WIDTH[props.existing ? 'members' : 'name'],
+    width: 'min(90vw, 800px)',
   });
-  return modal;
-};
 
 /**
- * Creating asks for the name first, so the name rule is the only thing that can fail on that
- * screen; choosing members and where each one runs comes after. Adding members to an existing
- * Channel starts on the member step.
+ * Like starting a group chat: choose members first. The name is optional and defaults to the
+ * members' names; the sidebar renames it later. Adding members to an existing Channel uses
+ * the same picker without a name.
  */
-function CreateChannel({
-  existing,
-  onCreated,
-  onStepChange,
-}: CreateChannelProps & { onStepChange: (step: ChannelStep) => void }) {
-  const { t } = useTranslation(['channel', 'common']);
+function CreateChannel({ existing, onCreated }: CreateChannelProps) {
+  const { t } = useTranslation('channel');
   const { close, setCanDismissByClickOutside } = useModalContext();
-  const [step, setStep] = useState<ChannelStep>(existing ? 'members' : 'name');
-  const [title, setTitle] = useState(existing?.title ?? '');
-  const [titleInvalid, setTitleInvalid] = useState(false);
+  const [title, setTitle] = useState('');
   const [agents, setAgents] = useState<ChannelAgentDraft[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>();
   const options = useChannelAgentOptions();
-  const dirty = (!existing && !!title.trim()) || agents.length > 0;
+  const dirty = !!title.trim() || agents.length > 0;
 
   // A mask click must not drop what the user typed or picked; ✕ and Esc still close.
   useEffect(() => {
     setCanDismissByClickOutside(!dirty && !busy);
   }, [busy, dirty, setCanDismissByClickOutside]);
 
-  const changeStep = (next: ChannelStep) => {
-    setStep(next);
-    onStepChange(next);
-  };
-
-  const openMembers = () => {
-    if (!title.trim()) {
-      setTitleInvalid(true);
-      return;
-    }
-    changeStep('members');
-  };
+  const autoTitle = defaultChannelTitle(
+    agents.map(({ agentId }) =>
+      agentDisplayName(
+        options.agents?.find((agent) => agent.id === agentId),
+        t('unnamedAgent'),
+      ),
+    ),
+    {
+      more: (names, count, total) => t('autoTitle.more', { count, names, total }),
+      separator: t('autoTitle.separator'),
+    },
+    CHANNEL_LIMITS.titleLength,
+  );
+  const canSubmit = canSubmitChannelAgents(agents);
 
   const submit = async () => {
-    if (busy || !canSubmitChannelAgents(agents)) return;
+    if (busy || !canSubmit) return;
     setBusy(true);
     setError(undefined);
     try {
@@ -92,7 +74,10 @@ function CreateChannel({
         await channelActions.addAgents(existing.id, selections);
         close();
       } else {
-        const id = await channelActions.create({ agents: selections, title: title.trim() });
+        const id = await channelActions.create({
+          agents: selections,
+          title: title.trim() || autoTitle,
+        });
         close();
         onCreated?.(id);
       }
@@ -104,55 +89,8 @@ function CreateChannel({
     }
   };
 
-  if (step === 'name')
-    return (
-      <Flexbox gap={20}>
-        <Flexbox gap={8}>
-          <Text type="secondary">{t('description')}</Text>
-          <Flexbox gap={6}>
-            <label htmlFor="channel-title" style={{ fontWeight: 500 }}>
-              {t('name')}
-            </label>
-            <Input
-              autoFocus
-              aria-describedby={titleInvalid ? 'channel-title-error' : undefined}
-              aria-invalid={titleInvalid || undefined}
-              id="channel-title"
-              maxLength={TITLE_MAX_LENGTH}
-              placeholder={t('namePlaceholder')}
-              prefix={<Icon icon={Hash} size={14} />}
-              value={title}
-              onPressEnter={openMembers}
-              onChange={(event) => {
-                setTitle(event.target.value);
-                setTitleInvalid(false);
-              }}
-            />
-            {titleInvalid && (
-              <Text fontSize={12} id="channel-title-error" type="danger">
-                {t('nameRequired')}
-              </Text>
-            )}
-          </Flexbox>
-        </Flexbox>
-        <Flexbox horizontal gap={8} justify="flex-end">
-          <Button onClick={close}>{t('cancel')}</Button>
-          <Button type="primary" onClick={openMembers}>
-            {t('chooseMembers')}
-          </Button>
-        </Flexbox>
-      </Flexbox>
-    );
-
-  const canSubmit = canSubmitChannelAgents(agents);
   return (
-    <Flexbox gap={20}>
-      <Flexbox horizontal align="center" gap={6}>
-        <Icon icon={Hash} size={16} />
-        <Text ellipsis weight={500}>
-          {title.trim()}
-        </Text>
-      </Flexbox>
+    <Flexbox gap={16}>
       <Flexbox gap={8} inert={busy}>
         <Text weight={500}>{t('agents')}</Text>
         <AgentSelection
@@ -162,6 +100,22 @@ function CreateChannel({
           onChange={setAgents}
         />
       </Flexbox>
+      {!existing && (
+        <Flexbox gap={6} inert={busy}>
+          <label htmlFor="channel-title" style={{ fontWeight: 500 }}>
+            {t('nameOptional')}
+          </label>
+          <Input
+            id="channel-title"
+            maxLength={CHANNEL_LIMITS.titleLength}
+            placeholder={autoTitle || t('nameAutoPlaceholder')}
+            prefix={<Icon icon={Hash} size={14} />}
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            onPressEnter={() => void submit()}
+          />
+        </Flexbox>
+      )}
       {error !== undefined && (
         <AsyncError error={error} title={t(getChannelSaveErrorKey(error))} variant="inline" />
       )}
@@ -171,8 +125,8 @@ function CreateChannel({
             {t('environment.completeRequired')}
           </Text>
         )}
-        <Button disabled={busy} onClick={existing ? close : () => changeStep('name')}>
-          {existing ? t('cancel') : t('back', { ns: 'common' })}
+        <Button disabled={busy} onClick={close}>
+          {t('cancel')}
         </Button>
         <Button disabled={!canSubmit} loading={busy} type="primary" onClick={() => void submit()}>
           {t(existing ? 'addMembers' : 'submit')}

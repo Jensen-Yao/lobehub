@@ -10,27 +10,40 @@ import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwar
 import { channelActions } from '@/store/channel';
 
 import { ChannelStatus } from './ChannelStatus';
-import {
-  channelJobStatus,
-  channelJobTone,
-  isChannelJobActive,
-  messageReceiptJobs,
-} from './jobStatus';
+import { channelJobStatus, channelJobTone, isChannelJobActive } from './jobStatus';
 import { memberAvatar, memberName } from './memberName';
 import { statusStyles, styles } from './styles';
 
-function ReceiptDetail({
-  agentId,
-  channelId,
-  job,
-  name,
-  avatar,
-}: {
+export interface ReplyEntry {
   agentId?: string | null;
   avatar: string;
-  channelId: string;
   job: ChannelPublicJob;
   name: string;
+}
+
+/** Names and avatars for jobs, from the members that own them. */
+export const replyEntries = (
+  detail: ChannelDetail,
+  jobs: ChannelPublicJob[],
+  fallbackName: string,
+): ReplyEntry[] =>
+  jobs.map((job) => {
+    const member = detail.members.find((entry) => entry.id === job.memberId);
+    return {
+      agentId: member?.agentId,
+      avatar: memberAvatar(member),
+      job,
+      name: memberName(member, fallbackName),
+    };
+  });
+
+/** One reply: its state, why it failed, and how to stop it or open its Agent. */
+export function ReplyDetail({
+  channelId,
+  entry: { agentId, avatar, job, name },
+}: {
+  channelId: string;
+  entry: ReplyEntry;
 }) {
   const { t } = useTranslation('channel');
   const navigate = useWorkspaceAwareNavigate();
@@ -50,14 +63,14 @@ function ReceiptDetail({
     }
   };
   return (
-    <Flexbox gap={12} {...stylex.props(statusStyles.popover)}>
+    <Flexbox gap={8}>
       <Flexbox horizontal align="center" gap={8}>
-        <Avatar avatar={avatar} size={28} title={name} />
-        <Text ellipsis weight={500}>
+        <Avatar avatar={avatar} size={24} title={name} />
+        <Text ellipsis style={{ flex: 1 }} weight={500}>
           {name}
         </Text>
+        <ChannelStatus label={t(channelJobStatus(job))} tone={channelJobTone(job)} />
       </Flexbox>
-      <ChannelStatus label={t(channelJobStatus(job))} tone={channelJobTone(job)} />
       {job.status === 'failed' && (
         <Flexbox gap={4}>
           <Text weight={500}>{t('receipt.errorReason')}</Text>
@@ -67,99 +80,98 @@ function ReceiptDetail({
           <span {...stylex.props(styles.muted)}>{t('receipt.failedHint')}</span>
         </Flexbox>
       )}
-      <Flexbox horizontal gap={4} wrap="wrap">
-        {isChannelJobActive(job) && (
-          <Button
-            danger
-            icon={Square}
-            loading={stopping}
-            size="small"
-            type="text"
-            onClick={() => void stop()}
-          >
-            {t('stopReply')}
-          </Button>
-        )}
-        {agentId && (
-          <Button
-            icon={ExternalLink}
-            size="small"
-            type="text"
-            onClick={() => {
-              close();
-              navigate(`/agent/${agentId}`);
-            }}
-          >
-            {t('openAgent')}
-          </Button>
-        )}
-      </Flexbox>
+      {(isChannelJobActive(job) || agentId) && (
+        <Flexbox horizontal gap={4} wrap="wrap">
+          {isChannelJobActive(job) && (
+            <Button
+              danger
+              icon={Square}
+              loading={stopping}
+              size="small"
+              type="text"
+              onClick={() => void stop()}
+            >
+              {t('stopReply')}
+            </Button>
+          )}
+          {agentId && (
+            <Button
+              icon={ExternalLink}
+              size="small"
+              type="text"
+              onClick={() => {
+                close();
+                navigate(`/agent/${agentId}`);
+              }}
+            >
+              {t('openAgent')}
+            </Button>
+          )}
+        </Flexbox>
+      )}
       {error !== undefined && <AsyncError error={error} variant="inline" />}
     </Flexbox>
   );
 }
 
-/** Ongoing replies and failures only; published replies are already visible in the timeline. */
-export function MessageReceipts({
+/** Replies listed one after another, as popover content. */
+export function ReplyList({ channelId, entries }: { channelId: string; entries: ReplyEntry[] }) {
+  return (
+    <Flexbox gap={16} {...stylex.props(statusStyles.popover, statusStyles.replyList)}>
+      {entries.map((entry) => (
+        <ReplyDetail channelId={channelId} entry={entry} key={entry.job.id} />
+      ))}
+    </Flexbox>
+  );
+}
+
+/**
+ * A text-less marker beside a message whose reply failed, so the failure flagged in the
+ * header can be traced to its message. The reason is one click away.
+ */
+export function MessageFailureMark({
   detail,
   message,
 }: {
   detail: ChannelDetail;
   message: ChannelPublicMessage;
 }) {
-  const { t } = useTranslation('channel');
-  const { channel, jobs: allJobs = [], members = [] } = detail;
-  const jobs = allJobs.filter((job) => job.messageId === message.id);
-  if (!channel) return null;
-  if (!jobs.length)
-    return message.routingStatus === 'pending' || message.routingStatus === 'unassigned' ? (
-      <span role="status" {...stylex.props(statusStyles.receipts, styles.muted)}>
-        {t(message.routingStatus === 'pending' ? 'routing.receiving' : 'routing.unassigned')}
-      </span>
-    ) : null;
-
-  const receipts = messageReceiptJobs(jobs).map((job) => {
-    const member = members.find((entry) => entry.id === job.memberId);
-    return {
-      agentId: member?.agentId,
-      avatar: memberAvatar(member),
-      job,
-      name: memberName(member, t('unnamedAgent')),
-    };
+  const { t, i18n } = useTranslation('channel');
+  const failed = detail.jobs.filter(
+    (job) => job.messageId === message.id && job.status === 'failed',
+  );
+  if (!failed.length) return null;
+  const entries = replyEntries(detail, failed, t('unnamedAgent'));
+  const label = t('failure.messageLabel', {
+    names: new Intl.ListFormat(i18n.language, { type: 'conjunction' }).format(
+      entries.map((entry) => entry.name),
+    ),
   });
-  if (!receipts.length) return null;
-
   return (
-    <Flexbox align="flex-start" gap={4} {...stylex.props(statusStyles.receipts)}>
-      <Flexbox horizontal align="center" gap={4} role="status" wrap="wrap">
-        {receipts.map(({ agentId, avatar, job, name }) => (
-          <Popover
-            key={job.id}
-            placement="bottomLeft"
-            trigger="click"
-            content={
-              <ReceiptDetail
-                agentId={agentId}
-                avatar={avatar}
-                channelId={channel.id}
-                job={job}
-                name={name}
-              />
-            }
-          >
-            <Button
-              aria-label={t('receipt.memberLabel', { name, state: t(channelJobStatus(job)) })}
-              size="small"
-              type="text"
-              {...stylex.props(statusStyles.chip)}
-            >
-              <Avatar avatar={avatar} size={18} title={name} />
-              <span {...stylex.props(statusStyles.name)}>{name}</span>
-              <ChannelStatus label={t(channelJobStatus(job))} tone={channelJobTone(job)} />
-            </Button>
-          </Popover>
-        ))}
-      </Flexbox>
-    </Flexbox>
+    <Popover
+      content={<ReplyList channelId={detail.channel.id} entries={entries} />}
+      placement="bottomLeft"
+      trigger="click"
+    >
+      <button
+        aria-label={label}
+        title={label}
+        type="button"
+        {...stylex.props(statusStyles.failureMark)}
+      >
+        <span aria-hidden {...stylex.props(statusStyles.dot)} />
+      </button>
+    </Popover>
+  );
+}
+
+/** A message that no Agent picked up; the routing outcome stays with the message. */
+export function MessageRoutingStatus({ message }: { message: ChannelPublicMessage }) {
+  const { t } = useTranslation('channel');
+  if (message.routingStatus !== 'unassigned') return null;
+  return (
+    <span role="status" {...stylex.props(statusStyles.receipts, styles.muted)}>
+      {t('routing.unassigned')}
+    </span>
   );
 }

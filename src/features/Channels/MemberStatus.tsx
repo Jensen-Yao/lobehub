@@ -1,7 +1,7 @@
 import type { ChannelDetail, ChannelPublicMember } from '@lobechat/types';
 import { ActionIcon, Button, Flexbox, Popover, Text } from '@lobehub/ui';
 import * as stylex from '@stylexjs/stylex';
-import { ExternalLink, Plus, UserPlus } from 'lucide-react';
+import { ExternalLink, FolderCog, Plus, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -9,8 +9,10 @@ import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwar
 import { useCloseOnNavigate } from '@/hooks/useCloseOnNavigate';
 
 import { openAddChannelPeople } from './AddPeople';
+import { openChannelAgentEnvironment } from './AgentEnvironment';
 import { ChannelStatus } from './ChannelStatus';
 import { openCreateChannel } from './CreateChannel';
+import { FailureIndicator } from './FailureIndicator';
 import type { ChannelStatusTone } from './jobStatus';
 import { channelJobStatus, channelJobTone, memberCurrentJob } from './jobStatus';
 import { MemberAvatar } from './MemberAvatar';
@@ -68,6 +70,7 @@ export function MemberStatus({ detail }: { detail: ChannelDetail }) {
 
   return (
     <Flexbox horizontal align="center" gap={4}>
+      <FailureIndicator detail={detail} />
       <Popover
         key={popoverKey}
         open={open}
@@ -91,6 +94,21 @@ export function MemberStatus({ detail }: { detail: ChannelDetail }) {
                     <span {...stylex.props(styles.muted)}>{t('person')}</span>
                   )}
                 </Flexbox>
+                {entry.member.agentId &&
+                  entry.member.active &&
+                  channel.canDelete &&
+                  !channel.archived && (
+                    <ActionIcon
+                      aria-label={t('environment.editNamed', { name: entry.name })}
+                      icon={FolderCog}
+                      size="small"
+                      title={t('environment.title')}
+                      onClick={() => {
+                        setOpen(false);
+                        openChannelAgentEnvironment(channel.id, entry.member);
+                      }}
+                    />
+                  )}
                 {entry.member.agentId && (
                   <ActionIcon
                     aria-label={t('openAgentNamed', { name: entry.name })}
@@ -138,7 +156,6 @@ export function MemberStatus({ detail }: { detail: ChannelDetail }) {
               existing: {
                 agentIds: entries.flatMap(({ member }) => (member.agentId ? [member.agentId] : [])),
                 id: channel.id,
-                title: channel.title,
               },
             })
           }

@@ -5,7 +5,8 @@ import {
   channelJobStatus,
   channelJobTone,
   memberCurrentJob,
-  messageReceiptJobs,
+  replyActivityJobs,
+  unresolvedFailures,
 } from './jobStatus';
 
 describe('Channel task status', () => {
@@ -69,7 +70,7 @@ describe('Channel task tone', () => {
     expect(channelJobTone(job({ publicationRevoked: true, status: 'failed' }))).toBe('error');
   });
 
-  it('shows only unfinished or failed receipts in a mixed reply group', () => {
+  it('shows only unfinished work as reply activity in a mixed reply group', () => {
     const jobs = [
       job({ id: 'done', status: 'completed' }),
       job({ id: 'preparing' }),
@@ -81,30 +82,28 @@ describe('Channel task tone', () => {
       job({ id: 'cancelled', status: 'cancelled' }),
       job({ id: 'stopped', status: 'running', publicationRevoked: true }),
     ];
-    expect(messageReceiptJobs(jobs).map((entry) => entry.id)).toEqual([
+    expect(replyActivityJobs(jobs).map((entry) => entry.id)).toEqual([
       'preparing',
       'waiting',
       'running',
       'stopping',
-      'failed',
-      'failed-revoked',
     ]);
   });
 
-  it('leaves no receipt row when all three Agents have replied', () => {
+  it('leaves no reply activity when all three Agents have replied', () => {
     expect(
-      messageReceiptJobs(['codex', 'pi', 'native'].map((id) => job({ id, status: 'completed' }))),
+      replyActivityJobs(['codex', 'pi', 'native'].map((id) => job({ id, status: 'completed' }))),
     ).toEqual([]);
   });
 
-  it('removes a receipt immediately after publication without waiting for writer cleanup', () => {
-    expect(messageReceiptJobs([job({ status: 'completed', writerHeld: true })])).toEqual([]);
+  it('removes activity immediately after publication without waiting for writer cleanup', () => {
+    expect(replyActivityJobs([job({ status: 'completed', writerHeld: true })])).toEqual([]);
   });
 
   it('removes stopping feedback only when physical exit is confirmed', () => {
     const stopping = job({ status: 'cancelled', publicationRevoked: true, writerHeld: true });
-    expect(messageReceiptJobs([stopping])).toEqual([stopping]);
-    expect(messageReceiptJobs([{ ...stopping, writerHeld: false }])).toEqual([]);
+    expect(replyActivityJobs([stopping])).toEqual([stopping]);
+    expect(replyActivityJobs([{ ...stopping, writerHeld: false }])).toEqual([]);
   });
 
   it("picks a member's running reply before its queued ones", () => {
@@ -117,5 +116,24 @@ describe('Channel task tone', () => {
     expect(memberCurrentJob(jobs, 'member')?.id).toBe('now');
     expect(memberCurrentJob(jobs.slice(0, 2), 'member')?.id).toBe('next');
     expect(memberCurrentJob(jobs.slice(0, 1), 'member')).toBeUndefined();
+  });
+
+  it("flags a member's failure until a newer reply from it settles", () => {
+    const failed = job({ id: 'failed', status: 'failed' });
+    expect(memberCurrentJob([failed], 'member')?.id).toBe('failed');
+    expect(memberCurrentJob([job({ id: 'later', status: 'completed' }), failed], 'member')).toBe(
+      undefined,
+    );
+  });
+
+  it('keeps only failures that are each member’s newest job', () => {
+    const jobs = [
+      job({ id: 'a-retry', memberId: 'a', status: 'completed' }),
+      job({ id: 'b-failed', memberId: 'b', status: 'failed' }),
+      job({ id: 'a-failed', memberId: 'a', status: 'failed' }),
+      job({ id: 'b-older', memberId: 'b', status: 'failed' }),
+      job({ id: 'c-stopped', memberId: 'c', status: 'cancelled', publicationRevoked: true }),
+    ];
+    expect(unresolvedFailures(jobs).map((entry) => entry.id)).toEqual(['b-failed']);
   });
 });

@@ -52,20 +52,37 @@ export const styles = stylex.create({
     paddingBlockStart: 8,
     paddingBlockEnd: 24,
   },
-  /** Anchors the hover-revealed branch action of one message. */
+  /** One message row; hovering highlights it and reveals its toolbar, like a chat app. */
   messageRow: {
     position: 'relative',
+    marginInline: -12,
+    paddingInline: 12,
+    borderRadius: cssVar.borderRadiusLG,
+    backgroundColor: {
+      default: 'transparent',
+      [HOVER]: { 'default': 'transparent', ':hover': cssVar.colorFillQuaternary },
+    },
   },
   messageAvatar: {
     position: 'absolute',
     insetBlockStart: 12,
     insetInlineStart: 0,
   },
-  branchAction: {
+  /** Floats over the row's top-right corner while the row is hovered or focused. */
+  messageToolbar: {
     position: 'absolute',
-    insetBlockStart: 12,
-    insetInlineEnd: 0,
+    insetBlockStart: 6,
+    insetInlineEnd: 12,
     zIndex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    padding: 2,
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: cssVar.colorBorderSecondary,
+    borderRadius: cssVar.borderRadius,
+    backgroundColor: cssVar.colorBgElevated,
+    boxShadow: cssVar.boxShadowTertiary,
     opacity: {
       default: 1,
       [HOVER]: {
@@ -83,6 +100,26 @@ export const styles = stylex.create({
       },
     },
   },
+  /** Inline system line in the timeline, such as who joined. */
+  event: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+    paddingBlock: 8,
+    paddingInlineStart: 48,
+    fontSize: cssVar.fontSizeSM,
+    color: cssVar.colorTextSecondary,
+  },
+  /** A mentioned member inside message text. */
+  mention: {
+    paddingBlock: 1,
+    paddingInline: 4,
+    borderRadius: 4,
+    fontWeight: 500,
+    color: cssVar.colorInfo,
+    backgroundColor: cssVar.colorInfoBg,
+  },
   activity: {
     display: 'flex',
     flexWrap: 'wrap',
@@ -97,16 +134,36 @@ export const styles = stylex.create({
   },
   composer: {
     flexShrink: 0,
-    paddingBlockEnd: 8,
+    paddingBlockEnd: 12,
   },
-  /** Attach action and the recipient preview; yields width to the send button. */
-  composerTools: {
-    overflow: 'hidden',
+  /** Typing activity on the left, who will reply on the right; keeps its height when empty. */
+  composerStatus: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    minWidth: 0,
+    minHeight: 24,
+    paddingInline: 4,
+  },
+  /** Attach, editor and send on one line; the editor grows and then scrolls. */
+  composerRow: {
+    display: 'flex',
+    alignItems: 'flex-end',
+    gap: 4,
+    paddingBlock: 6,
+    paddingInline: 6,
+  },
+  composerEditor: {
+    overflowY: 'auto',
     flex: '1',
     minWidth: 0,
+    maxHeight: 240,
+    paddingBlock: 5,
   },
   recipients: {
     overflow: 'hidden',
+    flexShrink: 1,
     minWidth: 0,
   },
   muted: {
@@ -125,22 +182,6 @@ export const statusStyles = stylex.create({
     maxWidth: '100%',
     fontSize: cssVar.fontSizeSM,
   },
-  chip: {
-    maxWidth: '100%',
-    height: 'auto',
-    minHeight: 28,
-    paddingBlock: 4,
-    paddingInline: 8,
-    fontSize: cssVar.fontSizeSM,
-    whiteSpace: 'normal',
-    backgroundColor: cssVar.colorFillQuaternary,
-  },
-  name: {
-    overflow: 'hidden',
-    maxWidth: 112,
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
   state: {
     display: 'inline-flex',
     gap: 4,
@@ -152,6 +193,30 @@ export const statusStyles = stylex.create({
     height: 6,
     borderRadius: '50%',
     backgroundColor: 'currentcolor',
+  },
+  /** A bare red dot beside a message whose reply failed. */
+  failureMark: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 18,
+    height: 18,
+    padding: 0,
+    borderWidth: 0,
+    borderRadius: '50%',
+    color: cssVar.colorError,
+    cursor: 'pointer',
+    backgroundColor: { 'default': 'transparent', ':hover': cssVar.colorErrorBg },
+  },
+  failureButton: {
+    flex: 'none',
+    gap: 4,
+    height: 28,
+    paddingInline: 6,
+  },
+  replyList: {
+    overflowY: 'auto',
+    maxHeight: 'min(480px, 60vh)',
   },
   popover: {
     width: 288,
@@ -194,4 +259,55 @@ export const toneStyles = stylex.create({
   error: { color: cssVar.colorError },
   quiet: { color: cssVar.colorTextSecondary },
   working: { color: cssVar.colorInfo },
+});
+
+const blink = stylex.keyframes({
+  '0%, 80%, 100%': { opacity: 0.25 },
+  '40%': { opacity: 1 },
+});
+
+export const activityStyles = stylex.create({
+  line: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 0,
+    maxWidth: '100%',
+    fontSize: cssVar.fontSizeSM,
+  },
+  button: {
+    height: 24,
+    paddingInline: 4,
+    color: cssVar.colorTextSecondary,
+  },
+  avatars: {
+    display: 'inline-flex',
+    flex: 'none',
+    gap: 2,
+  },
+  label: {
+    overflow: 'hidden',
+    minWidth: 0,
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  dots: {
+    display: 'inline-flex',
+    flex: 'none',
+    gap: 3,
+    alignItems: 'center',
+  },
+  typingDot: {
+    width: 4,
+    height: 4,
+    borderRadius: '50%',
+    backgroundColor: 'currentcolor',
+    animationName: {
+      'default': blink,
+      '@media (prefers-reduced-motion: reduce)': 'none',
+    },
+    animationDuration: '1.2s',
+    animationIterationCount: 'infinite',
+  },
+  delay: (index: number) => ({ animationDelay: `${index * 160}ms` }),
 });

@@ -2,9 +2,9 @@
 
 ## LOBE-UX-001 — Verify reference alignment structurally
 
-When aligning a Channel member picker with CPC, compare the rendered structure and interactions in both creation and add-member entry points: searchable available members on the left; selected members and their own device/directory controls on the right. Functional creation success alone does not prove visual alignment. Capture the configured-member state, search empty state, and a narrower viewport.
+When aligning a Channel member picker with CPC, compare the rendered structure and interactions in both creation and add-member entry points: searchable available members on the left; selected members on the right with a one-line summary of where each runs. Device/directory fields appear only when an Agent cannot run without a choice (see LOBE-UX-011). Functional creation success alone does not prove visual alignment. Capture the configured-member state, a member that needs a directory, the search empty state, and a narrower viewport.
 
-Source: user correction during Channel PR #21545 acceptance (2026-10-24).
+Source: user correction during Channel PR #21545 acceptance (2026-10-24); revised by review feedback on acceptance round 4 (2026-10-26).
 
 ## LOBE-UX-002 — Carry Agent execution choices into Channel setup
 
@@ -14,11 +14,9 @@ Enforcement: `src/features/Channels/CreateChannel/agentEnvironment.test.ts` cove
 
 Source: user correction during local Channel collaboration testing (2026-10-26).
 
-## LOBE-UX-003 — Size stepped dialogs for the current task
+## LOBE-UX-003 — Size stepped dialogs for the current task (superseded)
 
-A short naming step should use a compact dialog, not inherit the width of a later two-pane picker. Expand when entering member configuration and restore the compact width on Back without losing the draft. Keep both sizes within the viewport.
-
-Enforcement: visual review of name → members → Back and the direct add-member entry; dialog width is set per step by the same modal instance.
+Superseded by LOBE-UX-011: Channel creation is now a single member-first dialog, so there is no compact naming step to size. The general principle still holds for other stepped dialogs: a short step should not inherit the width of a later two-pane step.
 
 Source: user correction that the Channel name dialog was unnecessarily wide (2026-10-26).
 
@@ -54,13 +52,13 @@ Enforcement: repository `__tests__/threadSend.test.ts` covers atomicity, retries
 
 Source: user correction of empty threads created merely by opening the branch panel (2026-10-26).
 
-## LOBE-UX-008 — Channel receipts follow live reply progress
+## LOBE-UX-008 — Channel reply progress follows live state, above the composer
 
-Present pre-reply receipt as “Agent 接收消息中…” rather than exposing responder selection. Once a job starts, show the named Agent's reply status instead of retaining the receipt label until completion. Publish claimed/blocked states independently of slow runtime startup and other members. The mounted view must reactively accelerate refresh for pending receipt, queued/running jobs and unconfirmed stops even without gateway notifications, then slow down after settlement. Keep refresh scoped to the displayed branch.
+Present pre-reply receipt as “Agent 接收消息中…” rather than exposing responder selection. Once a job starts, show the named Agent's reply status instead of retaining the receipt label until completion. Progress lives on one line above the composer (“锦妍・正在回复…”, “A 和 B 正在回复…”, “3 位成员正在回复…”), like a chat app's typing line, not as chips under each message; one click lists each reply with its state and a stop action. Publish claimed/blocked states independently of slow runtime startup and other members. The mounted view must reactively accelerate refresh for pending receipt, queued/running jobs and unconfirmed stops even without gateway notifications, then slow down after settlement. Keep refresh scoped to the displayed branch.
 
-Enforcement: the reactive Channel selector and replica sync schedule are covered by `src/store/channel/action.polling.test.ts`, including an idle view becoming active after send. `ChannelCoordinator.advance.test.ts` guards notification before runtime startup settles.
+Enforcement: the reactive Channel selector and replica sync schedule are covered by `src/store/channel/action.polling.test.ts`, including an idle view becoming active after send. `ChannelCoordinator.advance.test.ts` guards notification before runtime startup settles. `jobStatus.test.ts` covers which jobs count as activity.
 
-Source: user correction of hidden Pi reply progress and implementation-facing receipt copy (2026-10-26).
+Source: user correction of hidden Pi reply progress and implementation-facing receipt copy (2026-10-26); moved above the composer after acceptance round 4 review (2026-10-26).
 
 ## LOBE-UX-009 — Channel self identity uses the personal avatar
 
@@ -77,3 +75,27 @@ A Channel or thread with no readable content uses the shared page-level error st
 Enforcement: `ChannelConversation.tsx` selects `AsyncBoundary`'s `page` error variant for both hosts. Browser geometry checks compare the error content center with the owning conversation bounds; the proving environment must load the real layout CSS.
 
 Source: user correction of the Channel load-failure layout in acceptance screenshots (2026-10-26).
+
+## LOBE-UX-011 — Create a Channel by choosing members first
+
+Creating a Channel works like starting a group chat: one dialog opens on the member picker; the name is optional and defaults to the members' names (“锦妍、Codex、Pi”, more than three summarized). Owners and admins rename from the sidebar menu. Each selected Agent shows where it runs as one muted line taken from its own settings; device and directory fields appear only when the Agent cannot run without them. Changing an Agent's channel-local environment happens later, from the member popover, and applies to later replies only.
+
+Enforcement: `CreateChannel/channelTitle.test.ts` covers the generated name; repository `__tests__/channelSettings.test.ts` and `src/store/channel/action.rename.test.ts` cover rename permissions and optimistic rollback; `ChannelService.environment.test.ts` covers environment validation.
+
+Source: acceptance round 4 review — “先拉人再改名”, “为什么要在这里选目录” (2026-10-26).
+
+## LOBE-UX-012 — Failures belong to the header, with a marker on the message
+
+A failed reply does not keep a chip under its message. The header shows an error indicator with the count of each Agent's unresolved failure (its newest job failed); the Agent's status dot turns red. The popover gives the reason, a jump to the message and Open Agent. The message keeps only a text-less red dot that opens the same reason. A newer reply, stop or retry from that Agent settles the header entry.
+
+Enforcement: `jobStatus.test.ts` covers unresolved failures and the member status fallback.
+
+Source: acceptance round 4 review — “回执错误应该放到右上角” (2026-10-26).
+
+## LOBE-UX-013 — Channel timeline reads like a chat app
+
+The composer is one row (attach, input, send) that grows with its content. Mentioned members render as chips in sent messages; the viewer cannot mention themself. Hovering a message highlights its row and shows a toolbar with a labelled “Start thread” action. The main timeline starts with who joined (“你邀请了 … 加入频道”), and later additions appear in time order; the generic empty state is only for a Channel with neither. The tab shows the Channel's name.
+
+Enforcement: `mentionMarkdown.test.ts` covers mention chips (boundaries, code); `joinEvents.test.ts` covers join grouping, inviter attribution and paging.
+
+Source: acceptance round 4 review — Discord comparisons for composer, typing line and threads (2026-10-26).
