@@ -9,14 +9,13 @@ export const DEFAULT_MINI_PROVIDER = 'openai';
  * The model that scores "is this message talking to the bot?" before a bot joins a conversation
  * nobody addressed to it. It sits on the path to a reply and has a 2s deadline, so it is a
  * decision model: one pass over the input that answers typed questions with probabilities,
- * instead of a chat model that generates JSON. Jev (TypeSafe's System One model, served through
- * OpenRouter) is built for exactly that and is the cheapest decision model in the catalog.
+ * instead of a chat model that generates JSON. The cloud build points it at its own Jev route.
  * `engine: 'chat'` points it at a chat model (for example DeepSeek flash) when a deployment has
  * no decision model.
  */
 export const DEFAULT_BOT_WAKE_ENGINE: 'chat' | 'decision' = 'decision';
-export const DEFAULT_BOT_WAKE_MODEL = 'typesafe/jev-1.13';
-export const DEFAULT_BOT_WAKE_PROVIDER = 'openrouter';
+export const DEFAULT_BOT_WAKE_MODEL = 'gpt-6-luna:decision';
+export const DEFAULT_BOT_WAKE_PROVIDER = 'openai';
 
 /**
  * The speech-to-text model that transcribes voice messages for runtimes that only take text

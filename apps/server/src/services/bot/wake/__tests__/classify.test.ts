@@ -149,8 +149,8 @@ describe('createWakeClassify with a decision model (the default)', () => {
     expect(result).toMatchObject({ addressedToBot: 0.93, kind: 'request' });
     expect(mockGenerateObject).not.toHaveBeenCalled();
     const [payload, options] = mockDecide.mock.calls[0];
-    expect(mockInit.mock.calls[0][2]).toBe('openrouter');
-    expect(payload.model).toBe('typesafe/jev-1.13');
+    expect(mockInit.mock.calls[0][2]).toBe('openai');
+    expect(payload.model).toBe('gpt-6-luna:decision');
     expect(payload.questions.addressed.type).toBe('boolean');
     expect(payload.state).toContain('The assistant is called: Shadow Arvin');
     expect(payload.state).toContain('Shadow Arvin 听得到吗');
