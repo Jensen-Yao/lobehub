@@ -1,6 +1,6 @@
 import { buildWorkspaceWhere } from '@lobechat/database';
 import type { DocumentItem } from '@lobechat/database/schemas';
-import { documentHistories, documents } from '@lobechat/database/schemas';
+import { documentHistories, documentReviewSessions,documents } from '@lobechat/database/schemas';
 import { and, desc, eq, gte, inArray, lt, or } from 'drizzle-orm';
 
 import {
@@ -46,6 +46,19 @@ export class DocumentHistoryService {
   private historiesOwnership = () =>
     buildWorkspaceWhere({ userId: this.userId, workspaceId: this.workspaceId }, documentHistories);
 
+  /** A review session references the snapshot it compares against by history id. */
+  private isHistoryReferencedByReview = async (historyId: string, documentId: string) => {
+    const session = await this.db.query.documentReviewSessions.findFirst({
+      columns: { id: true },
+      where: and(
+        eq(documentReviewSessions.baseHistoryId, historyId),
+        eq(documentReviewSessions.documentId, documentId),
+      ),
+    });
+
+    return Boolean(session);
+  };
+
   createHistory = async (params: {
     breakAutosaveWindow?: boolean;
     documentId: string;
@@ -79,7 +92,15 @@ export class DocumentHistoryService {
         Math.floor(latest.savedAt.getTime() / DOCUMENT_HISTORY_AUTOSAVE_WINDOW_MS) ===
           Math.floor(params.savedAt.getTime() / DOCUMENT_HISTORY_AUTOSAVE_WINDOW_MS);
 
-      if (withinWindow) {
+      // A document review pins its baseline by history id, so a coalescing
+      // autosave must not rewrite that row: the impact analysis would then
+      // compare the newest body against a snapshot it never saw. When the row is
+      // referenced, fall through and open a fresh window instead of overwriting.
+      const pinnedAsReviewBaseline = withinWindow
+        ? await this.isHistoryReferencedByReview(latest.id, params.documentId)
+        : false;
+
+      if (withinWindow && !pinnedAsReviewBaseline) {
         await this.db
           .update(documentHistories)
           .set({ editorData: params.editorData, savedAt: params.savedAt })
