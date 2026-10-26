@@ -288,6 +288,23 @@ describe('bot-wake recorder: initiating a wake nobody addressed', () => {
     });
   });
 
+  it('follows the platform’s own name refresh: a renamed bot answers to the new name, not the old', async () => {
+    const names = vi.fn(async () => ['Shadow Arvin']);
+    const recorder = make(ENFORCE, fakeState(), { botNames: names });
+
+    await expect(recorder.initiate(observation())).resolves.toEqual({ reason: 'named-in-text' });
+
+    // The platform client refreshed its names (the bot was renamed).
+    names.mockResolvedValue(['Arvin Prime']);
+
+    await expect(
+      recorder.initiate(observation({}, { id: 'm-2', text: 'Shadow Arvin 听得到吗' })),
+    ).resolves.toBeUndefined();
+    await expect(
+      recorder.initiate(observation({}, { id: 'm-3', text: 'Arvin Prime 听得到吗' })),
+    ).resolves.toEqual({ reason: 'named-in-text' });
+  });
+
   it('records the decision it made without asking the classifier a second time', async () => {
     const classify = classifierAnswer(0.9);
     const state = fakeState(spokeRecently());

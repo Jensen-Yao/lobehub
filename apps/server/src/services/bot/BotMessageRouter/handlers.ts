@@ -609,7 +609,14 @@ export function registerHandlers(
 
     // Gate before tryDispatch so a /command from a non-allowlisted sender
     // (or in a disabled DM/group scope) cannot side-effect.
-    if (!(await passGatesOrNotify(thread, message.author, replyLocale, 'onSubscribedMessage'))) {
+    // A wake the bot started itself answers chatter nobody asked it to join: if the sender is not
+    // allowed, drop it quietly rather than posting a rejection notice into the thread.
+    const gateThread = initiation
+      ? { id: thread.id, isDM: thread.isDM, post: async () => undefined }
+      : thread;
+    if (
+      !(await passGatesOrNotify(gateThread, message.author, replyLocale, 'onSubscribedMessage'))
+    ) {
       observe('onSubscribedMessage', message, thread, 'skip', 'access-gate-rejected', true);
       return;
     }

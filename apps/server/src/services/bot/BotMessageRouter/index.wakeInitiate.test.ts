@@ -208,6 +208,32 @@ describe('BotMessageRouter: a message that only names the bot', () => {
     ]);
   });
 
+  it('answers quietly in a subscribed thread too: a sender the access gate rejects gets no notice', async () => {
+    await boot(enforcing, { allowFrom: [OWNER] });
+    const chatThread = thread(`${CHANNEL}:thread-1`);
+
+    await subscribed()(chatThread, message({ author: { isBot: false, userId: 'stranger' } }));
+    await flush();
+
+    expect(mockHandleSubscribedMessage).not.toHaveBeenCalled();
+    expect(chatThread.post).not.toHaveBeenCalled();
+    expect(decisions().map((d) => [d.outcome, d.finalReason])).toEqual([
+      ['skip', 'access-gate-rejected'],
+    ]);
+  });
+
+  it('still tells a rejected sender who @-mentions the bot in a subscribed thread (that was addressed to it)', async () => {
+    await boot(enforcing, { allowFrom: [OWNER] });
+    const chatThread = thread(`${CHANNEL}:thread-1`);
+
+    await subscribed()(
+      chatThread,
+      message({ author: { isBot: false, userId: 'stranger' }, isMention: true }),
+    );
+
+    expect(chatThread.post).toHaveBeenCalledTimes(1);
+  });
+
   it("decides on everyone's messages and gives the classifier what they said", async () => {
     mocks.channel.current = { botLastSpokeAt: Date.now() - 60_000, silentWakes: 0 };
     mocks.classify

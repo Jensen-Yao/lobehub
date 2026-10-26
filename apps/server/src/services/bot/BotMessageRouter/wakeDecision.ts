@@ -395,15 +395,12 @@ export const createBotWakeRecorder = (options: BotWakeRecorderOptions): BotWakeR
       ? resolveConversationLogKey(platform, observation.threadId)
       : undefined;
 
-  let cachedBotNames: readonly string[] | undefined;
+  // No cache here: the platform client owns the names and refreshes them on its own schedule, so
+  // a renamed bot answers to the new name and stops answering to the old one. A failed lookup is
+  // retried on the next message.
   const resolveBotNames = async (): Promise<readonly string[]> => {
-    if (cachedBotNames) return cachedBotNames;
     try {
-      const names = (await options.botNames?.()) ?? [];
-      // A failed or empty lookup is retried on the next message, not remembered.
-      if (names.length > 0) cachedBotNames = names;
-
-      return names;
+      return (await options.botNames?.()) ?? [];
     } catch (error) {
       log('bot name lookup failed: %O', error);
 
