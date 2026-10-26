@@ -167,7 +167,8 @@ describe('application generation chains', () => {
       expect(BOT_WAKE_DECISION_PROMPT_VERSION).toBe('decision-v1');
       expect(questions.addressed.type).toBe('boolean');
       expect(questions.kind.type).toBe('choice');
-      expect(Object.keys(questions.kind.criteria)).toEqual(['request', 'chitchat', 'other']);
+      // Which kinds, not in which order: the order is only how the keys happen to be sorted.
+      expect(Object.keys(questions.kind.criteria).sort()).toEqual(['chitchat', 'other', 'request']);
       // The naming rule lives in the question, because a decision model has no system prompt.
       expect(JSON.stringify(questions.addressed)).toContain('calls the assistant by its name');
       expect(state).toContain('The assistant is called: Shadow Arvin');
