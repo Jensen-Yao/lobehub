@@ -9,6 +9,7 @@ const { executions, executeToolCall, interruptTask } = vi.hoisted(() => ({
     publish: vi.fn(),
     releaseWriter: vi.fn(),
     retireReservation: vi.fn().mockResolvedValue(false),
+    revokeExpiredLease: vi.fn(),
   },
   executeToolCall: vi.fn(),
 }));
@@ -37,12 +38,16 @@ vi.mock('./queue', () => ({ registerLocalChannelAdvance: vi.fn(), wakeChannel: v
 describe('Channel completion physical writer confirmation', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  const coordinator = (publicationRevoked = false, runtime = 'codex') => {
+  const coordinator = (
+    publicationRevoked = false,
+    runtime = 'codex',
+    leaseOwner: string | null = null,
+  ) => {
     const job = {
       channelId: 'channel',
       draft: 'Final reply',
       id: 'job',
-      leaseOwner: null,
+      leaseOwner,
       manifest: {},
       operationId: 'op',
       publicationRevoked,
@@ -101,5 +106,29 @@ describe('Channel completion physical writer confirmation', () => {
     await coordinator(true, 'native').complete('channel', 'job', 'op');
     expect(executeToolCall).toHaveBeenCalled();
     expect(executions.releaseWriter).toHaveBeenCalledWith('channel', 'job');
+  });
+
+  // A worker that crashed after starting the run never reached finishDispatch.
+  it('revokes an expired dispatch lease, then releases only after confirmed termination', async () => {
+    executions.revokeExpiredLease.mockResolvedValue(true);
+    executeToolCall.mockResolvedValue({ success: true, state: { exited: true } });
+    await coordinator(false, 'codex', 'crashed-worker').complete('channel', 'job', 'op');
+    expect(executions.revokeExpiredLease).toHaveBeenCalledWith('channel', 'job');
+    expect(executeToolCall).toHaveBeenCalled();
+    expect(executions.releaseWriter).toHaveBeenCalledWith('channel', 'job');
+  });
+
+  it('keeps the writer held after revoking an expired lease without confirmed termination', async () => {
+    executions.revokeExpiredLease.mockResolvedValue(true);
+    executeToolCall.mockResolvedValue({ success: true, state: { exited: false } });
+    await coordinator(false, 'native', 'crashed-worker').complete('channel', 'job', 'op');
+    expect(executions.releaseWriter).not.toHaveBeenCalled();
+  });
+
+  it('does not stop a writer while a live dispatcher still holds its lease', async () => {
+    executions.revokeExpiredLease.mockResolvedValue(false);
+    await coordinator(false, 'codex', 'live-worker').complete('channel', 'job', 'op');
+    expect(executeToolCall).not.toHaveBeenCalled();
+    expect(executions.releaseWriter).not.toHaveBeenCalled();
   });
 });

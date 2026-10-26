@@ -3,10 +3,17 @@ import type {
   ChannelContextMessage,
   ChannelJobStatus,
 } from '@lobechat/types';
-import { and, eq, gt, isNotNull, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, isNotNull, isNull, or, sql } from 'drizzle-orm';
 
 import type { ChannelJobItem } from '../../schemas';
-import { agentOperations, agents, channelJobs, channelMembers, topics } from '../../schemas';
+import {
+  agentOperations,
+  agents,
+  channelJobs,
+  channelMembers,
+  channelMessages,
+  topics,
+} from '../../schemas';
 import type { LobeChatDatabase, Transaction } from '../../type';
 import type { ChannelClaim, ChannelClaimOptions } from './claim';
 import { claimJob } from './claim';
@@ -90,14 +97,40 @@ export const releaseOutcome = (
 export class ChannelExecutionRepository {
   constructor(private readonly db: LobeChatDatabase) {}
 
-  /** The dispatch call settled; no later work from that call can start a process. */
-  finishDispatch = async (channelId: string, jobId: string) =>
+  /**
+   * The dispatch call settled; no later work from that call can start a process. Only the
+   * lease owner settles it: a dispatcher whose lease was revoked changes nothing.
+   */
+  finishDispatch = async (channelId: string, jobId: string, leaseOwner: string) =>
     withChannelLock(this.db, channelId, async (tx) => {
       const job = await claimed(tx, channelId, jobId, true);
+      if (job.leaseOwner !== leaseOwner) return;
       await tx
         .update(channelJobs)
         .set({ leaseExpiresAt: null, leaseOwner: null })
         .where(eq(channelJobs.id, job.id));
+    });
+
+  /**
+   * Takes dispatch authority from a dispatcher whose lease expired, e.g. a worker that
+   * crashed before `finishDispatch`. An expired lease can no longer be renewed, so its
+   * dispatcher fails its pre-submission check; one already past it consumed the
+   * reservation, which leaves only physical termination to confirm. This never releases
+   * the writer. False while a live dispatcher still holds the lease.
+   */
+  revokeExpiredLease = async (channelId: string, jobId: string) =>
+    withChannelLock(this.db, channelId, async (tx) => {
+      const job = await claimed(tx, channelId, jobId, true);
+      if (!job.leaseOwner) return true;
+      if (job.leaseExpiresAt && job.leaseExpiresAt.getTime() > Date.now()) return false;
+      await tx
+        .update(channelJobs)
+        .set({ leaseExpiresAt: null, leaseOwner: null })
+        .where(eq(channelJobs.id, job.id));
+      await audit(tx, channelId, 'dispatch_lease_expired', job.id, {
+        leaseOwner: job.leaseOwner,
+      });
+      return true;
     });
 
   /** Retire only an untouched reservation, racing recordStart on the operation row itself. */
@@ -136,6 +169,43 @@ export class ChannelExecutionRepository {
     withChannelLock(this.db, channelId, (tx) =>
       resolveRouting(tx, channelId, messageId, attempt, decision),
     );
+
+  /**
+   * What one advance pass works on: in-flight jobs to settle, oldest first and bounded, and
+   * the queue head of each member. Only a head can be claimed, so a member whose backlog is
+   * blocked (offline device, pending approval) cannot crowd out the other members.
+   */
+  candidates = async (channelId: string, limit = 100) => {
+    const [inFlight, heads] = await Promise.all([
+      this.db
+        .select()
+        .from(channelJobs)
+        .where(
+          and(
+            eq(channelJobs.channelId, channelId),
+            or(
+              eq(channelJobs.writerHeld, true),
+              and(eq(channelJobs.status, 'running'), isNull(channelJobs.publishedMessageId)),
+            ),
+          ),
+        )
+        .orderBy(asc(channelJobs.createdAt))
+        .limit(limit),
+      this.db
+        .selectDistinctOn([channelJobs.memberId], { job: channelJobs })
+        .from(channelJobs)
+        .innerJoin(channelMessages, eq(channelMessages.id, channelJobs.messageId))
+        .where(and(eq(channelJobs.channelId, channelId), eq(channelJobs.status, 'queued')))
+        // Same order as the head check in claimJob.
+        .orderBy(channelJobs.memberId, asc(channelMessages.sequence), asc(channelJobs.createdAt)),
+    ]);
+    return {
+      heads: heads
+        .map(({ job }) => job)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()),
+      inFlight,
+    };
+  };
 
   /** Starts a queued job; null when it cannot start now. See {@link claimJob}. */
   claim = async (

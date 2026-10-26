@@ -2,7 +2,7 @@ import type { LobeChatDatabase } from '@lobechat/database';
 import { buildChannelPrompt, CHANNEL_INSTRUCTIONS } from '@lobechat/prompts';
 import type { ChannelExecutionConfig } from '@lobechat/types';
 import { isRecord } from '@lobechat/utils/object';
-import { and, asc, eq, isNull, or } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import pMap from 'p-map';
 
 import { getServerDB } from '@/database/core/db-adaptor';
@@ -40,66 +40,53 @@ export class ChannelCoordinator {
   advance = async (channelId: string) => {
     const [channel] = await this.db.select().from(channels).where(eq(channels.id, channelId));
     if (!channel) return;
-    const pending = await this.db
-      .select()
-      .from(channelJobs)
-      .where(
-        and(
-          eq(channelJobs.channelId, channelId),
-          or(
-            eq(channelJobs.status, 'queued'),
-            eq(channelJobs.writerHeld, true),
-            and(eq(channelJobs.status, 'running'), isNull(channelJobs.publishedMessageId)),
-          ),
-        ),
-      )
-      .orderBy(asc(channelJobs.createdAt))
-      .limit(100);
+    const { heads, inFlight } = await this.executions.candidates(channelId);
+    const pending = inFlight.length + heads.length;
 
     // Reserve the next recovery before dispatch. A worker can die after the device
     // accepted a run but before this invocation reaches its end.
-    if (pending.length) await wakeChannel(channelId, LEASE_MS);
+    if (pending) await wakeChannel(channelId, LEASE_MS);
 
-    const members = pending.some((job) => job.status === 'queued')
-      ? await this.db
-          .select({ config: channelMembers.config })
-          .from(channelMembers)
-          .where(and(eq(channelMembers.channelId, channelId), eq(channelMembers.active, true)))
-      : [];
-    const owners = [
-      ...new Set(
-        members.flatMap(({ config }) => (config?.deviceOwnerId ? [config.deviceOwnerId] : [])),
-      ),
-    ];
-    const presence = await pMap(
-      owners,
-      (owner) => getScopedOnlineDevices(this.db, owner, channel.workspaceId ?? undefined),
-      { concurrency: 5 },
-    );
-    const onlineDeviceIds = presence
-      .flat()
-      .filter((device) => device.online)
-      .map((device) => device.deviceId);
+    // Settle first: a confirmed release can unblock a member's next request.
+    for (const job of inFlight)
+      await this.complete(channelId, job.id, job.operationId ?? undefined);
+    if (heads.length) {
+      const members = await this.db
+        .select({ config: channelMembers.config })
+        .from(channelMembers)
+        .where(and(eq(channelMembers.channelId, channelId), eq(channelMembers.active, true)));
+      const owners = [
+        ...new Set(
+          members.flatMap(({ config }) => (config?.deviceOwnerId ? [config.deviceOwnerId] : [])),
+        ),
+      ];
+      const presence = await pMap(
+        owners,
+        (owner) => getScopedOnlineDevices(this.db, owner, channel.workspaceId ?? undefined),
+        { concurrency: 5 },
+      );
+      const onlineDeviceIds = presence
+        .flat()
+        .filter((device) => device.online)
+        .map((device) => device.deviceId);
 
-    for (const job of pending) {
-      if (job.status !== 'queued') {
-        await this.complete(channelId, job.id, job.operationId ?? undefined);
-        continue;
+      for (const job of heads) {
+        const claim = await this.executions.claim(channelId, job.id, {
+          leaseMs: LEASE_MS,
+          leaseOwner: crypto.randomUUID(),
+          onlineDeviceIds,
+          serverDefaultAgentConfig: getServerDefaultAgentConfig(),
+        });
+        if (claim) await this.dispatch(claim, channel.workspaceId);
       }
-      const claim = await this.executions.claim(channelId, job.id, {
-        leaseMs: LEASE_MS,
-        leaseOwner: crypto.randomUUID(),
-        onlineDeviceIds,
-        serverDefaultAgentConfig: getServerDefaultAgentConfig(),
-      });
-      if (claim) await this.dispatch(claim, channel.workspaceId);
     }
-    if (pending.length) await notifyChannel(this.db, channelId);
+    if (pending) await notifyChannel(this.db, channelId);
   };
 
   private async dispatch({ job, member, topic }: ChannelClaim, workspaceId: string | null) {
     if (
       !job.operationId ||
+      !job.leaseOwner ||
       !job.manifest ||
       !job.executionConfig ||
       !member.agentId ||
@@ -137,6 +124,14 @@ export class ChannelCoordinator {
             },
           }),
     };
+    // Keep the lease while this call is alive. Once it expires it cannot be renewed, and
+    // recovery may revoke it; see `revokeExpiredLease`.
+    const lease = { leaseMs: LEASE_MS, leaseOwner: job.leaseOwner };
+    const renew = setInterval(() => {
+      this.executions
+        .heartbeat(job.id, lease)
+        .catch((error) => console.error('[channel:heartbeat]', error));
+    }, LEASE_MS / 3);
     try {
       if (config.runtime === 'native' && config.deviceId) {
         const scope = await deviceGateway.executeToolCall(
@@ -149,7 +144,10 @@ export class ChannelCoordinator {
           { apiName: 'beginNativeOperation', arguments: '{}', identifier: 'lobe-local-system' },
         );
         if (!scope.success || !isRecord(scope.state) || scope.state.registered !== true)
-          throw new Error('Device cannot track Native operation lifetime; update its client');
+          throw new Error(
+            (isRecord(scope.state) && scope.state.registered === false && scope.content) ||
+              'Device cannot track Native operation lifetime; update its client',
+          );
       }
       const input = await this.executions.input(job.channelId, job.id);
       const attachments = await resolveChannelAttachments(
@@ -158,6 +156,10 @@ export class ChannelCoordinator {
         workspaceId,
         input,
       );
+      // The last check before submission. A dispatcher that stalled past its lease stops
+      // here; one that already passed it can only consume the still-idle reservation.
+      if (!(await this.executions.heartbeat(job.id, lease)))
+        throw new Error('The Channel dispatch lease expired before submission');
       const result = await this.service(topic.userId, workspaceId).execAgent({
         agentId: member.agentId,
         agentConfigSnapshot: config,
@@ -191,7 +193,8 @@ export class ChannelCoordinator {
           notSubmitted: false,
         });
     } finally {
-      await this.executions.finishDispatch(job.channelId, job.id);
+      clearInterval(renew);
+      await this.executions.finishDispatch(job.channelId, job.id, lease.leaseOwner);
       await wakeChannel(job.channelId);
     }
   }
@@ -269,7 +272,11 @@ export class ChannelCoordinator {
       // Cancellation must not release the writer while a dispatcher can still submit
       // its network request. An operation result alone does not prove device exit.
       const [current] = await this.db.select().from(channelJobs).where(eq(channelJobs.id, job.id));
-      if (!current?.writerHeld || current.leaseOwner) continue;
+      if (!current?.writerHeld) continue;
+      // A dispatcher that died before settling leaves its lease behind. Once expired, revoke
+      // it and still require the device to confirm termination below.
+      if (current.leaseOwner && !(await this.executions.revokeExpiredLease(job.channelId, job.id)))
+        continue;
       if (row.config?.runtime === 'native') {
         const result = await this.service(
           row.operation.userId,
