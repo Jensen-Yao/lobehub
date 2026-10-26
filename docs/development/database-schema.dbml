@@ -1361,6 +1361,7 @@ table channel_threads {
   channel_id text [not null]
   root_message_id uuid [not null]
   root_sequence integer [not null]
+  archived boolean [not null, default: false]
   follower_member_ids jsonb [not null, default: `[]`]
   metadata jsonb [default: `{}`]
   created_at "timestamp with time zone" [not null, default: `now()`]
