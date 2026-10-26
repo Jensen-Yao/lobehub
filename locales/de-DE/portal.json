@@ -46,7 +46,7 @@
   "canvas.share.sharing": "Wird geteilt…",
   "canvas.share.success": "Geteilt v{{version}}",
   "canvas.share.trigger": "Teilen",
-  "canvas.share.update": "Freigabe auf v{{version}} aktualisieren",
+  "canvas.share.update": "Freigabe aktualisieren auf v{{version}}",
   "canvas.title": "Canvas",
   "document.saveConflict": "Dieses Dokument wurde an anderer Stelle aktualisiert. Wird auf die neueste Version aktualisiert.",
   "document.todos.allCompleted": "Alle Aufgaben erledigt",

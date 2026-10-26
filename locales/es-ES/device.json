@@ -47,7 +47,7 @@
   "workingDirectory.drive.buildingDesc": "Este directorio de entorno aún se está construyendo. Se podrá seleccionar una vez que termine la construcción.",
   "workingDirectory.drive.createCopy": "Crear copia",
   "workingDirectory.drive.delete": "Eliminar",
-  "workingDirectory.drive.deleteConfirmContent": "Todo en esta carpeta se elimina de la unidad, para todos los que puedan verla. Las conversaciones que trabajen en ella pasarán a un espacio temporal.",
+  "workingDirectory.drive.deleteConfirmContent": "Todo en esta carpeta se elimina de la unidad, para todos los que puedan verla. Las conversaciones que trabajen en ella pasarán a un entorno temporal.",
   "workingDirectory.drive.deleteConfirmTitle": "¿Eliminar “{{name}}”?",
   "workingDirectory.drive.drives.personal": "Unidad personal",
   "workingDirectory.drive.drives.public": "Unidad pública",

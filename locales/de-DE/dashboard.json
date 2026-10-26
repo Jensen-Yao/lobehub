@@ -7,7 +7,7 @@
   "actions.trashed": "\"{{title}}\" wurde in den Papierkorb verschoben",
   "board.emptyAction": "Bitten Sie einen Agenten, ein Widget zu erstellen",
   "board.emptyAgentUnavailable": "Der Agent konnte nicht geöffnet werden. Versuchen Sie es in einem Moment erneut.",
-  "board.emptyDescription": "Ein Widget ist ein kleines Skript, das nach einem Zeitplan ausgeführt wird und sein Ergebnis hier als Karte anzeigt. Bitten Sie einen Agenten, eines zu schreiben und testweise auszuführen; es wird erst nach Ihrer Genehmigung live geschaltet.",
+  "board.emptyDescription": "Ein Widget ist ein kleines Skript, das nach einem Zeitplan ausgeführt wird und sein Ergebnis hier als Karte anzeigt. Bitten Sie einen Agenten, eines zu schreiben und testweise auszuführen; es wird erst live geschaltet, nachdem Sie es genehmigt haben.",
   "board.emptyKind.list": "Liste",
   "board.emptyKind.series": "Trend",
   "board.emptyKind.stat": "Zahl",

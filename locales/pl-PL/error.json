@@ -34,7 +34,7 @@
   "otherScope.title": "To jest w innej przestrzeni",
   "pluginSettings.desc": "Uzupełnij poniższą konfigurację, aby rozpocząć korzystanie z tej umiejętności",
   "pluginSettings.title": "Ustawienia umiejętności {{name}}",
-  "requestBodyTooLarge.desc": "To żądanie jest zbyt duże dla dostawcy modelu, często z powodu zawarcia wielu dużych obrazów lub plików w rozmowie. Skróć kontekst, aby podsumować historię w formie tekstu i spróbuj ponownie. Jeśli duże pliki znajdują się w wiadomości, którą właśnie wysłałeś, edytuj ją, aby usunąć niektóre z nich.",
+  "requestBodyTooLarge.desc": "To żądanie jest zbyt duże dla dostawcy modelu, często z powodu zawartości wielu dużych obrazów lub plików w rozmowie. Skondensuj kontekst, aby podsumować historię w formie tekstu i spróbuj ponownie. Jeśli duże pliki znajdują się w wiadomości, którą właśnie wysłałeś, edytuj ją, aby usunąć niektóre z nich.",
   "requestBodyTooLarge.title": "Żądanie Zbyt Duże",
   "response.400": "Przepraszamy, serwer nie rozumie Twojego żądania. Upewnij się, że parametry są poprawne.",
   "response.401": "Przepraszamy, serwer odrzucił Twoje żądanie – możliwe, że brakuje uprawnień lub uwierzytelnienie jest nieprawidłowe.",

@@ -74,7 +74,7 @@
   "filter.byDevice": "Urządzenie: {{value}}",
   "filter.byStatus": "Status: {{value}}",
   "filter.clear": "Wyczyść filtry",
-  "filter.emptyFiltered": "Żadne tematy nie pasują do tych filtrów",
+  "filter.emptyFiltered": "Brak tematów pasujących do tych filtrów",
   "filter.filter": "Filtruj",
   "filter.groupMode.byAgent": "Według agenta",
   "filter.groupMode.byDevice": "Według urządzenia",

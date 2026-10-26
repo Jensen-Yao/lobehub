@@ -495,7 +495,7 @@
   "plans.plan.free.title": "Gratuito",
   "plans.plan.hobby.desc": "Para usuários com API própria que pagam conforme o uso",
   "plans.plan.hobby.title": "Hobby",
-  "plans.plan.max.title": "Máximo",
+  "plans.plan.max.title": "Max",
   "plans.plan.plus.title": "Plus",
   "plans.plan.premium.desc": "Projetado para usuários profissionais que usam IA com frequência",
   "plans.plan.premium.title": "Premium",
@@ -700,6 +700,6 @@
   "usage.remaining": "Restante",
   "usage.storage.embeddings.used": "Armazenamento Vetorial",
   "usage.storage.file.used": "Uso de Arquivos",
-  "usage.storage.sandboxStorage.pool": "Drives de sandbox (pool de espaço de trabalho)",
+  "usage.storage.sandboxStorage.pool": "Drives de sandbox (pool do espaço de trabalho)",
   "usage.storage.sandboxStorage.used": "Armazenamento do Sandbox"
 }

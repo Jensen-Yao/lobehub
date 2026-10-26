@@ -52,7 +52,7 @@
   "workingDirectory.drive.drives.personal": "Drive personale",
   "workingDirectory.drive.drives.public": "Drive pubblico",
   "workingDirectory.drive.environmentBadge": "Ambiente",
-  "workingDirectory.drive.folderNotEmpty": "Questa cartella contiene già file. Solo una cartella nuova o vuota può essere inizializzata da un ambiente.",
+  "workingDirectory.drive.folderNotEmpty": "Questa cartella contiene già dei file. Solo una cartella nuova o vuota può essere inizializzata da un ambiente.",
   "workingDirectory.drive.folderTaken": "Esiste già una directory dell'ambiente con questo nome.",
   "workingDirectory.drive.foldersLoadFailed": "Impossibile caricare questa cartella sul tuo drive. Riprova o torna al livello superiore del drive.",
   "workingDirectory.drive.gitRepository": "Git",

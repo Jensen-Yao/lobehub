@@ -29,7 +29,7 @@
   "docs.home.columns.owner": "Propietario",
   "docs.home.columns.title": "Título",
   "docs.home.columns.updatedAt": "Actualizado",
-  "docs.home.empty.mine": "Aún no has creado ninguna página o archivo",
+  "docs.home.empty.mine": "Aún no has creado ninguna página ni archivo",
   "docs.home.empty.recent": "Nada aquí todavía. Crea una página o sube un archivo para comenzar.",
   "docs.home.empty.shared": "Aún no se ha compartido nada contigo",
   "docs.home.quick.newKnowledgeBase.desc": "Organiza archivos y páginas por tema",

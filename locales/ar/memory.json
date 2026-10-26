@@ -59,7 +59,7 @@
   "entity.kind.event": "الأحداث",
   "entity.kind.event.example": "رحلة، مقابلة عمل",
   "entity.kind.goal": "الأهداف",
-  "entity.kind.goal.example": "الحصول على درجة 7 في IELTS، خسارة 5 كجم",
+  "entity.kind.goal.example": "الحصول على درجة 7 في IELTS، فقدان 5 كجم",
   "entity.kind.other": "أخرى",
   "entity.kind.other.example": "أي شيء آخر تعود إليه باستمرار",
   "entity.kind.project": "المشاريع",

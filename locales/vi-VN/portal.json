@@ -38,7 +38,7 @@
   "canvas.runtimeErrors": "Canvas này báo lỗi ({{count}})",
   "canvas.runtimeErrorsHint": "Một số thành phần không thể hiển thị. Hãy yêu cầu agent sửa canvas hoặc mở rộng để xem chi tiết.",
   "canvas.share.confirmTitle": "Trước khi bạn chia sẻ canvas này",
-  "canvas.share.failed": "Không thể chia sẻ. Vui lòng thử lại.",
+  "canvas.share.failed": "Không thể chia sẻ. Thử lại.",
   "canvas.share.note": "Các phiên bản mới hơn sẽ được giữ riêng tư cho đến khi bạn chia sẻ chúng.",
   "canvas.share.open": "Mở liên kết chia sẻ",
   "canvas.share.privacy": "Bất kỳ ai có liên kết đều có thể mở canvas này. Trước khi chia sẻ, hãy đảm bảo rằng nó không chứa bất kỳ thông tin nào bạn muốn giữ riêng tư, chẳng hạn như thông tin đăng nhập, khóa API, thông tin cá nhân, tệp tải lên hoặc hình ảnh.",

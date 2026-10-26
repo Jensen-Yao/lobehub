@@ -34,7 +34,7 @@
   "otherScope.title": "Dies befindet sich in einem anderen Bereich",
   "pluginSettings.desc": "Füllen Sie die folgende Konfiguration aus, um diese Fähigkeit zu nutzen",
   "pluginSettings.title": "{{name}} Fähigkeitseinstellungen",
-  "requestBodyTooLarge.desc": "Diese Anfrage ist zu groß für den Modellanbieter, oft weil das Gespräch viele große Bilder oder Dateien enthält. Komprimieren Sie den Kontext, um den Verlauf in Text zusammenzufassen, und versuchen Sie es erneut. Wenn die großen Dateien in der Nachricht enthalten sind, die Sie gerade gesendet haben, bearbeiten Sie diese zuerst, um einige davon zu entfernen.",
+  "requestBodyTooLarge.desc": "Diese Anfrage ist zu groß für den Modellanbieter, oft weil das Gespräch viele große Bilder oder Dateien enthält. Komprimieren Sie den Kontext, um die Historie in Text zusammenzufassen, und versuchen Sie es erneut. Wenn die großen Dateien in der Nachricht enthalten sind, die Sie gerade gesendet haben, bearbeiten Sie diese zuerst, um einige davon zu entfernen.",
   "requestBodyTooLarge.title": "Anfrage zu groß",
   "response.400": "Entschuldigung, der Server versteht Ihre Anfrage nicht. Bitte überprüfen Sie die Parameter.",
   "response.401": "Entschuldigung, Ihre Anfrage wurde abgelehnt, möglicherweise wegen fehlender Berechtigungen oder ungültiger Authentifizierung.",

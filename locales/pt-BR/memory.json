@@ -93,7 +93,7 @@
   "entity.status.on_hold": "Em espera",
   "entity.status.ongoing": "Em andamento",
   "entity.status.planned": "Planejado",
-  "entity.timeline.empty": "Nenhuma atividade menciona as pessoas ou coisas aqui ainda. Atividades são vinculadas a contextos por nomes compartilhados, então isso pode permanecer vazio.",
+  "entity.timeline.empty": "Nenhuma atividade menciona as pessoas ou coisas aqui ainda. Atividades são vinculadas a contextos apenas por nomes compartilhados, então isso pode permanecer vazio.",
   "entity.timeline.mentions": "Menções",
   "entity.timeline.past": "Histórico",
   "entity.timeline.pastExtra": "{{count}} · vinculado por nomes compartilhados, pode estar incompleto",

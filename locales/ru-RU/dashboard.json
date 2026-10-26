@@ -152,7 +152,7 @@
   "settings.scheduleOthers_one": "{{count}} виджет, созданный другими, сохраняет свое собственное обновление.",
   "settings.scheduleOthers_other": "{{count}} виджетов, созданных другими, сохраняют свои собственные обновления.",
   "settings.title": "Настройки панели",
-  "settings.visibility": "Кто может это видеть",
+  "settings.visibility": "Кто может видеть",
   "settings.visibilityKeptPrivate": "Сохранено. Панель остается видимой только для вас, так как ее проект является частным.",
   "settings.visibilityPrivate": "Только я",
   "settings.visibilityPublic": "Участники рабочего пространства",

@@ -15,7 +15,7 @@
   "consent.acceptanceReview.role.admin": "Администратор",
   "consent.acceptanceReview.role.member": "Може да редактира",
   "consent.acceptanceReview.role.viewer": "Само за четене",
-  "consent.acceptanceReview.siteDenied": "Не сте член на този проект, затова не можете да прегледате този сайт. Помолете поддържащия проекта да ви покани или сменете акаунта.",
+  "consent.acceptanceReview.siteDenied": "Не сте член на този проект, затова не можете да прегледате този сайт. Помолете поддържащия проекта да ви покани или сменете акаунта си.",
   "consent.acceptanceReview.siteProject": "Проект {{project}}",
   "consent.acceptanceReview.siteProjectRole": "Проект {{project}} · Вашата роля: {{role}}",
   "consent.acceptanceReview.siteTarget": "Прегледайте сайта: {{site}}",

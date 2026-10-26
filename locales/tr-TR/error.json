@@ -34,7 +34,7 @@
   "otherScope.title": "Bu başka bir alanda",
   "pluginSettings.desc": "Bu yeteneği kullanmaya başlamak için aşağıdaki yapılandırmayı tamamlayın",
   "pluginSettings.title": "{{name}} Yetenek Ayarları",
-  "requestBodyTooLarge.desc": "Bu istek model sağlayıcısı için çok büyük, genellikle konuşma birçok büyük resim veya dosya içerdiği için. Geçmişi özetlemek için bağlamı sıkıştırın ve tekrar deneyin. Eğer büyük dosyalar gönderdiğiniz mesajda bulunuyorsa, önce bazılarını kaldırarak düzenleyin.",
+  "requestBodyTooLarge.desc": "Bu istek model sağlayıcısı için çok büyük, genellikle konuşma birçok büyük resim veya dosya içerdiği için. Geçmişi özetlemek için bağlamı sıkıştırın ve tekrar deneyin. Eğer büyük dosyalar gönderdiğiniz mesajda bulunuyorsa, önce bunlardan bazılarını kaldırarak düzenleyin.",
   "requestBodyTooLarge.title": "İstek Çok Büyük",
   "response.400": "Üzgünüz, sunucu isteğinizi anlayamıyor. Lütfen istek parametrelerinizin doğru olduğundan emin olun.",
   "response.401": "Üzgünüz, sunucu isteğinizi reddetti. Bu, yetersiz yetki veya geçersiz kimlik doğrulaması nedeniyle olabilir.",

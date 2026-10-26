@@ -15,7 +15,7 @@
   "consent.acceptanceReview.role.admin": "المسؤول",
   "consent.acceptanceReview.role.member": "يمكنه التعديل",
   "consent.acceptanceReview.role.viewer": "للقراءة فقط",
-  "consent.acceptanceReview.siteDenied": "أنت لست عضوًا في هذا المشروع، لذا لا يمكنك مراجعة هذا الموقع. اطلب من مسؤول المشروع دعوتك، أو قم بتبديل الحسابات.",
+  "consent.acceptanceReview.siteDenied": "أنت لست عضوًا في هذا المشروع، لذلك لا يمكنك مراجعة هذا الموقع. اطلب من مسؤول المشروع دعوتك، أو قم بتبديل الحسابات.",
   "consent.acceptanceReview.siteProject": "المشروع {{project}}",
   "consent.acceptanceReview.siteProjectRole": "المشروع {{project}} · دورك: {{role}}",
   "consent.acceptanceReview.siteTarget": "راجع الموقع: {{site}}",

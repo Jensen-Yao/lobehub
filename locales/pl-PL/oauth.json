@@ -20,7 +20,7 @@
   "consent.acceptanceReview.siteProjectRole": "Projekt {{project}} · Twoja rola: {{role}}",
   "consent.acceptanceReview.siteTarget": "Przeglądaj witrynę: {{site}}",
   "consent.acceptanceReview.target": "Przejrzyj akceptację: {{title}}",
-  "consent.acceptanceReview.unregisteredHint": "Nic nie zostało udostępnione. Jeśli ten adres należy do Ciebie, dodaj go w Ustawieniach projektu › Witryny.",
+  "consent.acceptanceReview.unregisteredHint": "Nic nie zostało udostępnione. Jeśli ten adres należy do Ciebie, dodaj go w ustawieniach Projektu › Witryny.",
   "consent.acceptanceReview.unregisteredTitle": "Ten adres nie jest zarejestrowany dla tej witryny",
   "consent.buttons.accept": "Autoryzuj",
   "consent.buttons.deny": "Odmów",

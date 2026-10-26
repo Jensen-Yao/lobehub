@@ -35,7 +35,7 @@
   "consent.redirectUri": "承認が成功した後、次の場所にリダイレクトされます",
   "consent.redirecting": "認証に成功しました。リダイレクト中です...",
   "consent.scope.acceptance-review": "この承認にコメントし、プレビュー ページから承認または差し戻しを行います",
-  "consent.scope.acceptance-review-site": "このサイトのレビューにコメントする（サイト自体から、8時間有効）",
+  "consent.scope.acceptance-review-site": "このサイトのレビューにコメントする（サイト自体から、8時間）",
   "consent.scope.email": "あなたのメールアドレスにアクセス",
   "consent.scope.offline_access": "クライアントがあなたのデータにアクセスすることを許可",
   "consent.scope.openid": "あなたの LobeChat アカウントで認証",

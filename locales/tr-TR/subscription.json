@@ -239,7 +239,7 @@
   "credits.topUp.payment.checkout": "Stripe ödeme sayfasında seçin",
   "credits.topUp.payment.continueToCheckout": "Ödemeye Devam Et",
   "credits.topUp.payment.otherMethod": "Diğer Ödeme Yöntemleri",
-  "credits.topUp.payment.overLimit": "{{max}} üzerindeki satın alımlar Stripe ödeme sayfasında onaylanır",
+  "credits.topUp.payment.overLimit": "{{max}} üzerindeki alımlar Stripe ödeme sayfasında onaylanır",
   "credits.topUp.purchaseError": "Satın alma başarısız oldu, lütfen daha sonra tekrar deneyin",
   "credits.topUp.purchaseNow": "Şimdi Satın Al",
   "credits.topUp.receipt.bonus": "İlk yükleme bonusu",

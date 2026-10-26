@@ -74,7 +74,7 @@
   "filter.byDevice": "Устройство: {{value}}",
   "filter.byStatus": "Статус: {{value}}",
   "filter.clear": "Изчисти филтрите",
-  "filter.emptyFiltered": "Няма теми, които отговарят на тези филтри",
+  "filter.emptyFiltered": "Няма теми, които съответстват на тези филтри",
   "filter.filter": "Филтър",
   "filter.groupMode.byAgent": "По агент",
   "filter.groupMode.byDevice": "По устройство",

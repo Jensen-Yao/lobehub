@@ -140,7 +140,7 @@
   "members.more": "Още",
   "members.noResponsibility": "Все още няма зададена отговорност",
   "members.remove": "Премахване от проекта",
-  "members.removeConfirmDescription": "Съществуващите му задачи и теми в този проект остават такива, каквито са.",
+  "members.removeConfirmDescription": "Съществуващите задачи и теми на този агент в проекта остават както са.",
   "members.removeConfirmTitle": "Премахване на {{name}} от този проект?",
   "members.removeFailed": "Неуспешно премахване на агента",
   "members.replaceCoordinator": "Смяна на основния агент",

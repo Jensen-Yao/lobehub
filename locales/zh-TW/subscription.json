@@ -700,6 +700,6 @@
   "usage.remaining": "剩餘",
   "usage.storage.embeddings.used": "向量儲存",
   "usage.storage.file.used": "檔案使用量",
-  "usage.storage.sandboxStorage.pool": "沙盒硬碟（工作區池）",
+  "usage.storage.sandboxStorage.pool": "沙盒磁碟（工作區池）",
   "usage.storage.sandboxStorage.used": "沙盒存儲"
 }

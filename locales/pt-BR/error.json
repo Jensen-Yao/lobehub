@@ -34,7 +34,7 @@
   "otherScope.title": "Isso está em outro espaço",
   "pluginSettings.desc": "Complete a configuração abaixo para começar a usar esta habilidade",
   "pluginSettings.title": "Configurações da Habilidade {{name}}",
-  "requestBodyTooLarge.desc": "Esta solicitação é muito grande para o provedor de modelo, geralmente porque a conversa contém muitas imagens ou arquivos grandes. Compacte o contexto para resumir o histórico em texto e tente novamente. Se os arquivos grandes estiverem na mensagem que você acabou de enviar, edite-a para remover alguns deles primeiro.",
+  "requestBodyTooLarge.desc": "Esta solicitação é muito grande para o provedor do modelo, geralmente porque a conversa contém muitas imagens ou arquivos grandes. Compacte o contexto para resumir o histórico em texto e tente novamente. Se os arquivos grandes estiverem na mensagem que você acabou de enviar, edite-a para remover alguns deles primeiro.",
   "requestBodyTooLarge.title": "Solicitação Muito Grande",
   "response.400": "Desculpe, o servidor não entendeu sua solicitação. Verifique se os parâmetros estão corretos.",
   "response.401": "Desculpe, o servidor rejeitou sua solicitação, possivelmente por falta de permissões ou autenticação inválida.",

@@ -110,7 +110,7 @@
   "knowledgeBases.link": "Bibliothek verknüpfen",
   "knowledgeBases.noMatch": "Keine passenden Bibliotheken",
   "knowledgeBases.remove": "Verknüpfung aufheben",
-  "knowledgeBases.removeConfirmDescription": "Projektaufgaben werden nicht mehr danach durchsuchen. Die Bibliothek und ihre Dateien bleiben erhalten.",
+  "knowledgeBases.removeConfirmDescription": "Projektaufgaben werden nicht mehr danach durchsucht. Die Bibliothek und ihre Dateien bleiben erhalten.",
   "knowledgeBases.removeConfirmTitle": "Verknüpfung von {{name}} aufheben?",
   "knowledgeBases.removeFailed": "Die Bibliothek konnte nicht entknüpft werden",
   "knowledgeBases.searchPlaceholder": "Bibliotheken durchsuchen",

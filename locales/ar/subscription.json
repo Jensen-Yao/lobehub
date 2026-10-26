@@ -700,6 +700,6 @@
   "usage.remaining": "المتبقي",
   "usage.storage.embeddings.used": "تخزين المتجهات",
   "usage.storage.file.used": "استخدام الملفات",
-  "usage.storage.sandboxStorage.pool": "محركات الصندوق الرمل (مجموعة مساحة العمل)",
+  "usage.storage.sandboxStorage.pool": "محركات الصندوق (مجموعة مساحة العمل)",
   "usage.storage.sandboxStorage.used": "استخدام تخزين صندوق السحاب"
 }
