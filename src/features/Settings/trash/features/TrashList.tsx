@@ -39,7 +39,6 @@ import { TrashEmptyScopeChangedError } from '@/store/trash/action';
 import { useUserStore } from '@/store/user';
 import { labPreferSelectors } from '@/store/user/selectors';
 
-import DeletedByCell from './DeletedByCell';
 import { ProjectFilter } from './ProjectFilter';
 import {
   canEmptyTrashView,
@@ -116,12 +115,7 @@ const styles = createStaticStyles(({ css, cssVar }) => ({
   `,
 }));
 
-interface TrashListProps {
-  /** Name each row's deleter — the workspace bin lists every member's deletions. */
-  showDeletedBy?: boolean;
-}
-
-const TrashList = ({ showDeletedBy = false }: TrashListProps) => {
+const TrashList = () => {
   const { t } = useTranslation('setting');
   const { t: tc } = useTranslation('common');
   const mobile = useIsMobile();
@@ -387,15 +381,6 @@ const TrashList = ({ showDeletedBy = false }: TrashListProps) => {
       ),
       title: t('trash.columns.deletedAt'),
     },
-    ...(showDeletedBy
-      ? [
-          {
-            key: 'deletedBy',
-            render: (item: TrashItem) => <DeletedByCell userId={item.deletedByUserId} />,
-            title: t('trash.columns.deletedBy'),
-          },
-        ]
-      : []),
     {
       key: 'expiresAt',
       render: (item) => <span className={styles.muted}>{expiresLabel(item.expiresAt)}</span>,

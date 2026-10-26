@@ -31,6 +31,16 @@ class TrashService {
     return lambdaClient.trash.purge.mutate({ ids });
   }
 
+  /** Item counts of other members' workspace bins (owners and admins only). */
+  memberSummary() {
+    return lambdaClient.trash.memberSummary.query();
+  }
+
+  /** Permanently delete one bounded batch of another member's workspace bin. */
+  emptyMemberTrash(memberId: string, workspaceId: string) {
+    return lambdaClient.trash.emptyMemberTrash.mutate({ memberId, workspaceId });
+  }
+
   /**
    * Purge one bounded batch of the roots `filter` covers. `workspaceId` is the
    * scope the sweep started in (`null` = personal); the server refuses a batch

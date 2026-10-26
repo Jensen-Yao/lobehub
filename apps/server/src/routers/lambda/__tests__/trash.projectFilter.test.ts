@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentModel } from '@/database/models/agent';
 import { ProjectModel } from '@/database/models/project';
 import { TopicModel } from '@/database/models/topic';
-import { topics, trashItems, users, workspaces } from '@/database/schemas';
+import { agents, topics, trashItems, users, workspaces } from '@/database/schemas';
 import { TrashService } from '@/server/services/trash';
 
 let testDB: LobeChatDatabase;
@@ -28,8 +28,11 @@ const workspaceId = 'trash-filter-ws';
 const otherWorkspaceId = 'trash-filter-ws-2';
 
 const personalCtx = (userId: string) => ({ userId }) as any;
-const workspaceCtx = (userId: string, workspaceRole: 'member' | 'owner', ws = workspaceId) =>
-  ({ userId, workspaceId: ws, workspaceRole }) as any;
+const workspaceCtx = (
+  userId: string,
+  workspaceRole: 'admin' | 'member' | 'owner',
+  ws = workspaceId,
+) => ({ userId, workspaceId: ws, workspaceRole }) as any;
 
 const createProject = (
   userId: string,
@@ -187,7 +190,7 @@ describe('trashRouter project filter', () => {
     ).toEqual({ topic: 1 });
   });
 
-  it('applies the member actor filter inside a project while the owner sees every root', async () => {
+  it('applies the actor filter inside a project to every role, owner included', async () => {
     const team = await createProject(ownerId, workspaceId, 'TEAM');
     const ownerRoots = await trashTopics(ownerId, workspaceId, team.id, 2);
     const memberRoots = await trashTopics(memberId, workspaceId, team.id, 2);
@@ -195,12 +198,11 @@ describe('trashRouter project filter', () => {
 
     const owner = workspaceCtx(ownerId, 'owner');
     const member = workspaceCtx(memberId, 'member');
-    expect((await listIds(owner, { projectId: team.id })).sort()).toEqual(
-      [...ownerRoots, ...memberRoots].sort(),
-    );
+    expect((await listIds(owner, { projectId: team.id })).sort()).toEqual([...ownerRoots].sort());
     expect((await listIds(member, { projectId: team.id })).sort()).toEqual([...memberRoots].sort());
     expect(await caller(member).countByType({ projectId: team.id })).toEqual({ topic: 2 });
-    expect(await caller(owner).countByType({ projectId: null })).toEqual({ topic: 1 });
+    expect(await caller(member).countByType({ projectId: null })).toEqual({ topic: 1 });
+    expect(await caller(owner).countByType({ projectId: null })).toEqual({});
     // The personal bin of the same user is a different scope.
     expect(await listIds(personalCtx(ownerId), { projectId: null })).toEqual([]);
   });
@@ -235,8 +237,8 @@ describe('trashRouter project filter', () => {
       if (!batch.hasMore) break;
     }
     expect(purged).toBe(memberTeam.length);
-    const remaining = (await listIds(workspaceCtx(ownerId, 'owner'))).sort();
-    expect(remaining).toEqual([...ownerTeam, ...memberOther, memberAgent.agentId].sort());
+    expect((await listIds(member)).sort()).toEqual([...memberOther, memberAgent.agentId].sort());
+    expect(await listIds(workspaceCtx(ownerId, 'owner'))).toEqual(ownerTeam);
     // The agent's cascaded team topic is not a root of the project, so it survived…
     expect(
       await testDB.select().from(topics).where(eq(topics.id, memberAgent.topicId)),
@@ -253,9 +255,45 @@ describe('trashRouter project filter', () => {
     expect(
       await testDB.select().from(topics).where(eq(topics.id, memberAgent.topicId)),
     ).toHaveLength(0);
-    expect((await listIds(workspaceCtx(ownerId, 'owner'))).sort()).toEqual(
-      [...ownerTeam, ...memberOther].sort(),
+    expect(await listIds(member)).toEqual(memberOther);
+    expect(await listIds(workspaceCtx(ownerId, 'owner'))).toEqual(ownerTeam);
+  });
+
+  it('lets an admin count and empty a member’s bin, private agent included, without seeing it', async () => {
+    const privateAgent = await new AgentModel(testDB, memberId, workspaceId).create({
+      title: 'secret agent',
+      visibility: 'private',
+    });
+    const privateTopic = await new TopicModel(testDB, memberId, workspaceId).create({
+      agentId: privateAgent.id,
+      title: 'secret topic',
+    });
+    await new TrashService(testDB, memberId, workspaceId).trashAgent(privateAgent.id);
+    const memberTopics = await trashTopics(memberId, workspaceId, null, 2);
+    const ownerTopics = await trashTopics(ownerId, workspaceId, null, 1);
+    const admin = workspaceCtx(strangerId, 'admin');
+
+    expect(await listIds(admin)).toEqual([]);
+    expect(await caller(admin).memberSummary()).toEqual([
+      { total: 3, userId: memberId },
+      { total: 1, userId: ownerId },
+    ]);
+
+    expect(await caller(admin).emptyMemberTrash({ memberId, workspaceId })).toEqual({
+      hasMore: false,
+      purged: 3,
+    });
+    expect(await testDB.select().from(agents).where(eq(agents.id, privateAgent.id))).toHaveLength(
+      0,
     );
+    expect(
+      await testDB
+        .select()
+        .from(topics)
+        .where(inArray(topics.id, [privateTopic.id, ...memberTopics])),
+    ).toHaveLength(0);
+    expect(await caller(admin).memberSummary()).toEqual([{ total: 1, userId: ownerId }]);
+    expect(await listIds(workspaceCtx(ownerId, 'owner'))).toEqual(ownerTopics);
   });
 
   it('refuses a batch whose request scope no longer matches the scope the sweep started in', async () => {

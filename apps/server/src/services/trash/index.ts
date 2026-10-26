@@ -209,6 +209,8 @@ export class TrashService {
   countByType = (filter?: Omit<TrashRootFilter, 'resourceType'>): Promise<TrashCountByType> =>
     this.trashModel.countByType(filter);
 
+  countByDeleter = () => this.trashModel.countByDeleter();
+
   findByIds = async (ids: string[]): Promise<TrashItem[]> =>
     (await this.trashModel.findByIds(ids)).map(this.toItem);
 
@@ -315,6 +317,19 @@ export class TrashService {
     // `purged === 0` with rows left means nothing in reach could be purged;
     // stop instead of letting the client spin.
     return { hasMore: ids.length > TRASH_EMPTY_BATCH_SIZE && purged > 0, purged };
+  };
+
+  /**
+   * Empty one batch of another member's workspace bin for a workspace
+   * manager. The roots are purged under that member's scope — as the expiry
+   * sweep does — so their private agents and topics, which the manager cannot
+   * see, still go with them.
+   */
+  emptyMemberTrash = async (memberId: string): Promise<{ hasMore: boolean; purged: number }> => {
+    if (!this.workspaceId) throw new Error('emptyMemberTrash needs a workspace scope');
+    return new TrashService(this.db, memberId, this.workspaceId).emptyTrash({
+      deletedByUserId: memberId,
+    });
   };
 
   private purgeRoot = async (root: TrashItemRow) => {

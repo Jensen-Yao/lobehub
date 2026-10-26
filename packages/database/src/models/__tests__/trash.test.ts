@@ -280,6 +280,34 @@ describe('TrashModel', () => {
       // without the filter the workspace scope still sees both
       expect(await wsOther.countByType()).toEqual({ message: 1, topic: 1 });
     });
+
+    it('counts roots per deleter inside the workspace, ignoring children and personal rows', async () => {
+      const wsModel = new TrashModel(serverDB, userId, workspaceId);
+      const wsOther = new TrashModel(serverDB, otherUserId, workspaceId);
+      await wsOther.register({
+        children: [{ projectId: null, resourceId: 'msg_child', resourceType: 'message' }],
+        deletedAt: at('2026-08-01T00:00:00Z'),
+        root: { projectId: null, resourceId: 'agt_member', resourceType: 'agent' },
+      });
+      await wsOther.register({
+        deletedAt: at('2026-08-02T00:00:00Z'),
+        root: { projectId: null, resourceId: 'tpc_member', resourceType: 'topic' },
+      });
+      await wsModel.register({
+        deletedAt: at('2026-08-03T00:00:00Z'),
+        root: { projectId: null, resourceId: 'tpc_owner', resourceType: 'topic' },
+      });
+      await otherModel.register({
+        deletedAt: at('2026-08-04T00:00:00Z'),
+        root: { projectId: null, resourceId: 'tpc_personal', resourceType: 'topic' },
+      });
+
+      expect(await wsModel.countByDeleter()).toEqual([
+        { total: 2, userId: otherUserId },
+        { total: 1, userId },
+      ]);
+      expect(await otherModel.countByDeleter()).toEqual([{ total: 1, userId: otherUserId }]);
+    });
   });
 
   describe('project filter', () => {

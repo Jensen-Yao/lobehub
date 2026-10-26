@@ -8,7 +8,20 @@ import type {
   TrashResourceType,
   TrashRootFilter,
 } from '@lobechat/types';
-import { and, asc, count, desc, eq, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  lte,
+  or,
+  sql,
+} from 'drizzle-orm';
 
 import type { NewTrashItemRow, TrashItemRow } from '../schemas';
 import { agents, dashboards, messages, topics, trashItems, widgets } from '../schemas';
@@ -334,6 +347,22 @@ export class TrashModel {
       .groupBy(trashItems.resourceType);
 
     return Object.fromEntries(rows.map((row) => [row.resourceType, row.total]));
+  };
+
+  /**
+   * Roots per deleter in scope, without titles or types — what a workspace
+   * manager may know about other members' bins. Rows with no recorded deleter
+   * are left out: nobody could empty them by member.
+   */
+  countByDeleter = async (): Promise<{ total: number; userId: string }[]> => {
+    const rows = await this.db
+      .select({ total: count(), userId: trashItems.deletedByUserId })
+      .from(trashItems)
+      .where(and(this.rootsWhere(), isNotNull(trashItems.deletedByUserId)))
+      .groupBy(trashItems.deletedByUserId)
+      .orderBy(desc(count()));
+
+    return rows.map((row) => ({ total: row.total, userId: row.userId! }));
   };
 
   findById = async (id: string): Promise<TrashItemRow | undefined> => {

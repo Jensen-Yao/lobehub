@@ -1918,7 +1918,6 @@ When I am ___, I need ___
   'trash.actions.purge': 'Delete forever',
   'trash.actions.restore': 'Restore',
   'trash.columns.deletedAt': 'Deleted',
-  'trash.columns.deletedBy': 'Deleted by',
   'trash.columns.expiresIn': 'Auto-deletes',
   'trash.columns.name': 'Name',
   'trash.columns.type': 'Type',
@@ -1948,6 +1947,16 @@ When I am ___, I need ___
   'trash.filter.type.all': 'All types',
   'trash.loadFailed.desc': 'Check your connection and try again.',
   'trash.loadFailed.title': 'Could not load the trash',
+  'trash.members.count': '{{count}} item(s)',
+  'trash.members.desc':
+    "Members' deletions can be private, so you only see how many items each member has here. You can't open or restore them, but you can delete them forever.",
+  'trash.members.empty': 'Delete forever',
+  'trash.members.emptyConfirm.content':
+    "Permanently delete all {{count}} item(s) in {{name}}'s trash? This cannot be undone.",
+  'trash.members.emptyConfirm.title': "Empty a member's trash",
+  'trash.members.none': "Other members' trash is empty.",
+  'trash.members.title': "Members' trash",
+  'trash.members.unknown': 'Former member',
   'trash.meta.children': '{{count}} items inside',
   'trash.projectUnavailable.desc':
     'It was deleted or you no longer have access. Choose All projects, No project or another project to continue.',
@@ -1966,6 +1975,8 @@ When I am ___, I need ___
   'trash.type.topic': 'Topic',
   'trash.type.widget': 'Widget',
   'trash.untitled': 'Untitled',
+  'trash.workspaceDesc':
+    'Only you can see what you delete in this workspace. Deleted items stay here for {{days}} days and can be restored. After that they are removed permanently.',
   'workspace.create.descPlaceholder': 'Describe what this workspace is for (optional)',
   'workspace.create.namePlaceholder': 'e.g. Acme Team',
   'workspace.create.submit': 'Create workspace',
