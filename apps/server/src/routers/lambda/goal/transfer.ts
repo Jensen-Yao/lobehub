@@ -12,9 +12,9 @@ export const transferRouter = router({
   /**
    * Copy a goal's definition into personal or another workspace. Moving is
    * intentionally not offered, for the same reason tasks only copy: a goal
-   * drags its graph Tasks and their history with it. Copy is non-destructive,
-   * so any member who can read the goal may copy it; only the target needs
-   * write access.
+   * drags its graph Tasks and their history with it. Permissions match
+   * `copyTaskToWorkspace`: `agent:update` in the source scope and
+   * `AGENT_UPDATE` on the target workspace; personal needs no target check.
    */
   copyGoalToWorkspace: goalWriteProcedure
     .input(z.object({ id: z.string(), targetWorkspaceId: z.string().nullable() }))
