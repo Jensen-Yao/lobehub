@@ -954,6 +954,12 @@ export interface DeviceClaudeCodeMemoryFile {
   updatedAt: number;
 }
 
+/** The agent env keys that move Claude Code's auto memory, sent with `listClaudeCodeMemory`. */
+export interface DeviceClaudeCodeMemoryRunEnv {
+  CLAUDE_CODE_PROJECT_DIR_NAME?: string;
+  CLAUDE_CONFIG_DIR?: string;
+}
+
 /**
  * Claude Code's auto memory for a project on the device, returned by the
  * `listClaudeCodeMemory` device RPC. Mirrors device-control's

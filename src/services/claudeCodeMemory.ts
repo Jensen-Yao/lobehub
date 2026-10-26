@@ -1,4 +1,7 @@
-import type { DeviceListClaudeCodeMemoryResult } from '@lobechat/types';
+import type {
+  DeviceClaudeCodeMemoryRunEnv,
+  DeviceListClaudeCodeMemoryResult,
+} from '@lobechat/types';
 
 import { lambdaClient } from '@/libs/trpc/client';
 import { ensureElectronIpc } from '@/utils/electron/ipc';
@@ -11,15 +14,23 @@ import { ensureElectronIpc } from '@/utils/electron/ipc';
 class ClaudeCodeMemoryService {
   /** Memory files under `~/.claude/projects/<project key>/memory` for `workingDirectory`. */
   async listMemory({
+    agentId,
     deviceId,
+    env,
     workingDirectory,
   }: {
+    agentId?: string;
     deviceId?: string;
+    /**
+     * The agent's own Claude Code env, for the local scan. A bound device gets
+     * it from `agentId` on the server instead, which owns the approved roots.
+     */
+    env?: DeviceClaudeCodeMemoryRunEnv;
     workingDirectory: string;
   }): Promise<DeviceListClaudeCodeMemoryResult | null> {
     return deviceId
-      ? lambdaClient.device.listClaudeCodeMemory.query({ deviceId, workingDirectory })
-      : ensureElectronIpc().workspace.listClaudeCodeMemory({ scope: workingDirectory });
+      ? lambdaClient.device.listClaudeCodeMemory.query({ agentId, deviceId, workingDirectory })
+      : ensureElectronIpc().workspace.listClaudeCodeMemory({ env, scope: workingDirectory });
   }
 }
 

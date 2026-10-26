@@ -60,7 +60,18 @@ export interface ListProjectSkillsResult {
   source: ProjectSkillSource | null;
 }
 
+/** The run env keys that move where Claude Code keeps auto memory. */
+export interface ClaudeCodeMemoryRunEnv {
+  CLAUDE_CODE_PROJECT_DIR_NAME?: string;
+  CLAUDE_CONFIG_DIR?: string;
+}
+
 export interface ListClaudeCodeMemoryParams {
+  /**
+   * The agent's own values for these keys (`heterogeneousProvider.env`). A run
+   * spreads that env over the device's, so a set value wins here too.
+   */
+  env?: ClaudeCodeMemoryRunEnv;
   /** Working directory of the Claude Code project. */
   scope: string;
 }

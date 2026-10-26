@@ -3,6 +3,7 @@
  * skills) and publish-asset copies.
  */
 import type {
+  DeviceClaudeCodeMemoryRunEnv,
   DeviceCopyAssetForPublishResult,
   DeviceDirectoryBrowseResult,
   DeviceExternalAssetForPublishResult,
@@ -357,20 +358,22 @@ export async function listClaudeCodeMemory(
   getClient: DeviceClientGetter,
   params: {
     deviceId: string;
+    /** The agent's own `CLAUDE_CONFIG_DIR` / `CLAUDE_CODE_PROJECT_DIR_NAME`. */
+    env?: DeviceClaudeCodeMemoryRunEnv;
     scope: string;
     timeout?: number;
     userId: string;
     workspaceId?: string;
   },
 ): Promise<DeviceListClaudeCodeMemoryResult | undefined> {
-  const { userId, deviceId, scope, timeout = 30_000, workspaceId } = params;
+  const { userId, deviceId, env, scope, timeout = 30_000, workspaceId } = params;
   const client = getClient();
   if (!client) return undefined;
 
   try {
     const result = await client.invokeRpc<DeviceListClaudeCodeMemoryResult>(
       { deviceId, timeout, userId, workspaceId },
-      { method: 'listClaudeCodeMemory', params: { scope } },
+      { method: 'listClaudeCodeMemory', params: { env, scope } },
     );
 
     if (!result.success || !result.data) {

@@ -63,6 +63,7 @@ export const useExtraWorkingSidebarTabs = ({
               label: t('workingPanel.claudeMemory.title'),
               pane: (
                 <MemoryPane
+                  agentId={activeAgentId}
                   deviceId={remoteDeviceId}
                   key={`${remoteDeviceId ?? 'local'}:${memoryDirectory}`}
                   workingDirectory={memoryDirectory}
@@ -73,6 +74,6 @@ export const useExtraWorkingSidebarTabs = ({
         : []),
       ...businessTabs.map((tab) => ({ icon: PanelsTopLeftIcon, ...tab })),
     ],
-    [businessTabs, isClaudeCode, memoryDirectory, remoteDeviceId, t],
+    [activeAgentId, businessTabs, isClaudeCode, memoryDirectory, remoteDeviceId, t],
   );
 };

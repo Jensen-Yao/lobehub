@@ -90,6 +90,8 @@ const MemoryRow = memo<MemoryRowProps>(({ file, indexHint, onOpen }) => {
 MemoryRow.displayName = 'ClaudeCodeMemoryRow';
 
 interface MemoryPaneProps {
+  /** The Claude Code agent whose own config dir, if it sets one, holds the memory. */
+  agentId?: string;
   /** Bound device; the memory is then read and saved over RPC. */
   deviceId?: string;
   workingDirectory: string;
@@ -100,13 +102,14 @@ interface MemoryPaneProps {
  * (`~/.claude/projects/<project key>/memory`). Each file opens in the local-file
  * portal, where it can be edited and saved back in place.
  */
-export const MemoryPane = memo<MemoryPaneProps>(({ deviceId, workingDirectory }) => {
+export const MemoryPane = memo<MemoryPaneProps>(({ agentId, deviceId, workingDirectory }) => {
   const { t } = useTranslation('chat');
   const openLocalFile = useChatStore((s) => s.openLocalFile);
-  const { data, error, isLoading, isValidating, mutate } = useClaudeCodeMemory(
+  const { data, error, isLoading, isValidating, mutate } = useClaudeCodeMemory({
+    agentId,
     deviceId,
     workingDirectory,
-  );
+  });
   const files = data?.files ?? EMPTY_ARRAY;
   const groups = useMemo(() => groupMemoryFiles(files), [files]);
   const memoryDir = data?.memoryDir;
@@ -128,6 +131,22 @@ export const MemoryPane = memo<MemoryPaneProps>(({ deviceId, workingDirectory })
       paddingInline={'8px 12px'}
       style={{ minHeight: 0 }}
     >
+      {/* Outside the boundary so an empty memory can still be re-read once Claude writes one. */}
+      {memoryDir && (
+        <Flexbox horizontal align={'center'} gap={4} paddingInline={4}>
+          <Text ellipsis {...stylex.props(styles.location)} title={memoryDir} type={'secondary'}>
+            {t('workingPanel.claudeMemory.location', { path: memoryDir })}
+          </Text>
+          <ActionIcon
+            aria-label={t('workingPanel.claudeMemory.refresh')}
+            icon={RefreshCwIcon}
+            loading={isValidating}
+            size={'small'}
+            title={t('workingPanel.claudeMemory.refresh')}
+            onClick={refresh}
+          />
+        </Flexbox>
+      )}
       <AsyncBoundary
         data={data}
         error={error}
@@ -145,19 +164,6 @@ export const MemoryPane = memo<MemoryPaneProps>(({ deviceId, workingDirectory })
         }
         onRetry={refresh}
       >
-        <Flexbox horizontal align={'center'} gap={4} paddingInline={4}>
-          <Text ellipsis {...stylex.props(styles.location)} title={memoryDir} type={'secondary'}>
-            {t('workingPanel.claudeMemory.location', { path: memoryDir })}
-          </Text>
-          <ActionIcon
-            aria-label={t('workingPanel.claudeMemory.refresh')}
-            icon={RefreshCwIcon}
-            loading={isValidating}
-            size={'small'}
-            title={t('workingPanel.claudeMemory.refresh')}
-            onClick={refresh}
-          />
-        </Flexbox>
         {groups.map((group) => (
           <SkillSection
             key={group.key}

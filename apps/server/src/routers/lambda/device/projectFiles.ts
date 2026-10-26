@@ -2,6 +2,8 @@ import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
 import { requireWorkspaceRoleWhenScoped } from '@/business/server/trpc-middlewares/workspaceAuth';
+import { AgentModel } from '@/database/models/agent';
+import type { LobeChatDatabase } from '@/database/type';
 import { router } from '@/libs/trpc/lambda';
 import { deviceGateway, isValidDirectoryName } from '@/server/services/deviceGateway';
 
@@ -54,6 +56,28 @@ const workspaceFileWriteProcedure = workspaceFileProcedure.use(
 const workspacePublishProcedure = workspaceFileProcedure.use(
   requireWorkspaceRoleWhenScoped('member'),
 );
+
+/**
+ * The agent's own `CLAUDE_CONFIG_DIR` / `CLAUDE_CODE_PROJECT_DIR_NAME`, which its
+ * runs spread over the device env. Read from the stored agent config, never the
+ * request: the memory directory they point at becomes an approved root.
+ */
+const resolveAgentClaudeMemoryEnv = async (
+  ctx: { serverDB: LobeChatDatabase; userId: string; workspaceId?: string },
+  agentId: string,
+) => {
+  const agencyConfig = await new AgentModel(
+    ctx.serverDB,
+    ctx.userId,
+    ctx.workspaceId,
+  ).getAgentAgencyConfig(agentId);
+  const env = agencyConfig?.heterogeneousProvider?.env;
+  if (!env) return undefined;
+  return {
+    CLAUDE_CODE_PROJECT_DIR_NAME: env.CLAUDE_CODE_PROJECT_DIR_NAME,
+    CLAUDE_CONFIG_DIR: env.CLAUDE_CONFIG_DIR,
+  };
+};
 
 export const projectFilesRouter = router({
   /**
@@ -267,24 +291,31 @@ export const projectFilesRouter = router({
   /**
    * Claude Code's auto memory for a project on a remote device, via the
    * device's `listClaudeCodeMemory` RPC. Powers the workspace panel's Memory
-   * tab in device mode. The project must be an approved root; the memory
-   * directory it maps to is then approved for preview and save. Returns `null`
-   * when offline.
+   * tab in device mode; `agentId` applies that agent's own Claude Code config
+   * dir. The project must be an approved root; the memory directory it maps to
+   * is then approved for preview and save while the project stays approved.
+   * Returns `null` when offline.
    */
-  listClaudeCodeMemory: workspaceFileProcedure.query(async ({ ctx, input }) => {
-    const result = await deviceGateway.listClaudeCodeMemory({
-      deviceId: input.deviceId,
-      scope: input.workingDirectory,
-      userId: ctx.userId,
-      workspaceId: ctx.workspaceId,
-    });
+  listClaudeCodeMemory: workspaceFileProcedure
+    .input(z.object({ agentId: z.string().optional() }))
+    .query(async ({ ctx, input }) => {
+      const result = await deviceGateway.listClaudeCodeMemory({
+        deviceId: input.deviceId,
+        env: input.agentId ? await resolveAgentClaudeMemoryEnv(ctx, input.agentId) : undefined,
+        scope: input.workingDirectory,
+        userId: ctx.userId,
+        workspaceId: ctx.workspaceId,
+      });
 
-    if (result?.memoryDir && result.files.length > 0) {
-      registerDeviceMemoryRoot(input.deviceId, result.memoryDir);
-    }
+      if (result?.memoryDir && result.files.length > 0) {
+        registerDeviceMemoryRoot(input.deviceId, {
+          memoryDir: result.memoryDir,
+          projectRoot: input.workingDirectory,
+        });
+      }
 
-    return result ?? null;
-  }),
+      return result ?? null;
+    }),
   /**
    * Move files/folders within a directory on a remote device, via the device's
    * `moveLocalFiles` RPC. Powers the Files tree's drag-to-move in device mode.

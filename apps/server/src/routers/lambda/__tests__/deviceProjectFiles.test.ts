@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   createProjectDirectory: vi.fn(),
   createProjectFile: vi.fn(),
   findByDeviceId: vi.fn(),
+  getAgentAgencyConfig: vi.fn(),
   listClaudeCodeMemory: vi.fn(),
   moveProjectFiles: vi.fn(),
   renameProjectFile: vi.fn(),
@@ -33,6 +34,11 @@ vi.mock('@/business/server/trpc-middlewares/workspaceAuth', async (importOrigina
 });
 
 vi.mock('@/database/core/db-adaptor', () => ({ getServerDB: vi.fn() }));
+vi.mock('@/database/models/agent', () => ({
+  AgentModel: class {
+    getAgentAgencyConfig = mocks.getAgentAgencyConfig;
+  },
+}));
 vi.mock('@/database/models/device', () => ({
   DeviceModel: class {
     findByDeviceId = mocks.findByDeviceId;
@@ -174,6 +180,72 @@ describe('device listClaudeCodeMemory', () => {
         workingDirectory: memoryDir,
       }),
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
+
+  it('revokes the memory directory once its project is no longer approved', async () => {
+    mocks.listClaudeCodeMemory.mockResolvedValue({
+      files: [{ isIndex: true, name: 'MEMORY', path: memoryFile, relativePath: 'MEMORY.md' }],
+      memoryDir,
+    });
+    await caller().listClaudeCodeMemory({ ...base, deviceId: 'dev-mem-5' });
+    const write = () =>
+      caller().writeProjectFile({
+        content: 'x',
+        deviceId: 'dev-mem-5',
+        path: memoryFile,
+        workingDirectory: memoryDir,
+      });
+    await expect(write()).resolves.toEqual({ success: true });
+
+    mocks.findByDeviceId.mockResolvedValue({ workingDirs: [{ path: '/Users/me/other' }] });
+
+    await expect(write()).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
+
+  it('never approves a memory directory that contains the project', async () => {
+    mocks.listClaudeCodeMemory.mockResolvedValue({
+      files: [
+        { isIndex: false, name: 'notes', path: '/Users/me/notes.md', relativePath: 'notes.md' },
+      ],
+      memoryDir: '/Users/me',
+    });
+    await caller().listClaudeCodeMemory({ ...base, deviceId: 'dev-mem-6' });
+
+    await expect(
+      caller().writeProjectFile({
+        content: 'x',
+        deviceId: 'dev-mem-6',
+        path: '/Users/me/.ssh/config',
+        workingDirectory: '/Users/me',
+      }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(mocks.writeProjectFile).not.toHaveBeenCalled();
+  });
+
+  it("forwards the agent's stored Claude Code config dir, not one from the request", async () => {
+    mocks.getAgentAgencyConfig.mockResolvedValue({
+      heterogeneousProvider: {
+        env: { CLAUDE_CONFIG_DIR: '/Users/me/.claude-work', OTHER: 'x' },
+        type: 'claude-code',
+      },
+    });
+    mocks.listClaudeCodeMemory.mockResolvedValue({ files: [], memoryDir });
+
+    await caller().listClaudeCodeMemory({
+      ...base,
+      agentId: 'agent-1',
+      deviceId: 'dev-mem-7',
+      env: { CLAUDE_CONFIG_DIR: '/' },
+    } as never);
+
+    expect(mocks.getAgentAgencyConfig).toHaveBeenCalledWith('agent-1');
+    expect(mocks.listClaudeCodeMemory).toHaveBeenCalledWith({
+      deviceId: 'dev-mem-7',
+      env: { CLAUDE_CODE_PROJECT_DIR_NAME: undefined, CLAUDE_CONFIG_DIR: '/Users/me/.claude-work' },
+      scope: '/Users/me/proj',
+      userId: 'user-1',
+      workspaceId: undefined,
+    });
   });
 
   it('returns null when the device is offline', async () => {

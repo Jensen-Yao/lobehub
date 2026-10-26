@@ -13,6 +13,9 @@ import {
 
 let sandbox: string;
 let home: string;
+let managedSettingsDir: string;
+
+const memoryEnv = (env: NodeJS.ProcessEnv = {}) => ({ env, homedir: home, managedSettingsDir });
 
 const write = async (filePath: string, content: string) => {
   await mkdir(path.dirname(filePath), { recursive: true });
@@ -22,6 +25,7 @@ const write = async (filePath: string, content: string) => {
 beforeEach(async () => {
   sandbox = await realpath(await mkdtemp(path.join(tmpdir(), 'cc-memory-')));
   home = path.join(sandbox, 'home');
+  managedSettingsDir = path.join(sandbox, 'managed');
   await mkdir(home, { recursive: true });
 });
 
@@ -44,6 +48,16 @@ describe('toClaudeCodeProjectKey', () => {
     expect(key.startsWith(`-${'a'.repeat(199)}-`)).toBe(true);
     expect(key).toMatch(/^-a{199}-[\da-z]+$/);
     expect(toClaudeCodeProjectKey(`/${'a'.repeat(251)}`)).not.toBe(key);
+  });
+
+  it('keys the NFC form, so a decomposed macOS path maps to the same directory', () => {
+    const composed = '/Users/me/caf\u00E9';
+    const decomposed = '/Users/me/cafe\u0301';
+
+    expect(toClaudeCodeProjectKey(decomposed)).toBe(toClaudeCodeProjectKey(composed));
+    expect(toClaudeCodeProjectKey(`/${'\u00E9'.repeat(250)}`)).toBe(
+      toClaudeCodeProjectKey(`/${'e\u0301'.repeat(250)}`),
+    );
   });
 });
 
@@ -83,38 +97,99 @@ describe('resolveClaudeCodeProjectRoot', () => {
 });
 
 describe('resolveClaudeCodeMemoryDir', () => {
-  it('defaults to ~/.claude/projects/<key>/memory', async () => {
-    const dir = path.join(sandbox, 'plain');
-    await mkdir(dir, { recursive: true });
+  let dir: string;
 
-    expect(await resolveClaudeCodeMemoryDir(dir, { env: {}, homedir: home })).toBe(
+  beforeEach(async () => {
+    dir = path.join(sandbox, 'plain');
+    await mkdir(dir, { recursive: true });
+  });
+
+  it('defaults to ~/.claude/projects/<key>/memory', async () => {
+    expect(await resolveClaudeCodeMemoryDir(dir, memoryEnv())).toBe(
       path.join(home, '.claude', 'projects', toClaudeCodeProjectKey(dir), 'memory'),
     );
   });
 
   it('honors CLAUDE_CONFIG_DIR', async () => {
-    const dir = path.join(sandbox, 'plain');
     const configDir = path.join(sandbox, 'cc-config');
-    await mkdir(dir, { recursive: true });
+
+    expect(await resolveClaudeCodeMemoryDir(dir, memoryEnv({ CLAUDE_CONFIG_DIR: configDir }))).toBe(
+      path.join(configDir, 'projects', toClaudeCodeProjectKey(dir), 'memory'),
+    );
+  });
+
+  it('uses CLAUDE_CODE_PROJECT_DIR_NAME as the key only beside CLAUDE_CONFIG_DIR', async () => {
+    const configDir = path.join(sandbox, 'cc-config');
+    const derived = toClaudeCodeProjectKey(dir);
 
     expect(
-      await resolveClaudeCodeMemoryDir(dir, {
-        env: { CLAUDE_CONFIG_DIR: configDir },
-        homedir: home,
-      }),
-    ).toBe(path.join(configDir, 'projects', toClaudeCodeProjectKey(dir), 'memory'));
+      await resolveClaudeCodeMemoryDir(
+        dir,
+        memoryEnv({ CLAUDE_CODE_PROJECT_DIR_NAME: 'work', CLAUDE_CONFIG_DIR: configDir }),
+      ),
+    ).toBe(path.join(configDir, 'projects', 'work', 'memory'));
+    expect(
+      await resolveClaudeCodeMemoryDir(dir, memoryEnv({ CLAUDE_CODE_PROJECT_DIR_NAME: 'work' })),
+    ).toBe(path.join(home, '.claude', 'projects', derived, 'memory'));
+
+    for (const invalid of ['con', 'a/b', 'x'.repeat(65)]) {
+      expect(
+        await resolveClaudeCodeMemoryDir(
+          dir,
+          memoryEnv({ CLAUDE_CODE_PROJECT_DIR_NAME: invalid, CLAUDE_CONFIG_DIR: configDir }),
+        ),
+      ).toBe(path.join(configDir, 'projects', derived, 'memory'));
+    }
   });
 
   it('honors autoMemoryDirectory from user settings', async () => {
-    const dir = path.join(sandbox, 'plain');
-    await mkdir(dir, { recursive: true });
     await write(
       path.join(home, '.claude', 'settings.json'),
       JSON.stringify({ autoMemoryDirectory: '~/notes/cc-memory' }),
     );
 
-    expect(await resolveClaudeCodeMemoryDir(dir, { env: {}, homedir: home })).toBe(
+    expect(await resolveClaudeCodeMemoryDir(dir, memoryEnv())).toBe(
       path.join(home, 'notes', 'cc-memory'),
+    );
+  });
+
+  it('takes autoMemoryDirectory from the winning scope: managed, local, project, then user', async () => {
+    const repo = path.join(sandbox, 'repo');
+    const cwd = path.join(repo, 'packages', 'app');
+    await mkdir(path.join(repo, '.git'), { recursive: true });
+    const setMemoryDir = (file: string, value: string) =>
+      write(file, JSON.stringify({ autoMemoryDirectory: value }));
+    const resolve = () => resolveClaudeCodeMemoryDir(cwd, memoryEnv());
+
+    await setMemoryDir(path.join(home, '.claude', 'settings.json'), '/scopes/user');
+    expect(await resolve()).toBe(path.resolve('/scopes/user'));
+
+    await setMemoryDir(path.join(cwd, '.claude', 'settings.json'), '/scopes/project');
+    expect(await resolve()).toBe(path.resolve('/scopes/project'));
+
+    await setMemoryDir(path.join(cwd, '.claude', 'settings.local.json'), '/scopes/legacy-local');
+    expect(await resolve()).toBe(path.resolve('/scopes/legacy-local'));
+
+    await setMemoryDir(path.join(repo, '.claude', 'settings.local.json'), '/scopes/local');
+    expect(await resolve()).toBe(path.resolve('/scopes/local'));
+
+    await setMemoryDir(path.join(managedSettingsDir, 'managed-settings.json'), '/scopes/managed');
+    await setMemoryDir(
+      path.join(managedSettingsDir, 'managed-settings.d', '10-memory.json'),
+      '/scopes/drop-in',
+    );
+    await write(path.join(managedSettingsDir, 'managed-settings.d', '20-other.json'), '{}');
+    expect(await resolve()).toBe(path.resolve('/scopes/drop-in'));
+  });
+
+  it('ignores an autoMemoryDirectory that is neither absolute nor under ~/', async () => {
+    await write(
+      path.join(dir, '.claude', 'settings.json'),
+      JSON.stringify({ autoMemoryDirectory: 'relative/memory' }),
+    );
+
+    expect(await resolveClaudeCodeMemoryDir(dir, memoryEnv())).toBe(
+      path.join(home, '.claude', 'projects', toClaudeCodeProjectKey(dir), 'memory'),
     );
   });
 });
@@ -128,11 +203,7 @@ describe('listClaudeCodeMemory', () => {
     await mkdir(dir, { recursive: true });
     const approveProjectRoot = vi.fn(async () => {});
 
-    const result = await listClaudeCodeMemory(
-      { scope: dir },
-      { approveProjectRoot },
-      { env: {}, homedir: home },
-    );
+    const result = await listClaudeCodeMemory({ scope: dir }, { approveProjectRoot }, memoryEnv());
 
     expect(result).toEqual({ files: [], memoryDir: memoryDirFor(dir) });
     expect(approveProjectRoot).not.toHaveBeenCalled();
@@ -160,11 +231,7 @@ describe('listClaudeCodeMemory', () => {
     await write(path.join(memoryDir, '.draft.md'), 'ignored');
     const approveProjectRoot = vi.fn(async () => {});
 
-    const result = await listClaudeCodeMemory(
-      { scope: dir },
-      { approveProjectRoot },
-      { env: {}, homedir: home },
-    );
+    const result = await listClaudeCodeMemory({ scope: dir }, { approveProjectRoot }, memoryEnv());
 
     expect(result.memoryDir).toBe(memoryDir);
     expect(result.files.map((file) => file.relativePath)).toEqual([
@@ -181,5 +248,39 @@ describe('listClaudeCodeMemory', () => {
       type: 'feedback',
     });
     expect(approveProjectRoot).toHaveBeenCalledWith(memoryDir);
+  });
+
+  it("reads the agent's own CLAUDE_CONFIG_DIR over the device's", async () => {
+    const dir = path.join(sandbox, 'plain');
+    const agentConfigDir = path.join(sandbox, 'agent-config');
+    await mkdir(dir, { recursive: true });
+    const memoryDir = path.join(agentConfigDir, 'projects', toClaudeCodeProjectKey(dir), 'memory');
+    await write(path.join(memoryDir, 'MEMORY.md'), '- index\n');
+
+    const result = await listClaudeCodeMemory(
+      { env: { CLAUDE_CONFIG_DIR: agentConfigDir }, scope: dir },
+      {},
+      memoryEnv({ CLAUDE_CONFIG_DIR: path.join(sandbox, 'device-config') }),
+    );
+
+    expect(result.memoryDir).toBe(memoryDir);
+    expect(result.files.map((file) => file.relativePath)).toEqual(['MEMORY.md']);
+  });
+
+  it('never approves a memory directory that contains the project', async () => {
+    const dir = path.join(home, 'projects', 'repo');
+    await mkdir(dir, { recursive: true });
+    await write(
+      path.join(dir, '.claude', 'settings.json'),
+      JSON.stringify({ autoMemoryDirectory: '~/' }),
+    );
+    await write(path.join(home, 'notes.md'), 'personal notes');
+    const approveProjectRoot = vi.fn(async () => {});
+
+    const result = await listClaudeCodeMemory({ scope: dir }, { approveProjectRoot }, memoryEnv());
+
+    expect(result.memoryDir).toBe(home);
+    expect(result.files.length).toBeGreaterThan(0);
+    expect(approveProjectRoot).not.toHaveBeenCalled();
   });
 });

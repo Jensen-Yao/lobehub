@@ -52,23 +52,49 @@ export const registerDeviceSkillRoots = (deviceId: string, roots: string[]) => {
  * Claude Code auto-memory directories (`~/.claude/projects/<key>/memory`),
  * registered by `listClaudeCodeMemory` once the caller proved the project
  * itself is an approved root, so the Memory tab can preview and save them.
- * Accumulates per device (one per project), oldest evicted past the cap.
+ * Each grant keeps the project it was derived from and holds only while that
+ * project is still approved: removing the project from the device's working
+ * directories revokes its memory too. Accumulates per device (one per project
+ * and memory directory), oldest evicted past the cap.
  */
 const MAX_MEMORY_ROOTS_PER_DEVICE = 50;
-const deviceMemoryRoots = new Map<string, Set<string>>();
 
-export const registerDeviceMemoryRoot = (deviceId: string, root: string) => {
-  if (!root) return;
-  const roots = deviceMemoryRoots.get(deviceId) ?? new Set<string>();
-  roots.delete(root);
-  roots.add(root);
-  if (roots.size > MAX_MEMORY_ROOTS_PER_DEVICE) roots.delete(roots.values().next().value!);
-  deviceMemoryRoots.set(deviceId, roots);
+interface DeviceMemoryRootGrant {
+  memoryDir: string;
+  /** The approved working directory the memory was listed for. */
+  projectRoot: string;
+}
+
+const deviceMemoryRoots = new Map<string, Map<string, DeviceMemoryRootGrant>>();
+
+export const registerDeviceMemoryRoot = (deviceId: string, grant: DeviceMemoryRootGrant) => {
+  const { memoryDir, projectRoot } = grant;
+  // A memory directory that covers its own project (a repository setting
+  // pointing `autoMemoryDirectory` at `~` or `/`) would widen the project's
+  // grant to the whole tree.
+  if (!memoryDir || !projectRoot || isPathWithinRoot(memoryDir, projectRoot)) return;
+
+  const grants = deviceMemoryRoots.get(deviceId) ?? new Map<string, DeviceMemoryRootGrant>();
+  const key = JSON.stringify([projectRoot, memoryDir]);
+  grants.delete(key);
+  grants.set(key, { memoryDir, projectRoot });
+  if (grants.size > MAX_MEMORY_ROOTS_PER_DEVICE) grants.delete(grants.keys().next().value!);
+  deviceMemoryRoots.set(deviceId, grants);
 };
 
-const isWithinRegisteredRoots = (deviceId: string, workingDirectory: string): boolean =>
-  [deviceSkillRoots.get(deviceId), deviceMemoryRoots.get(deviceId)].some(
-    (roots) => !!roots && [...roots].some((root) => isPathWithinRoot(root, workingDirectory)),
+const isWithinSkillRoots = (deviceId: string, workingDirectory: string): boolean =>
+  [...(deviceSkillRoots.get(deviceId) ?? [])].some((root) =>
+    isPathWithinRoot(root, workingDirectory),
+  );
+
+const isWithinMemoryGrant = (
+  deviceId: string,
+  workingDirectory: string,
+  isProjectApproved: (projectRoot: string) => boolean,
+): boolean =>
+  [...(deviceMemoryRoots.get(deviceId)?.values() ?? [])].some(
+    ({ memoryDir, projectRoot }) =>
+      isPathWithinRoot(memoryDir, workingDirectory) && isProjectApproved(projectRoot),
   );
 
 /**
@@ -116,9 +142,12 @@ export const assertWorkspaceRootApproved = async (
     .concat(device?.defaultCwd ? [device.defaultCwd] : [])
     .filter((root): root is string => Boolean(root));
 
+  const isApprovedRoot = (target: string) =>
+    approvedRoots.some((root) => isPathWithinRoot(root, target));
   const approved =
-    approvedRoots.some((root) => isPathWithinRoot(root, workingDirectory)) ||
-    isWithinRegisteredRoots(deviceId, workingDirectory);
+    isApprovedRoot(workingDirectory) ||
+    isWithinSkillRoots(deviceId, workingDirectory) ||
+    isWithinMemoryGrant(deviceId, workingDirectory, isApprovedRoot);
 
   if (!approved) {
     throw new TRPCError({

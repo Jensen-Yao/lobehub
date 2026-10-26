@@ -784,10 +784,17 @@ export const forkKeys = {
 export const localFileKeys = {
   claudeCodeMemory: def(
     'localFile:claudeCodeMemory',
-    (deviceId: string | undefined, workingDirectory: string) => [
+    (
+      deviceId: string | undefined,
+      workingDirectory: string,
+      configDir?: string,
+      projectDirName?: string,
+    ) => [
       'localFile:claudeCodeMemory',
       deviceId ?? 'local',
       workingDirectory,
+      configDir ?? '',
+      projectDirName ?? '',
     ],
   ),
   gitWorkingTreeFiles: def(
