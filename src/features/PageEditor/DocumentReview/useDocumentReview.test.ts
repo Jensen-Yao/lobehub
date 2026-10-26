@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   getImpactFollowUpContext: vi.fn(),
   getSession: vi.fn(),
   initializeChecks: vi.fn(),
+  invalidateDocumentMutation: vi.fn(),
   listDocumentHistory: vi.fn(),
   listRuleSets: vi.fn(),
   listSessions: vi.fn(),
@@ -114,6 +115,10 @@ vi.mock('@/services/documentReview', () => ({
 
 vi.mock('@/services/document', () => ({
   documentService: { listDocumentHistory: mocks.listDocumentHistory },
+}));
+
+vi.mock('@/services/document/invalidation', () => ({
+  invalidateDocumentMutation: mocks.invalidateDocumentMutation,
 }));
 
 vi.mock('@/business/client/hooks/useActiveWorkspaceId', () => ({
@@ -348,5 +353,73 @@ describe('useDocumentReview', () => {
 
     expect(mocks.createSession).not.toHaveBeenCalled();
     expect(result.current.actionError).toEqual({ action: 'analyze', type: 'noBaseline' });
+  });
+  it('refreshes the document replica after applying a fix', async () => {
+    mocks.applySuggestion.mockResolvedValue(checkResult('needs_recheck', { appliedAt: now }));
+
+    const { result } = renderReview();
+    await waitFor(() => expect(result.current.checkResults).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.applySuggestion('res-1', 'after each stage');
+    });
+
+    // The same window wrote the body, so the resource event stream skips its
+    // echo; without this refresh the editor keeps the pre-fix text.
+    expect(mocks.invalidateDocumentMutation).toHaveBeenCalledWith({
+      cause: 'document-service',
+      documentId: 'doc-1',
+    });
+    expect(result.current.actionError).toBeNull();
+  });
+
+  it('still applies the fix when the refresh after it fails', async () => {
+    mocks.applySuggestion.mockResolvedValue(checkResult('needs_recheck', { appliedAt: now }));
+    mocks.invalidateDocumentMutation.mockRejectedValue(new Error('offline'));
+
+    const { result } = renderReview();
+    await waitFor(() => expect(result.current.checkResults).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.applySuggestion('res-1', 'after each stage');
+    });
+
+    expect(result.current.statusOverrides['res-1']).toBe('needs_recheck');
+    expect(result.current.actionError).toBeNull();
+  });
+
+  it('drops the selection when the panel switches to another document', async () => {
+    const { result, rerender } = renderHook(
+      ({ documentId }: { documentId: string }) => useDocumentReview({ documentId }),
+      { initialProps: { documentId: 'doc-1' } },
+    );
+
+    await waitFor(() => expect(result.current.activeSessionId).toBe('ses-1'));
+
+    await act(async () => {
+      result.current.selectSession('ses-1');
+    });
+    expect(result.current.activeSessionId).toBe('ses-1');
+
+    mocks.listSessions.mockResolvedValue([]);
+    rerender({ documentId: 'doc-2' });
+
+    // doc-1's session must not stay selected over doc-2's (empty) list.
+    await waitFor(() => expect(result.current.activeSessionId).toBeNull());
+  });
+
+  it('initialises check rows before every run, not only on an empty checklist', async () => {
+    mocks.initializeChecks.mockResolvedValue([]);
+    mocks.runChecks.mockResolvedValue([]);
+
+    const { result } = renderReview();
+    await waitFor(() => expect(result.current.checkResults).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.runChecks();
+    });
+
+    expect(mocks.initializeChecks).toHaveBeenCalledWith('ses-1');
+    expect(mocks.runChecks).toHaveBeenCalledWith({ checkResultIds: undefined, sessionId: 'ses-1' });
   });
 });

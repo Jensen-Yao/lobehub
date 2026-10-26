@@ -59,7 +59,9 @@ export class AiReviewLlm implements ReviewLlm {
         thinking: { type: 'disabled' },
       },
       {
-        metadata: { trigger: RequestTrigger.Verify },
+        // Rule proposals, checklist runs and fix suggestions are document-review
+        // work: tag them like impact analysis so spend is not booked as Verify.
+        metadata: { trigger: RequestTrigger.DocumentReview },
         tracing: {
           promptVersion: request.promptVersion,
           schemaName: request.schemaName,

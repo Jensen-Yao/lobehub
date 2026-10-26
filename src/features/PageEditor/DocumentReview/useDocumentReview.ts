@@ -1,11 +1,13 @@
 import type { DocumentReviewCheckStatus } from '@lobechat/types';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useActiveWorkspaceId } from '@/business/client/hooks/useActiveWorkspaceId';
 import { usePermission } from '@/hooks/usePermission';
 import { mutate as mutateSWR, useClientDataSWR } from '@/libs/swr';
 import { documentReviewKeys } from '@/libs/swr/keys';
 import { documentService } from '@/services/document';
+import { invalidateDocumentMutation } from '@/services/document/invalidation';
 import type {
   DocumentReviewRuleSetItem,
   DocumentReviewRuleSetWithRules,
@@ -55,6 +57,7 @@ export interface UseDocumentReviewOptions {
  * applied fix already produced before the refetch lands.
  */
 export const useDocumentReview = ({ documentId }: UseDocumentReviewOptions) => {
+  const { t } = useTranslation('file');
   const workspaceId = useActiveWorkspaceId();
   const isWorkspaceScopedPage = usePageEditorStore((s) => s.isWorkspaceScopedPage);
   const { allowed: canWrite } = usePermission('edit_own_content');
@@ -97,6 +100,14 @@ export const useDocumentReview = ({ documentId }: UseDocumentReviewOptions) => {
     setActionError(null);
     setProposals(null);
   }, [activeSessionId]);
+
+  // The panel outlives a document switch inside page mode (query/history
+  // navigation keeps it mounted). A selection carried over from the previous
+  // document would win over this document's own session list, and actions such
+  // as analyze or apply would then mutate the document that is no longer shown.
+  useEffect(() => {
+    setSelectedSessionId(null);
+  }, [documentId]);
 
   const refreshDetail = async (sessionId = activeSessionId) => {
     if (!sessionId) return;
@@ -202,9 +213,11 @@ export const useDocumentReview = ({ documentId }: UseDocumentReviewOptions) => {
           sessionId: activeSessionId,
         });
       }
-      if (!detail?.checkResults.length) {
-        await documentReviewService.initializeChecks(activeSessionId);
-      }
+      // Rules can be added to an already-checked set, and the server only
+      // evaluates persisted result rows. Initialising before every run (it is
+      // idempotent through `onConflictDoNothing`) backfills those new rules
+      // instead of leaving them permanently unchecked.
+      await documentReviewService.initializeChecks(activeSessionId);
       await documentReviewService.runChecks({ checkResultIds, sessionId: activeSessionId });
       await refreshDetail();
     });
@@ -248,6 +261,17 @@ export const useDocumentReview = ({ documentId }: UseDocumentReviewOptions) => {
       // Applying a fix only ever lands on `needs_recheck` (the server owns that
       // invariant); paint it immediately, before the refetch settles.
       setStatusOverrides((current) => ({ ...current, [applied.id]: applied.status }));
+      // The server rewrote the body, but this window made the write itself, so
+      // the resource event stream skips it as a same-user echo. Refresh the
+      // replica here or the editor keeps showing the pre-fix text — and the
+      // next autosave would then conflict with, and roll back, the applied fix.
+      if (documentId) {
+        try {
+          await invalidateDocumentMutation({ cause: 'document-service', documentId });
+        } catch (error) {
+          console.error('[DocumentReview] refresh after applying a fix failed:', error);
+        }
+      }
       await refreshDetail();
     });
   };
@@ -275,7 +299,7 @@ export const useDocumentReview = ({ documentId }: UseDocumentReviewOptions) => {
           severity: draft.severity,
           title: draft.title,
         })),
-        title: 'Agent-suggested rules',
+        title: t('pageEditor.review.rules.agentSuggested'),
       });
       await documentReviewService.confirmRuleSet(created.id);
       await documentReviewService.updateSession({
@@ -306,6 +330,7 @@ export const useDocumentReview = ({ documentId }: UseDocumentReviewOptions) => {
     clearActionError: () => setActionError(null),
     confirmRuleSet,
     detail,
+    detailLoading: Boolean(activeSessionId) && detailSWR.isLoading && !detailSWR.data,
     discardProposals,
     error: sessionsSWR.error ?? detailSWR.error,
     hasWorkspace,

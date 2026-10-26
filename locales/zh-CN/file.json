@@ -449,6 +449,7 @@
   "pageEditor.review.impact.textual.desc": "与对比版本不同的文字",
   "pageEditor.review.impact.textual.title": "直接文字差异",
   "pageEditor.review.impact.trigger": "改动原文",
+  "pageEditor.review.rules.agentSuggested": "Agent 建议的规则",
   "pageEditor.review.rules.confirmed": "已确认",
   "pageEditor.review.rules.draft": "草案",
   "pageEditor.review.rules.draftHint": "确认规则集后才能运行检查。",

@@ -225,6 +225,35 @@ const DocumentReviewPanel = memo(() => {
     }
 
     if (review.activeSessionId && !review.detail) {
+      // `listSessions` can succeed while the first `getSession` fails, and a
+      // session deleted between the two calls looks the same. Neither is a
+      // loading state, so surface it instead of an endless skeleton.
+      if (review.error) {
+        return (
+          <AsyncError
+            error={review.error}
+            title={t('pageEditor.review.error.generic')}
+            variant={'block'}
+            onRetry={review.retry}
+          />
+        );
+      }
+
+      if (!review.detailLoading) {
+        return (
+          <EmptyState
+            description={t('pageEditor.review.error.generic')}
+            icon={ScanTextIcon}
+            title={t('pageEditor.review.empty.session.title')}
+            action={
+              <Button icon={<RefreshCwIcon />} onClick={review.retry}>
+                {t('pageEditor.review.error.retry')}
+              </Button>
+            }
+          />
+        );
+      }
+
       return (
         <Flexbox padding={16}>
           <SurfaceSkeleton header={false} variant={'list'} />
