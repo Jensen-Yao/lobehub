@@ -15,9 +15,20 @@ class ChannelActionImpl {
   refreshList = () => this.#private.list.fetch({}, { fresh: true });
   refreshDetail = (params: ChannelViewParams) =>
     this.#private.detail.fetch(params, { fresh: true });
+  /**
+   * Refresh after a write that already committed. A failed refresh must not read as a failed
+   * write, or retrying repeats it; the periodic sync catches up instead.
+   */
+  #refreshAfterWrite = async (refresh: () => Promise<unknown>) => {
+    try {
+      await refresh();
+    } catch (error) {
+      console.error('Failed to refresh Channels after a write', error);
+    }
+  };
   create = async (input: Parameters<typeof channelService.create>[0]) => {
     const result = await channelService.create(input);
-    await this.refreshList();
+    await this.#refreshAfterWrite(this.refreshList);
     return result.data.channel.id;
   };
   /** Members join one at a time: each add takes the Channel row lock. */
@@ -26,15 +37,17 @@ class ChannelActionImpl {
       for (const agent of agents) await channelService.addAgent(channelId, agent);
     } finally {
       // A partial failure still shows the members that did join.
-      await this.refreshDetail({ channelId });
+      await this.#refreshAfterWrite(() => this.refreshDetail({ channelId }));
     }
   };
   send = async (input: Parameters<typeof channelService.send>[0]) => {
     await channelService.send(input);
-    await Promise.all([
-      this.refreshDetail({ channelId: input.channelId, threadId: input.threadId }),
-      this.refreshList(),
-    ]);
+    await this.#refreshAfterWrite(() =>
+      Promise.all([
+        this.refreshDetail({ channelId: input.channelId, threadId: input.threadId }),
+        this.refreshList(),
+      ]),
+    );
   };
   stop = async (channelId: string, scope: Parameters<typeof channelService.stop>[1]) => {
     await channelService.stop(channelId, scope);

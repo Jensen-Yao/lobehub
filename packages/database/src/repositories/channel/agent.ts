@@ -65,6 +65,20 @@ export const addAgentMember = async (
   if (!input.agentId.trim())
     throw new ChannelError('BAD_REQUEST', 'An Agent reference is required');
   const agent = await requireChannelAgent(tx, channel.workspaceId, userId, input.agentId);
+  // Idempotent per Agent: retrying a partly applied batch must not add a second member that
+  // answers the same requests again.
+  const [joined] = await tx
+    .select()
+    .from(channelMembers)
+    .where(
+      and(
+        eq(channelMembers.channelId, channel.id),
+        eq(channelMembers.agentId, input.agentId),
+        eq(channelMembers.active, true),
+      ),
+    )
+    .limit(1);
+  if (joined) return joined;
   const [member] = await tx
     .insert(channelMembers)
     .values({
