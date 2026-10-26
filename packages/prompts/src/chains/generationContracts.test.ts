@@ -7,9 +7,11 @@ import {
   AGENT_SIGNAL_FEEDBACK_SATISFACTION_PROMPT_VERSION,
   BOT_WAKE_CLASSIFIER_JSON_SCHEMA,
   BOT_WAKE_CLASSIFIER_PROMPT_VERSION,
+  BOT_WAKE_DECISION_PROMPT_VERSION,
   chainAgentSignalAnalyzeIntentFeedbackSatisfaction,
   chainAgentSignalAnalyzeIntentRoute,
   chainBotWakeClassifier,
+  chainBotWakeDecision,
   chainFollowUpAction,
   chainTopicAutoSummary,
   FOLLOW_UP_JSON_SCHEMA,
@@ -121,5 +123,42 @@ describe('application generation chains', () => {
     expect(messages[1].content).not.toContain("Assistant's last message");
     expect(messages[1].content).not.toContain('Earlier messages');
     expect(messages[1].content).not.toContain('The assistant is called');
+  });
+  describe('bot-wake decision questions', () => {
+    it('asks the decision model for a probability and a kind about one shared state', () => {
+      const { questions, state } = chainBotWakeDecision({
+        botNames: ['Shadow Arvin'],
+        customInstructions: 'Only billing questions.',
+        lastBotMessage: 'The invoice is attached.',
+        message: 'Shadow Arvin 听得到吗',
+        recentMessages: ['Bob: thanks'],
+      });
+
+      expect(BOT_WAKE_DECISION_PROMPT_VERSION).toBe('decision-v1');
+      expect(questions.addressed.type).toBe('boolean');
+      expect(questions.kind.type).toBe('choice');
+      expect(Object.keys(questions.kind.criteria)).toEqual(['request', 'chitchat', 'other']);
+      // The naming rule lives in the question, because a decision model has no system prompt.
+      expect(JSON.stringify(questions.addressed)).toContain('calls the assistant by its name');
+      expect(state).toContain('The assistant is called: Shadow Arvin');
+      expect(state).toContain('Operator instructions:');
+      expect(state).toContain("Assistant's last message:");
+      expect(state).toContain('Bob: thanks');
+      expect(state).toContain('Newest message:');
+      expect(state).toContain('Shadow Arvin 听得到吗');
+    });
+
+    it('shares its state layout with the chat classifier, so the two read the same facts', () => {
+      const input = {
+        botNames: ['A'],
+        lastBotMessage: 'x',
+        message: 'm',
+        recentMessages: ['B: y'],
+      };
+
+      expect(chainBotWakeDecision(input).state).toBe(
+        chainBotWakeClassifier(input).messages[1].content,
+      );
+    });
   });
 });
