@@ -39,6 +39,10 @@ export const DOCUMENT_REVIEW_RULE_SET_NOT_CONFIRMED =
   'The rule set must be confirmed before it can be checked';
 export const DOCUMENT_REVIEW_RULE_SET_EMPTY = 'A rule set needs at least one rule to be confirmed';
 
+/** Revision comparison for the stale-verdict guard; both sides must exist. */
+const sameRevision = (a?: Date | null, b?: Date | null): boolean =>
+  a instanceof Date && b instanceof Date ? a.getTime() === b.getTime() : a === b;
+
 export interface DocumentReviewRuleSetWithRules extends DocumentReviewRuleSetItem {
   rules: DocumentReviewRuleItem[];
 }
@@ -46,6 +50,16 @@ export interface DocumentReviewRuleSetWithRules extends DocumentReviewRuleSetIte
 export interface TransitionCheckParams {
   event: DocumentReviewCheckEvent;
   evidence?: DocumentReviewTextAnchor[] | null;
+  /**
+   * Versions captured before the LLM call that produced a `check` verdict.
+   * A verdict computed from a body or a rule that has changed since is not a
+   * verification of the current content, so the commit is rejected and the row
+   * keeps `needs_recheck`. Only `event: 'check'` consults them.
+   */
+  expectedRevisions?: {
+    documentUpdatedAt?: Date | null;
+    ruleUpdatedAt?: Date | null;
+  };
   explanation?: string | null;
   outcome?: DocumentReviewCheckOutcome;
   /** Only meaningful for `apply_suggestion`: the (possibly user-edited) fix applied. */
@@ -632,6 +646,58 @@ export class DocumentReviewModel {
   };
 
   /**
+   * True when the document body or the rule changed after `expected` was
+   * captured. A missing row counts as stale: the thing the verdict describes is
+   * gone, so the verdict cannot be committed either.
+   */
+  private isVerdictStale = async (
+    db: LobeChatDatabase,
+    current: DocumentReviewCheckResultItem,
+    expected: NonNullable<TransitionCheckParams['expectedRevisions']>,
+  ): Promise<boolean> => {
+    const workspaceId = this.requireWorkspaceId();
+
+    if (expected.documentUpdatedAt !== undefined) {
+      const [session] = await db
+        .select({ documentId: documentReviewSessions.documentId })
+        .from(documentReviewSessions)
+        .where(
+          and(
+            eq(documentReviewSessions.id, current.sessionId),
+            eq(documentReviewSessions.workspaceId, workspaceId),
+          ),
+        )
+        .limit(1);
+      const [document] = session
+        ? await db
+            .select({ updatedAt: documents.updatedAt })
+            .from(documents)
+            .where(
+              and(eq(documents.id, session.documentId), eq(documents.workspaceId, workspaceId)),
+            )
+            .limit(1)
+        : [];
+      if (!document || !sameRevision(document.updatedAt, expected.documentUpdatedAt)) return true;
+    }
+
+    if (expected.ruleUpdatedAt !== undefined) {
+      const [rule] = await db
+        .select({ updatedAt: documentReviewRules.updatedAt })
+        .from(documentReviewRules)
+        .where(
+          and(
+            eq(documentReviewRules.id, current.ruleId),
+            eq(documentReviewRules.workspaceId, workspaceId),
+          ),
+        )
+        .limit(1);
+      if (!rule || !sameRevision(rule.updatedAt, expected.ruleUpdatedAt)) return true;
+    }
+
+    return false;
+  };
+
+  /**
    * The only write path for `status`. Locks the row, derives the next status
    * through `resolveDocumentReviewCheckTransition` (which throws
    * `DocumentReviewTransitionError` on an illegal move such as apply → passed),
@@ -656,6 +722,34 @@ export class DocumentReviewModel {
         .limit(1)
         .for('update');
       if (!current) return undefined;
+
+      // A verdict computed from a body or a rule that moved during the LLM call
+      // is not a verification of what the document says now. Re-read both
+      // revisions inside this locked transaction: a concurrent autosave or rule
+      // edit either committed already (caught here) or blocks until we commit.
+      // Either way the row must not become `passed` on stale content.
+      if (params.event === 'check' && params.expectedRevisions) {
+        const stale = await this.isVerdictStale(
+          tx as unknown as LobeChatDatabase,
+          current,
+          params.expectedRevisions,
+        );
+        if (stale) {
+          const [result] = await tx
+            .update(documentReviewCheckResults)
+            .set({
+              status: resolveDocumentReviewCheckTransition(current.status, { event: 'invalidate' }),
+            })
+            .where(
+              and(
+                eq(documentReviewCheckResults.id, id),
+                eq(documentReviewCheckResults.workspaceId, workspaceId),
+              ),
+            )
+            .returning();
+          return result;
+        }
+      }
 
       const status = resolveDocumentReviewCheckTransition(current.status, {
         event: params.event,

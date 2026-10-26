@@ -329,6 +329,9 @@ export class ReviewPlaybookService {
 
     const source = await readDocumentTextSource(this.documentModel, session.documentId);
     const documentText = documentPlainText(source).slice(0, REVIEW_CHECK_MAX_CHARS);
+    // Captured before the LLM call: `transitionCheck` re-reads both versions and
+    // refuses to commit a verdict computed from content that has since changed.
+    const documentRevision = source.updatedAt ?? undefined;
 
     const ruleWithItems: RuleWithItem[] = [];
     for (const item of items) {
@@ -393,8 +396,9 @@ export class ReviewPlaybookService {
     }
 
     const updated: DocumentReviewCheckResultItem[] = [];
-    for (const { item } of ruleWithItems) {
+    for (const { item, rule } of ruleWithItems) {
       const outcome = outcomes.get(item.id)!;
+      const ruleRevision = rule?.updatedAt ?? undefined;
       // The ONLY status write path: a `check` event carrying the normalized
       // outcome. `passed` therefore can never come from applying a fix.
       const row = await this.reviewModel.transitionCheck(item.id, {
@@ -402,6 +406,12 @@ export class ReviewPlaybookService {
         evidence: outcome.evidence,
         explanation: outcome.explanation,
         outcome: outcome.status,
+        // Only assert revisions we actually read, so a caller without version
+        // information keeps the previous behaviour instead of failing every check.
+        expectedRevisions: {
+          ...(documentRevision ? { documentUpdatedAt: documentRevision } : {}),
+          ...(ruleRevision ? { ruleUpdatedAt: ruleRevision } : {}),
+        },
       });
       if (row) updated.push(row);
     }

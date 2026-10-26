@@ -311,6 +311,46 @@ describe('DocumentReviewModel', () => {
       ]);
     });
 
+    it('rejects a verdict computed from a stale document or rule revision', async () => {
+      const { checks } = await setupChecklist();
+      const id = checks[0].id;
+
+      const [document] = await serverDB
+        .select({ updatedAt: documents.updatedAt })
+        .from(documents)
+        .where(eq(documents.id, documentId));
+      const rule = (await model.findRuleById(checks[0].ruleId))!;
+      const expectedRevisions = {
+        documentUpdatedAt: document.updatedAt,
+        ruleUpdatedAt: rule.updatedAt,
+      };
+
+      // Unchanged revisions still commit: the guard is not a blanket rejection.
+      const fresh = await model.transitionCheck(id, {
+        event: 'check',
+        expectedRevisions,
+        outcome: 'passed',
+      });
+      expect(fresh?.status).toBe('passed');
+
+      // The body moves after the verdict was computed (autosave), so the same
+      // revisions no longer describe the document: the verdict is discarded and
+      // the row keeps `needs_recheck` instead of passing stale content.
+      await model.invalidateDocumentChecks(documentId);
+      await serverDB
+        .update(documents)
+        .set({ updatedAt: new Date(document.updatedAt.getTime() + 1000) })
+        .where(eq(documents.id, documentId));
+
+      const stale = await model.transitionCheck(id, {
+        event: 'check',
+        expectedRevisions,
+        outcome: 'passed',
+      });
+      expect(stale?.status).toBe('needs_recheck');
+      expect((await model.findCheckResultById(id))?.status).toBe('needs_recheck');
+    });
+
     it('switching the session rule set discards stale results', async () => {
       const { session } = await setupChecklist();
       const other = await model.createRuleSet({ documentId, rules: RULES, title: 'Other' });

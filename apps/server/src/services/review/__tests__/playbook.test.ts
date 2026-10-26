@@ -359,12 +359,17 @@ describe('ReviewPlaybookService (Playbook rule checks)', () => {
 
     const stillStale = await model.findCheckResultById(warrantyCheck.id);
     expect(stillStale?.status).toBe('needs_recheck');
+    // Applying a fix rewrites the body, so every other checked item is stale as
+    // well: the payment verdict was reached against the pre-fix contract.
+    const stalePayment = await model.findCheckResultById(paymentCheck.id);
+    expect(stalePayment?.status).toBe('needs_recheck');
 
     // 11. "All needs_recheck" rechecks exactly that set.
     const allRechecked = await service.recheckChecks({ sessionId: session.id });
-    expect(allRechecked).toHaveLength(1);
-    expect(allRechecked[0].id).toBe(warrantyCheck.id);
-    expect(allRechecked[0].status).toBe('passed');
+    expect(allRechecked.map((item) => item.id).sort()).toEqual(
+      [paymentCheck.id, warrantyCheck.id].sort(),
+    );
+    expect(allRechecked.every((item) => item.status === 'passed')).toBe(true);
 
     // 12. A passed item is neither re-checkable through the stale-item entry
     // point nor a valid target for applying a suggestion.

@@ -20,6 +20,12 @@ export interface DocumentTextSource {
   documentId: string;
   editorData?: unknown;
   fileType: string;
+  /**
+   * Version of the body that `content` / `editorData` were read from. Checks
+   * capture it before calling the model and compare it again when committing a
+   * verdict, so a body that changed mid-evaluation can never be marked passed.
+   */
+  updatedAt?: Date | null;
 }
 
 export const readDocumentTextSource = async (
@@ -34,6 +40,7 @@ export const readDocumentTextSource = async (
     documentId,
     editorData: doc.editorData,
     fileType: doc.fileType,
+    updatedAt: doc.updatedAt,
   };
 };
 
