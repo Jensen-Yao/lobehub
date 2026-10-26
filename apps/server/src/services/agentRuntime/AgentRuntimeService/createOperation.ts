@@ -65,6 +65,7 @@ export async function createOperation(
     maxSteps,
     userMemory,
     parentOperationId,
+    reservedOperation,
     signal,
     initialStepCount = 0,
   } = params;
@@ -92,7 +93,7 @@ export async function createOperation(
   );
   const operationStartPersisted = await traceStartStage('record_start', () =>
     deps.completionLifecycle.recordStart({
-      requireReservation: appContext?.trigger === 'channel',
+      requireReservation: reservedOperation,
       agentId: appContext?.agentId ?? null,
       appContext: {
         defaultTaskAssigneeAgentId: appContext?.defaultTaskAssigneeAgentId,
@@ -132,8 +133,8 @@ export async function createOperation(
   if (requiresDurableResultControl && !operationStartPersisted) {
     throw new Error('Failed to durably persist afterToolCall control policy before dispatch');
   }
-  if (appContext?.trigger === 'channel' && !operationStartPersisted) {
-    throw new Error('Failed to durably start the reserved Channel operation');
+  if (reservedOperation && !operationStartPersisted) {
+    throw new Error(`Failed to durably start the reserved operation ${operationId}`);
   }
   if (interventionResolution && !operationStartPersisted) {
     throw new Error(

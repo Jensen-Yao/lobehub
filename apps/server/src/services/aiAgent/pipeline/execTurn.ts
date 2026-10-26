@@ -754,6 +754,7 @@ export const execAgentTurn = async (
         providedApprovalResolutionRequestId,
         queueRetries,
         queueRetryDelay,
+        reservedOperation: !!params.reservedOperationId,
         signal,
         stream,
         clientProtocol: params.clientProtocol,

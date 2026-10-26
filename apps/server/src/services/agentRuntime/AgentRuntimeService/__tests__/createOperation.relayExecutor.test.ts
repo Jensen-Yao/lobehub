@@ -438,7 +438,7 @@ describe('AgentRuntimeService', () => {
       ).rejects.toThrow('Failed to durably persist afterToolCall');
     });
 
-    it('does not execute a Channel reservation that could not be durably started', async () => {
+    it('does not execute a reservation that could not be durably started', async () => {
       vi.spyOn(AgentOperationModel.prototype, 'recordStart').mockRejectedValue(
         new Error('Reservation already retired'),
       );
@@ -446,8 +446,29 @@ describe('AgentRuntimeService', () => {
         service.createOperation({
           ...mockParams,
           appContext: { ...mockParams.appContext, trigger: 'channel' },
+          reservedOperation: true,
         }),
-      ).rejects.toThrow('Failed to durably start the reserved Channel operation');
+      ).rejects.toThrow('Failed to durably start the reserved operation');
+    });
+
+    // A Native sub-Agent inherits trigger='channel' from its Channel parent but owns no
+    // reservation; the trigger is provenance, not a start protocol.
+    it('starts a Channel-triggered run without a reservation as an ordinary operation', async () => {
+      const recordStart = vi
+        .spyOn(AgentOperationModel.prototype, 'recordStart')
+        .mockResolvedValue(undefined);
+
+      await expect(
+        service.createOperation({
+          ...mockParams,
+          appContext: { ...mockParams.appContext, trigger: 'channel' },
+          parentOperationId: 'op-channel-parent',
+        }),
+      ).resolves.toMatchObject({ success: true });
+      expect(recordStart.mock.calls[0][0]).toMatchObject({
+        requireReservation: undefined,
+        trigger: 'channel',
+      });
     });
 
     // Codex P1 on #20093: the member bridge lived only in the 2h runtime
