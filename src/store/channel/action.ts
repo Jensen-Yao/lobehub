@@ -1,5 +1,5 @@
 import { cacheScope } from '@/libs/replica';
-import { useClientDataSWR } from '@/libs/swr';
+import { mutate, useClientDataSWR } from '@/libs/swr';
 import { channelKeys } from '@/libs/swr/keys';
 import {
   type ChannelAgentSelection,
@@ -74,6 +74,32 @@ class ChannelActionImpl {
       for (const token of tokens) token.rollback();
       throw error;
     }
+  };
+  /** The sidebar row and the open header show the new name before the server confirms. */
+  rename = async (channelId: string, title: string) => {
+    await this.#private.entity.optimistic(
+      channelId,
+      (channel) => ({ ...channel, title }),
+      () => channelService.rename(channelId, title),
+    );
+  };
+  useFetchAgentEnvironment = (channelId: string, memberId: string) =>
+    useClientDataSWR(channelKeys.agentEnvironment(channelId, memberId), () =>
+      channelService.agentEnvironment(channelId, memberId),
+    );
+  updateAgentEnvironment = async (
+    channelId: string,
+    memberId: string,
+    environment: Pick<ChannelAgentSelection, 'deviceId' | 'workingDirectory'>,
+  ) => {
+    await channelService.updateAgentEnvironment(channelId, memberId, environment);
+    // Blocked replies may resume on the new device or directory.
+    await this.#refreshAfterWrite(() =>
+      Promise.all([
+        mutate(channelKeys.agentEnvironment(channelId, memberId)),
+        this.refreshDetail({ channelId }),
+      ]),
+    );
   };
   /** Members join one at a time: each add takes the Channel row lock. */
   addAgents = async (channelId: string, agents: ChannelAgentSelection[]) => {

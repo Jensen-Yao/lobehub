@@ -17,6 +17,15 @@ export interface ChannelViewParams {
 }
 
 class ChannelService {
+  agentEnvironment = async (channelId: string, memberId: string) =>
+    (await lambdaClient.channel.agentEnvironment.query({ channelId, memberId })).data;
+  updateAgentEnvironment = (
+    channelId: string,
+    memberId: string,
+    environment: Pick<ChannelAgentSelection, 'deviceId' | 'workingDirectory'>,
+  ) => lambdaClient.channel.updateAgentEnvironment.mutate({ channelId, environment, memberId });
+  rename = (channelId: string, title: string) =>
+    lambdaClient.channel.rename.mutate({ channelId, title });
   addUser = (channelId: string, userId: string) =>
     lambdaClient.channel.addUser.mutate({ channelId, userId });
   userCandidates = async (channelId: string, search: string) =>

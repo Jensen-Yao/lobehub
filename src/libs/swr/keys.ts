@@ -42,6 +42,11 @@ interface LocalFilePreviewKeyParams {
 }
 
 export const channelKeys = {
+  agentEnvironment: def(
+    'channel:agentEnvironment',
+    (channelId: string, memberId: string) =>
+      ['channel:agentEnvironment', channelId, memberId] as const,
+  ),
   userCandidates: def(
     'channel:userCandidates',
     (channelId: string, search: string) => ['channel:userCandidates', channelId, search] as const,

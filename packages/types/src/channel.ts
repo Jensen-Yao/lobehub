@@ -25,6 +25,8 @@ export const CHANNEL_LIMITS = {
   attachments: 20,
   /** Characters in one message. */
   contentLength: 100_000,
+  /** Characters in a channel name. */
+  titleLength: 100,
 } as const;
 
 /** Display name for a person whose account was deleted; their member row stays. */
@@ -171,6 +173,8 @@ export interface ChannelPublicMember {
   avatar: string | null;
   description: string | null;
   id: string;
+  /** Missing in cached projections from older servers. */
+  joinedAt?: Date;
   name: string | null;
   role: ChannelMemberRole | null;
   userAvatar: string | null;

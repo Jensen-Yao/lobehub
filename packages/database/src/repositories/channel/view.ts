@@ -80,6 +80,7 @@ export const readChannelView = async (
         username: users.username,
         userAvatar: users.avatar,
         lastReadSequence: channelMembers.lastReadSequence,
+        joinedAt: channelMembers.createdAt,
       })
       .from(channelMembers)
       .leftJoin(users, eq(users.id, channelMembers.userId))

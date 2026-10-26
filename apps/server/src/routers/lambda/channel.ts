@@ -43,6 +43,28 @@ export const channelRouter = router({
       data: await ctx.channelService.addAgent(input.channelId, input.agent),
       success: true,
     })),
+  agentEnvironment: channelProcedure
+    .input(z.object({ channelId, memberId: z.uuid() }))
+    .query(async ({ ctx, input }) => ({
+      data: await ctx.channelService.repository.agentEnvironment(input.channelId, input.memberId),
+      success: true,
+    })),
+  updateAgentEnvironment: channelProcedure
+    .input(
+      z.object({
+        channelId,
+        environment: agentSelection.pick({ deviceId: true, workingDirectory: true }),
+        memberId: z.uuid(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => ({
+      data: await ctx.channelService.updateAgentEnvironment(
+        input.channelId,
+        input.memberId,
+        input.environment,
+      ),
+      success: true,
+    })),
   addUser: channelProcedure
     .input(z.object({ channelId, userId: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => ({
@@ -53,7 +75,7 @@ export const channelRouter = router({
     .input(
       z.object({
         agents: z.array(agentSelection).min(1).max(20),
-        title: z.string().trim().min(1).max(100),
+        title: z.string().trim().min(1).max(CHANNEL_LIMITS.titleLength),
       }),
     )
     .mutation(async ({ ctx, input }) => ({
@@ -87,6 +109,12 @@ export const channelRouter = router({
     await ctx.channelService.remove(input.channelId);
     return { success: true };
   }),
+  rename: channelProcedure
+    .input(z.object({ channelId, title: z.string().trim().min(1).max(CHANNEL_LIMITS.titleLength) }))
+    .mutation(async ({ ctx, input }) => ({
+      data: await ctx.channelService.rename(input.channelId, input.title),
+      success: true,
+    })),
   removeThread: channelProcedure
     .input(z.object({ channelId, threadId }))
     .mutation(async ({ ctx, input }) => {

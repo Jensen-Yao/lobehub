@@ -14,7 +14,7 @@ import { mergeAgentDefaultConfig } from '../../utils/agentConfig';
 import { ChannelError } from './error';
 
 /** Explicitly select environment fields so legacy or untyped copies cannot override an Agent. */
-const environment = (config?: ChannelMemberConfig | null): ChannelMemberConfig =>
+export const memberEnvironment = (config?: ChannelMemberConfig | null): ChannelMemberConfig =>
   cleanObject({
     deviceId: config?.deviceId,
     deviceOwnerId: config?.deviceOwnerId,
@@ -85,12 +85,30 @@ export const addAgentMember = async (
       actorType: 'agent',
       agentId: input.agentId,
       channelId: channel.id,
-      config: environment(input.config),
+      config: memberEnvironment(input.config),
       description: input.description,
       name: input.name?.trim() || agentDisplayName(agent, 'Agent'),
     })
     .returning();
   return member;
+};
+
+/** An active Agent member of this Channel; people and departed Agents have no environment. */
+export const requireAgentMember = async (tx: Transaction, channelId: string, memberId: string) => {
+  const [member] = await tx
+    .select()
+    .from(channelMembers)
+    .where(
+      and(
+        eq(channelMembers.channelId, channelId),
+        eq(channelMembers.id, memberId),
+        eq(channelMembers.actorType, 'agent'),
+        eq(channelMembers.active, true),
+      ),
+    )
+    .limit(1);
+  if (!member?.agentId) throw new ChannelError('NOT_FOUND', 'Agent member not found');
+  return member as ChannelMemberItem & { agentId: string };
 };
 
 /** Read current settings with the requester's Agent permissions, then freeze the effective config. */
@@ -147,7 +165,7 @@ export const resolveExecutionConfig = async (
   if (!isChannelRuntime(runtime)) return null;
   return {
     ...config,
-    ...environment(member.config),
+    ...memberEnvironment(member.config),
     provider: config.provider || DEFAULT_PROVIDER,
     runtime,
   };

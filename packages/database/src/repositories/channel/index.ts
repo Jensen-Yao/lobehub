@@ -1,4 +1,4 @@
-import type { ChannelMemberRole, ChannelVisibility } from '@lobechat/types';
+import type { ChannelMemberConfig, ChannelMemberRole, ChannelVisibility } from '@lobechat/types';
 import { and, desc, eq, isNull, or } from 'drizzle-orm';
 
 import type { ChannelItem, ChannelJobItem, ChannelMessageItem } from '../../schemas';
@@ -12,7 +12,12 @@ import {
 import type { LobeChatDatabase, Transaction } from '../../type';
 import { normalizeWorkspaceId } from '../../utils/workspace';
 import type { ChannelAddAgentInput } from './agent';
-import { addAgentMember, requireChannelAgent } from './agent';
+import {
+  addAgentMember,
+  memberEnvironment,
+  requireAgentMember,
+  requireChannelAgent,
+} from './agent';
 import { ChannelError } from './error';
 import { addChannelUser, channelUserCandidates } from './people';
 import { retryRouting } from './routing';
@@ -123,6 +128,61 @@ export class ChannelRepository {
     this.write(channelId, (tx, { channel }) => addAgentMember(tx, channel, this.userId, input), {
       minRole: 'admin',
     });
+
+  /** The channel-local device and directory of one Agent member. */
+  agentEnvironment = async (channelId: string, memberId: string) =>
+    this.write(
+      channelId,
+      async (tx) => {
+        const member = await requireAgentMember(tx, channelId, memberId);
+        // The device owner is routing data, not something the editor chooses.
+        const { deviceId, workingDirectory } = memberEnvironment(member.config);
+        return { agentId: member.agentId, deviceId, workingDirectory };
+      },
+      { minRole: 'admin' },
+    );
+
+  /**
+   * Replaces one Agent member's channel-local environment. Claimed jobs keep the
+   * environment frozen in their execution config; later claims use the new one.
+   */
+  updateAgentEnvironment = async (
+    channelId: string,
+    memberId: string,
+    config: ChannelMemberConfig,
+  ) =>
+    this.write(
+      channelId,
+      async (tx) => {
+        await requireAgentMember(tx, channelId, memberId);
+        const [member] = await tx
+          .update(channelMembers)
+          .set({ config: memberEnvironment(config) })
+          .where(eq(channelMembers.id, memberId))
+          .returning();
+        await audit(tx, channelId, 'member_environment_changed', memberId);
+        return member;
+      },
+      { minRole: 'admin' },
+    );
+
+  rename = async (channelId: string, title: string) =>
+    this.write(
+      channelId,
+      async (tx, { channel }) => {
+        const next = title.trim();
+        if (!next) throw new ChannelError('BAD_REQUEST', 'A channel name is required');
+        if (next === channel.title) return channel;
+        const [renamed] = await tx
+          .update(channels)
+          .set({ title: next })
+          .where(eq(channels.id, channelId))
+          .returning();
+        await audit(tx, channelId, 'renamed', channelId);
+        return renamed;
+      },
+      { minRole: 'admin' },
+    );
 
   addUser = async (channelId: string, userId: string) =>
     this.write(channelId, (tx, access) => addChannelUser(tx, access, userId), { minRole: 'admin' });

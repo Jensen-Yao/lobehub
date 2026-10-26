@@ -106,6 +106,26 @@ export class ChannelService {
     return member;
   };
 
+  /** The member's Agent decides its runtime; the request only chooses where it runs. */
+  updateAgentEnvironment = async (
+    channelId: string,
+    memberId: string,
+    input: Pick<ChannelAgentSelection, 'deviceId' | 'workingDirectory'>,
+  ) => {
+    const { agentId } = await this.repository.agentEnvironment(channelId, memberId);
+    const { config = {} } = await this.resolveAgent({ ...input, agentId });
+    const member = await this.repository.updateAgentEnvironment(channelId, memberId, config);
+    // A job blocked on the previous device or directory may be claimable now.
+    await Promise.all([wakeChannel(channelId), this.changed(channelId)]);
+    return member;
+  };
+
+  rename = async (channelId: string, title: string) => {
+    const channel = await this.repository.rename(channelId, title);
+    await this.changed(channelId);
+    return channel;
+  };
+
   addUser = async (channelId: string, userId: string) => {
     const member = await this.repository.addUser(channelId, userId);
     await this.changed(channelId);
