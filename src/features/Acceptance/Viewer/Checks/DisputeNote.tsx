@@ -6,8 +6,6 @@ import { ChevronRight, Scale } from 'lucide-react';
 import { memo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ModelIcon } from '@/components/LobeIcons';
-
 import { tallyDisputeVotes } from './dispute';
 import FoldedText from './FoldedText';
 
@@ -101,7 +99,6 @@ const DisputeNote = memo<{ dispute: VerifyCheckDispute }>(({ dispute }) => {
               {votes.map((vote, index) => (
                 <Flexbox gap={2} key={`${vote.provider}/${vote.model}-${index}`}>
                   <Flexbox horizontal align={'center'} gap={4}>
-                    <ModelIcon model={vote.model} size={14} />
                     {/* One baseline for the model and its ruling, so the two read as one line. */}
                     <Flexbox horizontal align={'baseline'} gap={6} wrap={'wrap'}>
                       <Text fontSize={12} weight={600}>
