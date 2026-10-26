@@ -281,32 +281,67 @@ describe('TrashModel', () => {
       expect(await wsOther.countByType()).toEqual({ message: 1, topic: 1 });
     });
 
-    it('counts roots per deleter inside the workspace, ignoring children and personal rows', async () => {
+    it('splits a workspace bin into the private side and the public side', async () => {
       const wsModel = new TrashModel(serverDB, userId, workspaceId);
-      const wsOther = new TrashModel(serverDB, otherUserId, workspaceId);
-      await wsOther.register({
-        children: [{ projectId: null, resourceId: 'msg_child', resourceType: 'message' }],
-        deletedAt: at('2026-08-01T00:00:00Z'),
-        root: { projectId: null, resourceId: 'agt_member', resourceType: 'agent' },
-      });
-      await wsOther.register({
-        deletedAt: at('2026-08-02T00:00:00Z'),
-        root: { projectId: null, resourceId: 'tpc_member', resourceType: 'topic' },
-      });
-      await wsModel.register({
-        deletedAt: at('2026-08-03T00:00:00Z'),
-        root: { projectId: null, resourceId: 'tpc_owner', resourceType: 'topic' },
-      });
-      await otherModel.register({
-        deletedAt: at('2026-08-04T00:00:00Z'),
-        root: { projectId: null, resourceId: 'tpc_personal', resourceType: 'topic' },
+      await serverDB.insert(agents).values([
+        { id: 'agt_private', userId, visibility: 'private', workspaceId },
+        { id: 'agt_public', userId, visibility: 'public', workspaceId },
+      ]);
+      await serverDB.insert(topics).values([
+        { agentId: 'agt_private', id: 'tpc_private', userId, workspaceId },
+        { agentId: 'agt_public', id: 'tpc_public', userId, workspaceId },
+      ]);
+      await serverDB.insert(messages).values([
+        { content: 'secret', id: 'msg_private', role: 'user', topicId: 'tpc_private', userId },
+        { content: 'shared', id: 'msg_public', role: 'user', topicId: 'tpc_public', userId },
+      ]);
+      const [privateWidget, publicWidget] = await serverDB
+        .insert(widgets)
+        .values([
+          { title: 'mine', userId, visibility: 'private', workspaceId },
+          { title: 'shared', userId, visibility: 'public', workspaceId },
+        ])
+        .returning();
+      const roots: [string, 'agent' | 'message' | 'topic' | 'widget'][] = [
+        [privateWidget.id, 'widget'],
+        [publicWidget.id, 'widget'],
+        ['agt_private', 'agent'],
+        ['agt_public', 'agent'],
+        ['tpc_private', 'topic'],
+        ['tpc_public', 'topic'],
+        ['msg_private', 'message'],
+        ['msg_public', 'message'],
+      ];
+      for (const [resourceId, resourceType] of roots) {
+        await wsModel.register({
+          deletedAt: at('2026-08-01T00:00:00Z'),
+          root: { projectId: null, resourceId, resourceType },
+        });
+      }
+
+      const sideIds = async (visibility: 'private' | 'public') =>
+        (await wsModel.list({ visibility })).items.map((item) => item.resourceId).sort();
+      expect(await sideIds('private')).toEqual(
+        ['agt_private', 'msg_private', 'tpc_private', privateWidget.id].sort(),
+      );
+      expect(await sideIds('public')).toEqual(
+        ['agt_public', 'msg_public', 'tpc_public', publicWidget.id].sort(),
+      );
+      expect(await wsModel.countByType({ visibility: 'private' })).toEqual({
+        agent: 1,
+        message: 1,
+        topic: 1,
+        widget: 1,
       });
 
-      expect(await wsModel.countByDeleter()).toEqual([
-        { total: 2, userId: otherUserId },
-        { total: 1, userId },
-      ]);
-      expect(await otherModel.countByDeleter()).toEqual([{ total: 1, userId: otherUserId }]);
+      const all = await wsModel.list();
+      const privateIds = await wsModel.findPrivateIds(all.items.map((item) => item.id));
+      expect(
+        all.items
+          .filter((item) => privateIds.has(item.id))
+          .map((item) => item.resourceId)
+          .sort(),
+      ).toEqual(['agt_private', 'msg_private', 'tpc_private', privateWidget.id].sort());
     });
   });
 

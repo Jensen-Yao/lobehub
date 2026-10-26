@@ -1,5 +1,5 @@
-import type { TrashProjectFilter } from '@lobechat/types';
-import { TRASH_RESOURCE_TYPES } from '@lobechat/types';
+import type { TrashProjectFilter, TrashRootFilter, TrashVisibility } from '@lobechat/types';
+import { TRASH_RESOURCE_TYPES, TRASH_VISIBILITIES } from '@lobechat/types';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
@@ -23,25 +23,29 @@ const trashProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) =>
 const resourceTypeSchema = z.enum(TRASH_RESOURCE_TYPES);
 /** `undefined` = every project, `null` = roots without a project, a string = that project. */
 const projectFilterSchema = z.string().min(1).nullable().optional();
+/** Side of a workspace bin; ignored in personal mode. */
+const visibilitySchema = z.enum(TRASH_VISIBILITIES).optional();
 
 /**
- * Recycle bin. Every bin lists only the roots the caller trashed, in personal
- * mode and in a workspace alike, whatever the caller's role: a root can be a
- * member's private agent or topic, and its title a content excerpt, so not
- * even the owner sees another member's deletions. Only the deleter may
- * restore or purge a row by id.
+ * Recycle bin. A personal bin holds only the caller's rows. A workspace bin
+ * has two sides:
  *
- * Workspace owners and admins get the one thing they need to keep the
- * workspace tidy: how many roots each member has in the bin, and a sweep that
- * permanently empties one member's bin — never its titles or a restore.
+ * - `public` — roots every member could see before deletion, whoever deleted
+ *   them. Each member restores or purges what they deleted; owners and admins
+ *   also manage the rest and may empty the side.
+ * - `private` — the caller's own deletions of private resources (or of
+ *   resources under a private agent, group or project). Nobody else, owner
+ *   included, lists, counts, restores or purges them.
+ *
+ * A workspace request without a side covers only the caller's own deletions.
  */
 export const trashRouter = router({
   countByType: trashProcedure
-    .input(z.object({ projectId: projectFilterSchema }).optional())
+    .input(z.object({ projectId: projectFilterSchema, visibility: visibilitySchema }).optional())
     .query(async ({ input, ctx }) => {
       await assertProjectFilterReadable(ctx, input?.projectId);
       return ctx.trashService.countByType({
-        deletedByUserId: actorFilter(ctx),
+        ...sideFilter(ctx, input?.visibility),
         projectId: input?.projectId,
       });
     }),
@@ -52,6 +56,7 @@ export const trashRouter = router({
         .object({
           projectId: projectFilterSchema,
           resourceType: resourceTypeSchema.optional(),
+          visibility: visibilitySchema,
           /**
            * Scope the client started emptying in (`null` = personal). The
            * request's own workspace context still decides what is reachable;
@@ -69,40 +74,15 @@ export const trashRouter = router({
           message: 'The active workspace changed while emptying the trash',
         });
       }
+      if (ctx.workspaceId && input?.visibility === 'public') assertWorkspaceManager(ctx);
       await assertProjectFilterReadable(ctx, input?.projectId);
-      // The actor filter is pushed into the query rather than applied to a
-      // page of results, so a member with more items than one page still
-      // empties all of them.
+      // The side filter is pushed into the query rather than applied to a
+      // page of results, so a bin larger than one page is still emptied.
       return ctx.trashService.emptyTrash({
-        deletedByUserId: actorFilter(ctx),
+        ...sideFilter(ctx, input?.visibility),
         projectId: input?.projectId,
         resourceType: input?.resourceType,
       });
-    }),
-
-  emptyMemberTrash: trashProcedure
-    .input(
-      z.object({
-        memberId: z.string().min(1),
-        /** Workspace the sweep started in; a batch landing in another scope is refused. */
-        workspaceId: z.string(),
-      }),
-    )
-    .mutation(async ({ input, ctx }) => {
-      assertWorkspaceManager(ctx);
-      if (input.workspaceId !== ctx.workspaceId) {
-        throw new TRPCError({
-          code: 'PRECONDITION_FAILED',
-          message: 'The active workspace changed while emptying the trash',
-        });
-      }
-      if (input.memberId === ctx.userId) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Empty your own trash through emptyTrash',
-        });
-      }
-      return ctx.trashService.emptyMemberTrash(input.memberId);
     }),
 
   list: trashProcedure
@@ -113,26 +93,20 @@ export const trashRouter = router({
           limit: z.number().int().min(1).max(200).optional(),
           projectId: projectFilterSchema,
           resourceType: resourceTypeSchema.optional(),
+          visibility: visibilitySchema,
         })
         .optional(),
     )
     .query(async ({ input, ctx }) => {
       await assertProjectFilterReadable(ctx, input?.projectId);
       return ctx.trashService.list({
+        ...sideFilter(ctx, input?.visibility),
         cursor: input?.cursor,
-        deletedByUserId: actorFilter(ctx),
         limit: input?.limit,
         projectId: input?.projectId,
         resourceType: input?.resourceType,
       });
     }),
-
-  /** Roots per other member in the workspace bin — counts only, for owners and admins. */
-  memberSummary: trashProcedure.query(async ({ ctx }) => {
-    assertWorkspaceManager(ctx);
-    const rows = await ctx.trashService.countByDeleter();
-    return rows.filter((row) => row.userId !== ctx.userId);
-  }),
 
   purge: trashProcedure
     .input(z.object({ ids: z.array(z.string()).min(1).max(200) }))
@@ -173,39 +147,58 @@ interface TrashCallerCtx {
 }
 
 /**
- * Every workspace caller, owner included, only sees and sweeps the roots they
- * trashed themselves. Personal rows are already the caller's own.
+ * What one side of the bin covers for the caller. The private side, and a
+ * workspace request without a side, are pinned to the caller's own
+ * deletions; personal rows are already the caller's own.
  */
-const actorFilter = (ctx: TrashCallerCtx) => (ctx.workspaceId ? ctx.userId : undefined);
+const sideFilter = (
+  ctx: TrashCallerCtx,
+  visibility: TrashVisibility | undefined,
+): Pick<TrashRootFilter, 'deletedByUserId' | 'visibility'> => {
+  if (!ctx.workspaceId) return {};
+  if (visibility === 'public') return { visibility };
+  return { deletedByUserId: ctx.userId, visibility };
+};
+
+const isWorkspaceManager = (ctx: TrashCallerCtx) =>
+  !!ctx.workspaceId && (ctx.workspaceRole === 'owner' || ctx.workspaceRole === 'admin');
 
 /**
- * Member summaries and member sweeps are for workspace owners and admins.
- * Reads `workspaceRole` through the optional ctx field because the OSS
- * `withScopedPermission` stub does not inject it (cloud's override does).
+ * Emptying the public side reaches other members' deletions, so it is for
+ * workspace owners and admins. Reads `workspaceRole` through the optional ctx
+ * field because the OSS `withScopedPermission` stub does not inject it
+ * (cloud's override does).
  */
 const assertWorkspaceManager = (ctx: TrashCallerCtx) => {
-  if (ctx.workspaceId && (ctx.workspaceRole === 'owner' || ctx.workspaceRole === 'admin')) return;
+  if (isWorkspaceManager(ctx)) return;
   throw new TRPCError({
     code: 'FORBIDDEN',
-    message: 'Only a workspace owner or admin can manage members’ trash',
+    message: 'Only a workspace owner or admin can empty the public trash',
   });
 };
 
-/** Every requested registry row must have been trashed by the caller. */
+/**
+ * Every requested registry row must be the caller's own deletion, or — for an
+ * owner or admin — a public one. A private row stays with whoever deleted it.
+ */
 const assertItemsManageable = async (
   ctx: TrashCallerCtx & { trashService: TrashService },
   ids: string[],
 ) => {
   if (!ctx.workspaceId) return;
   const items = await ctx.trashService.findByIds(ids);
-  for (const item of items) {
-    if ((item.deletedByUserId ?? item.userId) !== ctx.userId) {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'Only the member who deleted this trash item can restore or purge it',
-      });
-    }
-  }
+  const others = items.filter((item) => (item.deletedByUserId ?? item.userId) !== ctx.userId);
+  if (others.length === 0) return;
+
+  const privateIds = isWorkspaceManager(ctx)
+    ? await ctx.trashService.findPrivateIds(others.map((item) => item.id))
+    : undefined;
+  if (privateIds && privateIds.size === 0) return;
+
+  throw new TRPCError({
+    code: 'FORBIDDEN',
+    message: 'Only the member who deleted this trash item can restore or purge it',
+  });
 };
 
 export type TrashRouter = typeof trashRouter;

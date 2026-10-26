@@ -8,23 +8,21 @@ import type {
   TrashResourceType,
   TrashRootFilter,
 } from '@lobechat/types';
-import {
-  and,
-  asc,
-  count,
-  desc,
-  eq,
-  inArray,
-  isNotNull,
-  isNull,
-  lt,
-  lte,
-  or,
-  sql,
-} from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNull, lt, lte, not, or, sql } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 
 import type { NewTrashItemRow, TrashItemRow } from '../schemas';
-import { agents, dashboards, messages, topics, trashItems, widgets } from '../schemas';
+import {
+  agents,
+  chatGroups,
+  dashboards,
+  messages,
+  projects,
+  topics,
+  trashItems,
+  widgets,
+} from '../schemas';
 import type { LobeChatDatabase, Transaction } from '../type';
 import { buildWorkspaceWhere } from '../utils/workspace';
 
@@ -61,6 +59,51 @@ const ROOT_TABLES: Record<TrashResourceType, { id: any; isDeleted: any; table: a
   topic: { id: topics.id, isDeleted: topics.isDeleted, table: topics },
   widget: { id: widgets.id, isDeleted: widgets.isDeleted, table: widgets },
 };
+
+const privateAgent = (id: AnyPgColumn) =>
+  sql`EXISTS (SELECT 1 FROM ${agents} WHERE ${agents.id} = ${id} AND ${agents.visibility} = 'private')`;
+const privateGroup = (id: AnyPgColumn) =>
+  sql`EXISTS (SELECT 1 FROM ${chatGroups} WHERE ${chatGroups.id} = ${id} AND ${chatGroups.visibility} = 'private')`;
+const privateProject = (id: AnyPgColumn) =>
+  sql`EXISTS (SELECT 1 FROM ${projects} WHERE ${projects.id} = ${id} AND ${projects.visibility} = 'private')`;
+
+/** A topic is private when its agent, group or project is. */
+const privateTopic = (id: AnyPgColumn) =>
+  sql`EXISTS (SELECT 1 FROM ${topics} WHERE ${topics.id} = ${id} AND (${privateAgent(topics.agentId)} OR ${privateGroup(topics.groupId)} OR ${privateProject(topics.projectId)}))`;
+
+/**
+ * `resource_id` as the uuid key of widgets and dashboards. The CASE confines
+ * the cast to rows of that type — other roots hold ids that are not uuids —
+ * and keeps the source table's primary-key index usable.
+ */
+const uuidResourceId = (type: TrashResourceType) =>
+  sql`(CASE WHEN ${trashItems.resourceType} = ${type} THEN ${trashItems.resourceId}::uuid END)`;
+
+/**
+ * Whether a registry row is private in its workspace: the resource itself, or
+ * an agent, group or project it lives under, is visible to its creator only.
+ * Read from the source rows at query time — they stay in place while trashed —
+ * so rows registered before this predicate existed are classified too, and a
+ * root is never shown to the workspace because its snapshot missed a parent.
+ */
+const privateRootWhere = (): SQL =>
+  or(
+    privateProject(trashItems.projectId),
+    and(eq(trashItems.resourceType, 'agent'), privateAgent(trashItems.resourceId)),
+    and(eq(trashItems.resourceType, 'topic'), privateTopic(trashItems.resourceId)),
+    and(
+      eq(trashItems.resourceType, 'message'),
+      sql`EXISTS (SELECT 1 FROM ${messages} WHERE ${messages.id} = ${trashItems.resourceId} AND (${privateAgent(messages.agentId)} OR ${privateGroup(messages.groupId)} OR ${privateTopic(messages.topicId)}))`,
+    ),
+    and(
+      eq(trashItems.resourceType, 'widget'),
+      sql`EXISTS (SELECT 1 FROM ${widgets} WHERE ${widgets.id} = ${uuidResourceId('widget')} AND (${widgets.visibility} = 'private' OR ${privateAgent(widgets.agentId)} OR ${privateProject(widgets.projectId)}))`,
+    ),
+    and(
+      eq(trashItems.resourceType, 'dashboard'),
+      sql`EXISTS (SELECT 1 FROM ${dashboards} WHERE ${dashboards.id} = ${uuidResourceId('dashboard')} AND (${dashboards.visibility} = 'private' OR ${privateAgent(dashboards.agentId)} OR ${privateProject(dashboards.projectId)}))`,
+    ),
+  ) as SQL;
 
 const toTrashItem = (row: TrashItemRow): TrashItem => ({
   deletedAt: row.deletedAt,
@@ -104,12 +147,23 @@ export class TrashModel {
    * cascade is listed, counted and purged through its root, whatever project
    * its children were recorded under.
    */
-  private rootsWhere = ({ deletedByUserId, projectId, resourceType }: TrashRootFilter = {}) =>
+  private rootsWhere = ({
+    deletedByUserId,
+    projectId,
+    resourceType,
+    visibility,
+  }: TrashRootFilter = {}) =>
     and(
       this.ownership(),
       isNull(trashItems.rootId),
       resourceType ? eq(trashItems.resourceType, resourceType) : undefined,
       deletedByUserId ? eq(trashItems.deletedByUserId, deletedByUserId) : undefined,
+      // Personal bins have no sides: every row there is the caller's own.
+      !this.workspaceId || !visibility
+        ? undefined
+        : visibility === 'private'
+          ? privateRootWhere()
+          : not(privateRootWhere()),
       projectId === undefined
         ? undefined
         : projectId === null
@@ -342,27 +396,15 @@ export class TrashModel {
       .select({ resourceType: trashItems.resourceType, total: count() })
       .from(trashItems)
       .where(
-        this.rootsWhere({ deletedByUserId: filter.deletedByUserId, projectId: filter.projectId }),
+        this.rootsWhere({
+          deletedByUserId: filter.deletedByUserId,
+          projectId: filter.projectId,
+          visibility: filter.visibility,
+        }),
       )
       .groupBy(trashItems.resourceType);
 
     return Object.fromEntries(rows.map((row) => [row.resourceType, row.total]));
-  };
-
-  /**
-   * Roots per deleter in scope, without titles or types — what a workspace
-   * manager may know about other members' bins. Rows with no recorded deleter
-   * are left out: nobody could empty them by member.
-   */
-  countByDeleter = async (): Promise<{ total: number; userId: string }[]> => {
-    const rows = await this.db
-      .select({ total: count(), userId: trashItems.deletedByUserId })
-      .from(trashItems)
-      .where(and(this.rootsWhere(), isNotNull(trashItems.deletedByUserId)))
-      .groupBy(trashItems.deletedByUserId)
-      .orderBy(desc(count()));
-
-    return rows.map((row) => ({ total: row.total, userId: row.userId! }));
   };
 
   findById = async (id: string): Promise<TrashItemRow | undefined> => {
@@ -377,6 +419,16 @@ export class TrashModel {
       .select()
       .from(trashItems)
       .where(and(inArray(trashItems.id, ids), this.ownership()));
+  };
+
+  /** Ids among `ids` (in scope) that sit on the private side of the workspace bin. */
+  findPrivateIds = async (ids: string[]): Promise<Set<string>> => {
+    if (ids.length === 0 || !this.workspaceId) return new Set();
+    const rows = await this.db
+      .select({ id: trashItems.id })
+      .from(trashItems)
+      .where(and(inArray(trashItems.id, ids), this.ownership(), privateRootWhere()));
+    return new Set(rows.map((row) => row.id));
   };
 
   findByResource = async (

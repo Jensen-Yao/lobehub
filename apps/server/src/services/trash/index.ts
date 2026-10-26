@@ -209,7 +209,8 @@ export class TrashService {
   countByType = (filter?: Omit<TrashRootFilter, 'resourceType'>): Promise<TrashCountByType> =>
     this.trashModel.countByType(filter);
 
-  countByDeleter = () => this.trashModel.countByDeleter();
+  /** Registry ids among `ids` on the private side of the workspace bin. */
+  findPrivateIds = (ids: string[]): Promise<Set<string>> => this.trashModel.findPrivateIds(ids);
 
   findByIds = async (ids: string[]): Promise<TrashItem[]> =>
     (await this.trashModel.findByIds(ids)).map(this.toItem);
@@ -302,9 +303,9 @@ export class TrashService {
    */
   emptyTrash = async (
     /**
-     * `deletedByUserId` restricts the sweep to roots this user trashed: a
-     * workspace non-owner may only empty their own items — filtered in the
-     * query, not on a page of results, so "empty trash" really does empty
+     * `deletedByUserId` restricts the sweep to roots this user trashed and
+     * `visibility` to one side of a workspace bin — filtered in the query,
+     * not on a page of results, so "empty trash" really does empty
      * everything it is allowed to.
      */
     filter?: TrashRootFilter,
@@ -317,19 +318,6 @@ export class TrashService {
     // `purged === 0` with rows left means nothing in reach could be purged;
     // stop instead of letting the client spin.
     return { hasMore: ids.length > TRASH_EMPTY_BATCH_SIZE && purged > 0, purged };
-  };
-
-  /**
-   * Empty one batch of another member's workspace bin for a workspace
-   * manager. The roots are purged under that member's scope — as the expiry
-   * sweep does — so their private agents and topics, which the manager cannot
-   * see, still go with them.
-   */
-  emptyMemberTrash = async (memberId: string): Promise<{ hasMore: boolean; purged: number }> => {
-    if (!this.workspaceId) throw new Error('emptyMemberTrash needs a workspace scope');
-    return new TrashService(this.db, memberId, this.workspaceId).emptyTrash({
-      deletedByUserId: memberId,
-    });
   };
 
   private purgeRoot = async (root: TrashItemRow) => {

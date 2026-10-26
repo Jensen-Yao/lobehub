@@ -6,11 +6,10 @@ import { useTranslation } from 'react-i18next';
 
 import SettingHeader from '@/features/Settings/features/SettingHeader';
 
-import MemberTrash from './features/MemberTrash';
 import TrashList from './features/TrashList';
 
 interface PageProps {
-  /** Workspace bin: everyone sees only their own deletions; managers also get per-member counts. */
+  /** Workspace bin: a public side shared by every member and a private side of one's own. */
   isWorkspace?: boolean;
   showSettingHeader?: boolean;
 }
@@ -25,8 +24,7 @@ const Page = ({ isWorkspace, showSettingHeader = true }: PageProps) => {
         <Text type={'secondary'}>
           {t(isWorkspace ? 'trash.workspaceDesc' : 'trash.desc', { days: TRASH_RETENTION_DAYS })}
         </Text>
-        <TrashList />
-        {isWorkspace && <MemberTrash />}
+        <TrashList isWorkspace={isWorkspace} />
       </Flexbox>
     </>
   );

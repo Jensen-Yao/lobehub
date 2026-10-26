@@ -6,6 +6,7 @@ import type {
   TrashItem,
   TrashProjectFilter,
   TrashResourceType,
+  TrashVisibility,
 } from '@lobechat/types';
 import {
   Avatar,
@@ -18,6 +19,7 @@ import {
   Flexbox,
   Icon,
   Segmented,
+  Tabs,
   Tag,
   Text,
   toast,
@@ -31,14 +33,16 @@ import { useTranslation } from 'react-i18next';
 
 import LiteTable, { type LiteTableColumn } from '@/components/LiteTable';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { usePermission } from '@/hooks/usePermission';
 import { useCacheScope } from '@/libs/swr/useCacheScope';
 import type { TrashViewFilter } from '@/services/trash';
 import { useLoadedProjectList, useProjectStore } from '@/store/project';
 import { trashSelectors, useTrashStore } from '@/store/trash';
 import { TrashEmptyScopeChangedError } from '@/store/trash/action';
 import { useUserStore } from '@/store/user';
-import { labPreferSelectors } from '@/store/user/selectors';
+import { labPreferSelectors, userProfileSelectors } from '@/store/user/selectors';
 
+import DeletedByCell from './DeletedByCell';
 import { ProjectFilter } from './ProjectFilter';
 import {
   canEmptyTrashView,
@@ -87,6 +91,10 @@ const styles = createStaticStyles(({ css, cssVar }) => ({
     width: 100%;
     min-width: 0;
   `,
+  sides: css`
+    margin-block: -8px 8px;
+    padding-inline: 24px;
+  `,
   table: css`
     @container (max-width: ${TRASH_LIST_BREAKPOINT}px) {
       tbody tr {
@@ -115,7 +123,12 @@ const styles = createStaticStyles(({ css, cssVar }) => ({
   `,
 }));
 
-const TrashList = () => {
+interface TrashListProps {
+  /** A workspace bin: split into its public and private sides. */
+  isWorkspace?: boolean;
+}
+
+const TrashList = ({ isWorkspace = false }: TrashListProps) => {
   const { t } = useTranslation('setting');
   const { t: tc } = useTranslation('common');
   const mobile = useIsMobile();
@@ -150,7 +163,17 @@ const TrashList = () => {
   const projectsEnabled = useUserStore(labPreferSelectors.enableProjects);
   const selectedProjectId = useTrashStore(trashSelectors.activeProjectId(scope));
   const projectId: TrashProjectFilter = projectsEnabled ? selectedProjectId : undefined;
-  const filter: TrashViewFilter = { projectId, resourceType: activeType };
+  const visibility = useTrashStore(trashSelectors.activeVisibility(isWorkspace));
+  const filter: TrashViewFilter = { projectId, resourceType: activeType, visibility };
+  const countFilter = { projectId, visibility };
+
+  // The public side lists every member's deletions: each row is managed by
+  // whoever deleted it, and by owners and admins, who alone may empty it.
+  const userId = useUserStore(userProfileSelectors.userId);
+  const { allowed: isManager } = usePermission('manage_settings');
+  const isPublicSide = visibility === 'public';
+  const canManageItem = (item: TrashItem) =>
+    !isPublicSide || isManager || (item.deletedByUserId ?? item.userId) === userId;
 
   // The live project list of this scope is the only source of project options.
   const projectSync = useProjectStore((s) => s.useFetchProjectList)(projectsEnabled);
@@ -163,12 +186,12 @@ const TrashList = () => {
   // The active view's local-first page: first frame paints from storage.
   const list = useTrashStore(trashSelectors.currentList(filter));
   const isEmpty = useTrashStore(trashSelectors.isEmpty(filter));
-  const counts = useTrashStore(trashSelectors.countByType(projectId));
+  const counts = useTrashStore(trashSelectors.countByType(countFilter));
   const storedFilterCount = useTrashStore(trashSelectors.filterCount(filter));
-  const storedTotal = useTrashStore(trashSelectors.totalCount(projectId));
+  const storedTotal = useTrashStore(trashSelectors.totalCount(countFilter));
 
   const { error, isValidating, revalidate } = useFetchTrash(canFetch, filter);
-  const countSync = useFetchTrashCount(canFetch, projectId);
+  const countSync = useFetchTrashCount(canFetch, countFilter);
 
   // The server refuses a project that was deleted or whose access was revoked;
   // re-read the project list so the picker drops it as well.
@@ -381,6 +404,15 @@ const TrashList = () => {
       ),
       title: t('trash.columns.deletedAt'),
     },
+    ...(isPublicSide
+      ? [
+          {
+            key: 'deletedBy',
+            render: (item: TrashItem) => <DeletedByCell userId={item.deletedByUserId} />,
+            title: t('trash.columns.deletedBy'),
+          },
+        ]
+      : []),
     {
       key: 'expiresAt',
       render: (item) => <span className={styles.muted}>{expiresLabel(item.expiresAt)}</span>,
@@ -390,6 +422,7 @@ const TrashList = () => {
       key: 'actions',
       listSlot: 'actions',
       render: (item) => {
+        if (!canManageItem(item)) return null;
         const busy = loadingIds.includes(item.id);
         return (
           <Flexbox horizontal gap={4} onClick={(e) => e.stopPropagation()}>
@@ -430,6 +463,20 @@ const TrashList = () => {
 
   return (
     <div className={styles.container} ref={containerRef}>
+      {visibility && (
+        <Tabs
+          activeKey={visibility}
+          className={styles.sides}
+          items={[
+            { key: 'public', label: t('trash.side.public') },
+            { key: 'private', label: t('trash.side.private') },
+          ]}
+          onChange={(key) =>
+            // Each side has its own types, so the type filter starts over.
+            changeFilter({ projectId, visibility: key as TrashVisibility })
+          }
+        />
+      )}
       <div className={styles.header}>
         <Flexbox horizontal align={'center'} gap={8} style={{ flexWrap: 'wrap', minWidth: 0 }}>
           <Segmented
@@ -442,6 +489,7 @@ const TrashList = () => {
               changeFilter({
                 projectId,
                 resourceType: value === 'all' ? undefined : (value as TrashResourceType),
+                visibility,
               })
             }
           />
@@ -452,21 +500,25 @@ const TrashList = () => {
               projects={projects}
               unavailable={projectUnavailable}
               value={projectId}
-              onChange={(next) => changeFilter({ projectId: next, resourceType: activeType })}
               onOpen={() => void refreshProjectList()}
               onRetry={() => void refreshProjectList()}
+              onChange={(next) =>
+                changeFilter({ projectId: next, resourceType: activeType, visibility })
+              }
             />
           )}
         </Flexbox>
-        <Button
-          danger
-          disabled={!canEmpty}
-          icon={Trash2Icon}
-          size={mobile ? 'small' : undefined}
-          onClick={handleEmpty}
-        >
-          {emptyLabel(filter, filterCount)}
-        </Button>
+        {(!isPublicSide || isManager) && (
+          <Button
+            danger
+            disabled={!canEmpty}
+            icon={Trash2Icon}
+            size={mobile ? 'small' : undefined}
+            onClick={handleEmpty}
+          >
+            {emptyLabel(filter, filterCount)}
+          </Button>
+        )}
       </div>
       <LiteTable
         className={styles.table}
