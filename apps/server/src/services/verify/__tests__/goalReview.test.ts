@@ -420,6 +420,40 @@ describe('Goal automatic Acceptance review', () => {
     expect(mocks.predict).not.toHaveBeenCalled();
   });
 
+  /**
+   * Regression: `reviewChecks` accepts a per-check decision in any lifecycle
+   * state and writes `userDecision: 'rejected'` without clearing the dispute
+   * metadata, so a waiver and a rejection can coexist. The waiver shortcut ran
+   * first and dropped the rejection, letting the Goal review pass a delivery the
+   * user had explicitly sent back.
+   */
+  it('lets an explicit rejection outrank a waived check', async () => {
+    mocks.rounds.mockResolvedValue({
+      runs: [{ id: 'r1', roundIndex: 1, plan: [check] }],
+      results: [
+        {
+          ...result,
+          userDecision: 'rejected',
+          userDecisionDetail: { comment: 'The table in section 2 is still empty.' },
+          metadata: {
+            dispute: {
+              arbitration: { decidedAt: 'now', outcome: 'upheld', votes: [] },
+              filedAt: 'now',
+              kind: 'invalid_criterion',
+              reason: 'Out of scope',
+            },
+          },
+        },
+      ],
+    });
+
+    expect(await reviewGoalDelivery(db, 'u1', 't1', 'op1')).toMatchObject({
+      status: 'rejected',
+      feedback: expect.stringContaining('The table in section 2 is still empty.'),
+    });
+    expect(mocks.predict).not.toHaveBeenCalled();
+  });
+
   it("hands the builder's missed-evidence rebuttal to the reviewer", async () => {
     mocks.rounds.mockResolvedValue({
       runs: [{ id: 'r1', roundIndex: 1, plan: [check] }],

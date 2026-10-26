@@ -136,8 +136,10 @@ export const reviewGoalDelivery = async (
       }
       if (check.result.userDecision === 'accepted' || check.result.userDecision === 'overridden')
         return;
-      // A panel already ruled this check invalid for this delivery.
-      if (isCheckWaivedByDispute(check.result.metadata)) return;
+      // An explicit rejection outranks a panel waiver. `reviewChecks` accepts a
+      // per-check decision at any lifecycle state and writes `rejected` without
+      // clearing the dispute, so both can coexist: the user rejecting the check
+      // after its dispute was upheld must still block the delivery.
       if (check.result.userDecision === 'rejected') {
         escalate('rejected');
         feedback.push(
@@ -145,6 +147,8 @@ export const reviewGoalDelivery = async (
         );
         return;
       }
+      // A panel already ruled this check invalid for this delivery.
+      if (isCheckWaivedByDispute(check.result.metadata)) return;
       const modelConfig = await getModelConfig();
       if (!modelConfig) {
         escalate('errored');
