@@ -18,10 +18,6 @@ class ChannelActionImpl {
     useClientDataSWR(channelKeys.userCandidates(channelId, search), () =>
       channelService.userCandidates(channelId, search),
     );
-  addUser = async (channelId: string, userId: string) => {
-    await channelService.addUser(channelId, userId);
-    await this.refreshDetail({ channelId });
-  };
   useFetchList = () => this.#private.list.useSync({}, { refreshInterval: 30_000 });
   useFetchDetail = (params: ChannelViewParams | null) => {
     // Subscribe to the replica, not just SWR's last response: sending a message
@@ -101,9 +97,16 @@ class ChannelActionImpl {
       ]),
     );
   };
-  /** Members join one at a time: each add takes the Channel row lock. */
-  addAgents = async (channelId: string, agents: ChannelAgentSelection[]) => {
+  /**
+   * Members join one at a time: each add takes the Channel row lock. Both adds are
+   * idempotent, so retrying after a partial failure does not duplicate anyone.
+   */
+  addMembers = async (
+    channelId: string,
+    { agents = [], userIds = [] }: { agents?: ChannelAgentSelection[]; userIds?: string[] },
+  ) => {
     try {
+      for (const userId of userIds) await channelService.addUser(channelId, userId);
       for (const agent of agents) await channelService.addAgent(channelId, agent);
     } finally {
       // A partial failure still shows the members that did join.

@@ -1,7 +1,6 @@
 import { getHeterogeneousTypeLabel } from '@lobechat/heterogeneous-agents';
 import { agentDisplayName } from '@lobechat/types';
 import { Checkbox, Flexbox, SearchBar, Tag, Text } from '@lobehub/ui';
-import { cssVar } from '@lobehub/ui/stylex/cssVar.stylex';
 import * as stylex from '@stylexjs/stylex';
 import type { Dispatch, SetStateAction } from 'react';
 import { useState } from 'react';
@@ -15,39 +14,11 @@ import AgentSelectionEmpty from '@/features/AgentSelectionEmpty';
 import { useDeviceList } from '@/store/device/useDeviceList';
 
 import type { ChannelAgentDraft } from './agentEnvironment';
+import type { PeopleSelection } from './PeopleOptions';
+import { PeopleOptions, SelectedPerson } from './PeopleOptions';
+import { pickerStyles as styles } from './pickerStyles';
 import { SelectedAgent } from './SelectedAgent';
 import type { ChannelAgentOption, useChannelAgentOptions } from './useChannelAgentOptions';
-
-const styles = stylex.create({
-  picker: {
-    display: 'flex',
-    gap: 8,
-    height: 500,
-    maxHeight: '55vh',
-    minHeight: 240,
-    padding: 12,
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: cssVar.colorBorderSecondary,
-    borderRadius: cssVar.borderRadiusLG,
-  },
-  pane: { flex: '1', minWidth: 0, minHeight: 0, overflowY: 'auto' },
-  selected: {
-    borderInlineStartWidth: 1,
-    borderInlineStartStyle: 'solid',
-    borderInlineStartColor: cssVar.colorBorderSecondary,
-    paddingInlineStart: 12,
-  },
-  row: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: 8,
-    cursor: 'pointer',
-    borderRadius: cssVar.borderRadius,
-    backgroundColor: { 'default': 'transparent', ':hover': cssVar.colorFillTertiary },
-  },
-});
 
 /** Name plus the external runtime, which is why a coding Agent asks for a device. */
 const AgentLabel = ({ agent, fallback }: { agent?: ChannelAgentOption; fallback: string }) => (
@@ -61,9 +32,14 @@ const AgentLabel = ({ agent, fallback }: { agent?: ChannelAgentOption; fallback:
   </Flexbox>
 );
 
-export const AgentSelection = ({
+/**
+ * Searchable candidates on the left, chosen members on the right. Workspace Channels also
+ * offer people, so inviting anyone happens in one place with one search.
+ */
+export const MemberSelection = ({
   exclude = [],
   options,
+  people,
   value,
   onChange,
 }: {
@@ -71,6 +47,7 @@ export const AgentSelection = ({
   exclude?: string[];
   onChange: Dispatch<SetStateAction<ChannelAgentDraft[]>>;
   options: ReturnType<typeof useChannelAgentOptions>;
+  people?: PeopleSelection;
   value: ChannelAgentDraft[];
 }) => {
   const { t } = useTranslation(['channel', 'device', 'chat', 'common']);
@@ -89,6 +66,7 @@ export const AgentSelection = ({
         : [...current, { agentId, initialized: false, issue: 'configurationLoading' }],
     );
   const devices = useDeviceList({ refreshInterval: 15_000 });
+  const selectedCount = value.length + (people?.value.length ?? 0);
 
   return (
     <Flexbox gap={12}>
@@ -103,37 +81,72 @@ export const AgentSelection = ({
             <SearchBar
               allowClear
               autoFocus
-              placeholder={t('searchAgents')}
+              placeholder={t(people ? 'invite.search' : 'searchAgents')}
               value={search}
               variant="filled"
               onChange={(event) => setSearch(event.target.value)}
             />
-            <Flexbox {...stylex.props(styles.pane)}>
-              {filtered.length ? (
-                filtered.map((agent) => (
-                  <label key={agent.id} {...stylex.props(styles.row)}>
-                    <Checkbox
-                      checked={value.some((item) => item.agentId === agent.id)}
-                      onChange={() => toggle(agent.id)}
-                    />
-                    <Avatar
-                      avatar={typeof agent.avatar === 'string' ? agent.avatar : DEFAULT_AVATAR}
-                      background={agent.backgroundColor ?? undefined}
-                      size={28}
-                    />
-                    <AgentLabel agent={agent} fallback={t('unnamedAgent')} />
-                  </label>
-                ))
-              ) : (
-                <AgentSelectionEmpty search={!!search.trim()} variant="noAvailable" />
-              )}
+            <Flexbox gap={people ? 8 : 0} {...stylex.props(styles.pane)}>
+              {people && <PeopleOptions people={people} search={search} />}
+              <Flexbox gap={2}>
+                {people && (
+                  <Text
+                    fontSize={12}
+                    type="secondary"
+                    weight={500}
+                    {...stylex.props(styles.section)}
+                  >
+                    {t('agents')}
+                  </Text>
+                )}
+                {filtered.length ? (
+                  filtered.map((agent) => (
+                    <label key={agent.id} {...stylex.props(styles.row)}>
+                      <Checkbox
+                        checked={value.some((item) => item.agentId === agent.id)}
+                        onChange={() => toggle(agent.id)}
+                      />
+                      <Avatar
+                        avatar={typeof agent.avatar === 'string' ? agent.avatar : DEFAULT_AVATAR}
+                        background={agent.backgroundColor ?? undefined}
+                        size={28}
+                      />
+                      <AgentLabel agent={agent} fallback={t('unnamedAgent')} />
+                    </label>
+                  ))
+                ) : people ? (
+                  <Text fontSize={12} type="secondary" {...stylex.props(styles.section)}>
+                    {t(search.trim() ? 'invite.noAgentMatches' : 'invite.noAgents')}
+                  </Text>
+                ) : (
+                  <AgentSelectionEmpty search={!!search.trim()} variant="noAvailable" />
+                )}
+              </Flexbox>
             </Flexbox>
           </Flexbox>
           <Flexbox gap={8} {...stylex.props(styles.pane, styles.selected)}>
             <Text fontSize={12} type="secondary">
-              {t('memberSelection.selectedAgents', { ns: 'chat', count: value.length })}
+              {t('memberSelection.selectedAgents', { ns: 'chat', count: selectedCount })}
             </Text>
-            {!value.length && <AgentSelectionEmpty variant="noSelected" />}
+            {!selectedCount &&
+              (people ? (
+                <Text fontSize={12} type="secondary" {...stylex.props(styles.section)}>
+                  {t('invite.noSelected')}
+                </Text>
+              ) : (
+                <AgentSelectionEmpty variant="noSelected" />
+              ))}
+            {people?.value.map((person) => (
+              <SelectedPerson
+                key={person.userId}
+                person={person}
+                onRemove={() =>
+                  people.onChange((current) =>
+                    current.filter((item) => item.userId !== person.userId),
+                  )
+                }
+              />
+            ))}
             {!!devices.error && (
               <AsyncError
                 error={devices.error}

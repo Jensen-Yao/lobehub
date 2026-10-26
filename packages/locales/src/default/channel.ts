@@ -1,12 +1,4 @@
 export default {
-  'people.title': 'Add workspace members',
-  'people.description':
-    'Members added here can read this channel’s history and join the conversation.',
-  'people.search': 'Search workspace members',
-  'people.add': 'Add',
-  'people.addName': 'Add {{name}}',
-  'people.added': '{{name}} can now participate in this channel.',
-  'people.addFailed': 'Could not add this member. Check their workspace membership and try again.',
   'people.empty': 'All available workspace members have joined',
   'people.noMatches': 'No matching workspace members',
   'people.searchMore': 'Showing the first 50 members. Search to find more.',
@@ -16,7 +8,6 @@ export default {
   'title': 'Channels',
   'create': 'Create channel',
   'submit': 'Create',
-  'addMembers': 'Add members',
   'agents': 'Agents',
   'searchAgents': 'Search Agents',
   'unnamedAgent': 'Unnamed Agent',
@@ -148,4 +139,11 @@ export default {
   'rename': 'Rename channel',
   'renameFailed': 'Could not rename the channel. Try again.',
   'renameForbidden': 'Only the channel owner or an administrator can rename this channel.',
+  'invite.noAgentMatches': 'No matching Agents',
+  'invite.noAgents': 'All available Agents have joined',
+  'invite.noSelected': 'No one selected yet',
+  'invite.people': 'Workspace members',
+  'invite.search': 'Search members and Agents',
+  'invite.submit': 'Invite',
+  'invite.title': 'Invite members',
 };

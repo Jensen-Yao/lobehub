@@ -116,7 +116,7 @@ const EnabledChannelList = () => {
 
   const remove = useRemoveChannel();
   const activeChannelId = matchChannel(pathname);
-  const create = () => openCreateChannel({ onCreated: (id) => navigate(channelPath(id)) });
+  const create = () => openCreateChannel((id) => navigate(channelPath(id)));
   const activeThreadId = new URLSearchParams(search).get('thread');
   const rename = (channel: ChannelListItem) =>
     openRenameModal({

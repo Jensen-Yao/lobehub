@@ -5,6 +5,7 @@ import { channelActions } from './action';
 vi.mock('@/services/channel', () => ({
   channelService: {
     addAgent: vi.fn(),
+    addUser: vi.fn(),
     create: vi.fn(),
     detail: vi.fn(),
     list: vi.fn(),
@@ -39,7 +40,9 @@ describe('channelActions after a committed write', () => {
     vi.mocked(channelService.detail).mockRejectedValue(new Error('offline'));
 
     await expect(
-      channelActions.addAgents('chn_000000000001', [{ agentId: 'agt_a' }, { agentId: 'agt_b' }]),
+      channelActions.addMembers('chn_000000000001', {
+        agents: [{ agentId: 'agt_a' }, { agentId: 'agt_b' }],
+      }),
     ).resolves.toBeUndefined();
   });
 
@@ -50,7 +53,31 @@ describe('channelActions after a committed write', () => {
     vi.mocked(channelService.detail).mockRejectedValue(new Error('offline'));
 
     await expect(
-      channelActions.addAgents('chn_000000000001', [{ agentId: 'agt_a' }, { agentId: 'agt_b' }]),
+      channelActions.addMembers('chn_000000000001', {
+        agents: [{ agentId: 'agt_a' }, { agentId: 'agt_b' }],
+      }),
     ).rejects.toThrow('device offline');
+  });
+
+  // One invite adds people and Agents together; people go first so a failing Agent
+  // cannot block the people who were already chosen.
+  it('adds invited people before Agents and refreshes once', async () => {
+    vi.mocked(channelService.addUser).mockResolvedValue({} as never);
+    vi.mocked(channelService.addAgent).mockResolvedValue({} as never);
+    vi.mocked(channelService.detail).mockResolvedValue({} as never);
+
+    await channelActions.addMembers('chn_000000000001', {
+      agents: [{ agentId: 'agt_a' }],
+      userIds: ['user_b', 'user_c'],
+    });
+
+    expect(vi.mocked(channelService.addUser).mock.calls.map(([, userId]) => userId)).toEqual([
+      'user_b',
+      'user_c',
+    ]);
+    expect(vi.mocked(channelService.addUser).mock.invocationCallOrder[1]).toBeLessThan(
+      vi.mocked(channelService.addAgent).mock.invocationCallOrder[0],
+    );
+    expect(channelService.detail).toHaveBeenCalledTimes(1);
   });
 });

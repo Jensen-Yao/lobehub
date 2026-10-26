@@ -6,43 +6,59 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import AsyncError from '@/components/AsyncError';
+import type { ChannelPersonOption } from '@/services/channel';
 import { channelActions } from '@/store/channel';
 
 import type { ChannelAgentDraft } from './agentEnvironment';
 import { canSubmitChannelAgents, toChannelAgentSelection } from './agentEnvironment';
-import { AgentSelection } from './AgentSelection';
 import { defaultChannelTitle } from './channelTitle';
+import { MemberSelection } from './MemberSelection';
 import { getChannelSaveErrorKey } from './saveError';
 import { useChannelAgentOptions } from './useChannelAgentOptions';
 
+interface ExistingChannel {
+  /** Agents already in the Channel. */
+  agentIds: string[];
+  id: string;
+  /** People can be invited only into workspace Channels. */
+  workspaceId: string | null;
+}
+
 interface CreateChannelProps {
-  /** Set when adding members to a Channel that already exists. */
-  existing?: { agentIds: string[]; id: string };
+  /** Set when inviting members into a Channel that already exists. */
+  existing?: ExistingChannel;
   onCreated?: (id: string) => void;
 }
 
-export const openCreateChannel = (props: CreateChannelProps = {}) =>
+const openMemberDialog = (props: CreateChannelProps) =>
   createModal({
     content: <CreateChannel {...props} />,
     footer: null,
-    title: t(props.existing ? 'addMembers' : 'create', { ns: 'channel' }),
+    title: t(props.existing ? 'invite.title' : 'create', { ns: 'channel' }),
     width: 'min(90vw, 800px)',
   });
 
+export const openCreateChannel = (onCreated?: (id: string) => void) =>
+  openMemberDialog({ onCreated });
+
+/** The single entry for adding people and Agents to an existing Channel. */
+export const openInviteMembers = (existing: ExistingChannel) => openMemberDialog({ existing });
+
 /**
  * Like starting a group chat: choose members first. The name is optional and defaults to the
- * members' names; the sidebar renames it later. Adding members to an existing Channel uses
- * the same picker without a name.
+ * members' names; the sidebar renames it later. Inviting into an existing Channel uses the
+ * same picker without a name, and also lists workspace members in workspace Channels.
  */
 function CreateChannel({ existing, onCreated }: CreateChannelProps) {
   const { t } = useTranslation('channel');
   const { close, setCanDismissByClickOutside } = useModalContext();
   const [title, setTitle] = useState('');
   const [agents, setAgents] = useState<ChannelAgentDraft[]>([]);
+  const [people, setPeople] = useState<ChannelPersonOption[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>();
   const options = useChannelAgentOptions();
-  const dirty = !!title.trim() || agents.length > 0;
+  const dirty = !!title.trim() || agents.length > 0 || people.length > 0;
 
   // A mask click must not drop what the user typed or picked; ✕ and Esc still close.
   useEffect(() => {
@@ -62,7 +78,7 @@ function CreateChannel({ existing, onCreated }: CreateChannelProps) {
     },
     CHANNEL_LIMITS.titleLength,
   );
-  const canSubmit = canSubmitChannelAgents(agents);
+  const canSubmit = canSubmitChannelAgents(agents) || (!agents.length && people.length > 0);
 
   const submit = async () => {
     if (busy || !canSubmit) return;
@@ -71,7 +87,10 @@ function CreateChannel({ existing, onCreated }: CreateChannelProps) {
     try {
       const selections = agents.map(toChannelAgentSelection);
       if (existing) {
-        await channelActions.addAgents(existing.id, selections);
+        await channelActions.addMembers(existing.id, {
+          agents: selections,
+          userIds: people.map((person) => person.userId),
+        });
         close();
       } else {
         const id = await channelActions.create({
@@ -92,11 +111,16 @@ function CreateChannel({ existing, onCreated }: CreateChannelProps) {
   return (
     <Flexbox gap={16}>
       <Flexbox gap={8} inert={busy}>
-        <Text weight={500}>{t('agents')}</Text>
-        <AgentSelection
+        {!existing && <Text weight={500}>{t('agents')}</Text>}
+        <MemberSelection
           exclude={existing?.agentIds}
           options={options}
           value={agents}
+          people={
+            existing?.workspaceId
+              ? { channelId: existing.id, onChange: setPeople, value: people }
+              : undefined
+          }
           onChange={setAgents}
         />
       </Flexbox>
@@ -129,7 +153,7 @@ function CreateChannel({ existing, onCreated }: CreateChannelProps) {
           {t('cancel')}
         </Button>
         <Button disabled={!canSubmit} loading={busy} type="primary" onClick={() => void submit()}>
-          {t(existing ? 'addMembers' : 'submit')}
+          {t(existing ? 'invite.submit' : 'submit')}
         </Button>
       </Flexbox>
     </Flexbox>

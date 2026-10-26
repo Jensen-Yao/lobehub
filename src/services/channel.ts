@@ -56,3 +56,6 @@ class ChannelService {
 }
 
 export const channelService = new ChannelService();
+
+/** A workspace member who can still be invited into a Channel. */
+export type ChannelPersonOption = Awaited<ReturnType<typeof channelService.userCandidates>>[number];

@@ -2,7 +2,7 @@
 
 ## LOBE-UX-001 — Verify reference alignment structurally
 
-When aligning a Channel member picker with CPC, compare the rendered structure and interactions in both creation and add-member entry points: searchable available members on the left; selected members on the right with a one-line summary of where each runs. Device/directory fields appear only when an Agent cannot run without a choice (see LOBE-UX-011). Functional creation success alone does not prove visual alignment. Capture the configured-member state, a member that needs a directory, the search empty state, and a narrower viewport.
+When aligning a Channel member picker with CPC, compare the rendered structure and interactions in both creation and the header's single “Invite members” entry (people and Agents together in workspace Channels): searchable available members on the left; selected members on the right with a one-line summary of where each runs. Device/directory fields appear only when an Agent cannot run without a choice (see LOBE-UX-011). Functional creation success alone does not prove visual alignment. Capture the configured-member state, a member that needs a directory, the search empty state, and a narrower viewport.
 
 Source: user correction during Channel PR #21545 acceptance (2026-10-24); revised by review feedback on acceptance round 4 (2026-10-26).
 
@@ -78,7 +78,7 @@ Source: user correction of the Channel load-failure layout in acceptance screens
 
 ## LOBE-UX-011 — Create a Channel by choosing members first
 
-Creating a Channel works like starting a group chat: one dialog opens on the member picker; the name is optional and defaults to the members' names (“锦妍、Codex、Pi”, more than three summarized). Owners and admins rename from the sidebar menu. Each selected Agent shows where it runs as one muted line taken from its own settings; device and directory fields appear only when the Agent cannot run without them. Changing an Agent's channel-local environment happens later, from the member popover, and applies to later replies only.
+Creating a Channel works like starting a group chat: one dialog opens on the member picker; the name is optional and defaults to the members' names (“锦妍、Codex、Pi”, more than three summarized). Owners and admins rename from the sidebar menu. The header has one “Invite members” action, not separate add-person and add-Agent buttons; in workspace Channels its picker lists workspace members and Agents under one search and adds both in one submit. Each selected Agent shows where it runs as one muted line taken from its own settings; device and directory fields appear only when the Agent cannot run without them. Changing an Agent's channel-local environment happens later, from the member popover, and applies to later replies only.
 
 Enforcement: `CreateChannel/channelTitle.test.ts` covers the generated name; repository `__tests__/channelSettings.test.ts` and `src/store/channel/action.rename.test.ts` cover rename permissions and optimistic rollback; `ChannelService.environment.test.ts` covers environment validation.
 

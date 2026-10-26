@@ -1,17 +1,16 @@
 import type { ChannelDetail, ChannelPublicMember } from '@lobechat/types';
 import { ActionIcon, Button, Flexbox, Popover, Text } from '@lobehub/ui';
 import * as stylex from '@stylexjs/stylex';
-import { ExternalLink, FolderCog, Plus, UserPlus } from 'lucide-react';
+import { ExternalLink, FolderCog, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
 import { useCloseOnNavigate } from '@/hooks/useCloseOnNavigate';
 
-import { openAddChannelPeople } from './AddPeople';
 import { openChannelAgentEnvironment } from './AgentEnvironment';
 import { ChannelStatus } from './ChannelStatus';
-import { openCreateChannel } from './CreateChannel';
+import { openInviteMembers } from './CreateChannel';
 import { FailureIndicator } from './FailureIndicator';
 import type { ChannelStatusTone } from './jobStatus';
 import { channelJobStatus, channelJobTone, memberCurrentJob } from './jobStatus';
@@ -136,27 +135,19 @@ export function MemberStatus({ detail }: { detail: ChannelDetail }) {
           {overflow > 0 && <span {...stylex.props(styles.muted)}>+{overflow}</span>}
         </Button>
       </Popover>
-      {channel.workspaceId && channel.canDelete && !channel.archived && (
-        <ActionIcon
-          aria-label={t('people.title')}
-          icon={UserPlus}
-          size="small"
-          title={t('people.title')}
-          onClick={() => openAddChannelPeople(channel.id)}
-        />
-      )}
       {channel.canDelete && !channel.archived && (
         <ActionIcon
-          aria-label={t('addMembers')}
-          icon={Plus}
+          aria-label={t('invite.title')}
+          icon={UserPlus}
           size="small"
-          title={t('addMembers')}
+          title={t('invite.title')}
           onClick={() =>
-            openCreateChannel({
-              existing: {
-                agentIds: entries.flatMap(({ member }) => (member.agentId ? [member.agentId] : [])),
-                id: channel.id,
-              },
+            openInviteMembers({
+              agentIds: allMembers.flatMap((member) =>
+                member.active && member.agentId ? [member.agentId] : [],
+              ),
+              id: channel.id,
+              workspaceId: channel.workspaceId,
             })
           }
         />
