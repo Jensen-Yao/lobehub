@@ -90,6 +90,7 @@ export function Composer({
     sending.current = true;
     setBusy(true);
     setError('');
+    const sentRevision = draft.snapshot();
     try {
       await onSend(
         value,
@@ -101,7 +102,7 @@ export function Composer({
         fileIds,
       );
       editor.cleanDocument();
-      draft.clear();
+      draft.clear(sentRevision);
       attachments.clear();
       setContent('');
       requestKey.current = crypto.randomUUID();

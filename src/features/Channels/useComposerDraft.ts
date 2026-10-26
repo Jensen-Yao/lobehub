@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import {
   getDraftEntry,
-  removeDraft,
   removeDraftIfUnchanged,
   saveDraft,
 } from '@/features/ChatInput/draftStorage';
@@ -47,12 +46,24 @@ export const useComposerDraft = (editor: IEditor, draftKey: string) => {
     if (draft && editor.isEmpty) writeDocument(editor, 'json', draft.json);
   }, [draftKey, editor]);
 
-  /** The input was sent: drop the draft instead of saving the cleared editor. */
-  const clear = useCallback(() => {
-    save.cancel();
-    removeDraft(draftKey);
-    loaded.current = undefined;
-  }, [draftKey, save]);
+  /** Saves pending input and returns its stored revision, taken when a send starts. */
+  const snapshot = useCallback(() => {
+    save.flush();
+    return loaded.current;
+  }, [save]);
 
-  return { clear, flush: save.flush, restore, save };
+  /**
+   * The input from `revision` was sent: drop that draft instead of saving the cleared editor.
+   * The key is shared across tabs, so a draft another tab saved meanwhile is kept.
+   */
+  const clear = useCallback(
+    (revision: number | undefined) => {
+      save.cancel();
+      removeDraftIfUnchanged(draftKey, revision);
+      loaded.current = undefined;
+    },
+    [draftKey, save],
+  );
+
+  return { clear, flush: save.flush, restore, save, snapshot };
 };

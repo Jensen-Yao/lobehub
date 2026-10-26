@@ -69,11 +69,33 @@ describe('useComposerDraft', () => {
     act(() => vi.advanceTimersByTime(500));
     expect(getDraft(main)).toBeDefined();
 
+    const sent = result.current.snapshot();
     editor.type('');
     result.current.save();
-    result.current.clear();
+    result.current.clear(sent);
     unmount();
     expect(getDraft(main)).toBeUndefined();
+  });
+
+  // Tab A sends and waits; tab B saves a new draft under the same key; A's send then succeeds.
+  it('keeps a draft another tab saved while the send was in flight', () => {
+    const tabA = createFakeEditor();
+    const tabB = createFakeEditor();
+    const a = renderHook(() => useComposerDraft(tabA, main));
+    const b = renderHook(() => useComposerDraft(tabB, main));
+    tabA.type('sent from A');
+    a.result.current.save();
+    const sent = a.result.current.snapshot();
+
+    tabB.type('new draft in B');
+    b.result.current.save();
+    b.result.current.flush();
+
+    tabA.type('');
+    a.result.current.save();
+    a.result.current.clear(sent);
+    a.unmount();
+    expect(getDraft(main)).toEqual({ text: 'new draft in B' });
   });
 
   it('does not treat a torn-down editor as an empty draft', () => {
