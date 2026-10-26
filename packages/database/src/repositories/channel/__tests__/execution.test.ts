@@ -82,6 +82,10 @@ describe('ChannelExecutionRepository', () => {
       workingDirectory: '/repo',
       writerHeld: true,
     });
+    // Trace storage derives the Agent and topic from the operation ID, as for ordinary runs.
+    expect(claim?.job.operationId).toMatch(
+      new RegExp(`^op_\\d+_${agent.agentId}_${claim?.topic.id}_[\\dA-Za-z]{8}$`),
+    );
     expect(claim?.job.manifest).toEqual({
       afterSequence: 0,
       cutoffSequence: 1,

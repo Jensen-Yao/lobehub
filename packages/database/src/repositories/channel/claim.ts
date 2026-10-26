@@ -275,7 +275,9 @@ export const claimJob = async (
         executionConfig,
       );
       const manifest = buildManifest({ afterSequence, job, member, request, thread });
-      const operationId = `op_${createNanoId(16)()}`;
+      // Same shape as ordinary runs (`op_{ts}_{agentId}_{topicId}_{rand}`): trace storage
+      // derives the Agent and topic from the operation ID.
+      const operationId = `op_${Date.now()}_${member.agentId}_${topic.id}_${createNanoId(8)()}`;
       await savepoint.insert(agentOperations).values({
         id: operationId,
         userId: requester.userId!,
