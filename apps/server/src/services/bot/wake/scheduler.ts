@@ -3,8 +3,10 @@ import debug from 'debug';
 
 import { appEnv } from '@/envs/app';
 import { parseBotWakeSettings } from '@/server/services/agentSignal/scenarios/botWake/config';
+import { toConversationLine } from '@/server/services/agentSignal/scenarios/botWake/conversation';
 import {
   resolveChannelKeys,
+  resolveConversationLogKeys,
   wakeStateKeys,
 } from '@/server/services/agentSignal/scenarios/botWake/facts';
 import { isBotWakeEnabled } from '@/server/services/agentSignal/scenarios/botWake/gate';
@@ -160,6 +162,45 @@ export const handleWakeFlush = async (
   }
 };
 
+/**
+ * Adds the bot's own reply to the conversation log, so the next judgement can read what the bot
+ * last said. Best-effort: a failed write never affects the run's bookkeeping. Discord guild
+ * channels only, like the log itself.
+ */
+const rememberBotReply = async ({
+  applicationId,
+  at,
+  platform,
+  platformThreadId,
+  spoken,
+}: {
+  applicationId: string;
+  at: number;
+  platform: string;
+  platformThreadId: string;
+  spoken?: { id: string; text?: string };
+}) => {
+  if (platform !== 'discord' || platformThreadId.split(':')[1] === '@me') return;
+
+  try {
+    const line = toConversationLine({
+      at,
+      authorId: applicationId,
+      id: `bot:${spoken?.id ?? at}`,
+      isBot: true,
+      text: spoken?.text,
+    });
+    if (!line.text) return;
+
+    await redisService.botWake.rememberMessages(
+      resolveConversationLogKeys(platform, platformThreadId),
+      [line],
+    );
+  } catch (error) {
+    log('rememberBotReply failed: %O', error);
+  }
+};
+
 /** Keys the bot's wake state is filed under for a conversation. */
 export const wakeKeysFor = (platform: string, applicationId: string, platformThreadId: string) =>
   wakeStateKeys(resolveChannelKeys(platform, applicationId, platformThreadId));
@@ -180,16 +221,20 @@ export const recordWakeRunOutcome = async (input: {
   platformThreadId: string;
   settings: Record<string, unknown> | null | undefined;
   spoke: boolean;
+  /** What the bot said and the id of the run that said it; kept in the channel's shared log. */
+  spoken?: { id: string; text?: string };
   wakeKind?: 'followup' | 'mention';
 }): Promise<void> => {
-  const { applicationId, platform, platformThreadId, settings, spoke, wakeKind } = input;
+  const { applicationId, platform, platformThreadId, settings, spoke, spoken, wakeKind } = input;
   const { config, rules } = parseBotWakeSettings(settings);
   if (!isBotWakeEnabled(config)) return;
 
   const keys = wakeKeysFor(platform, applicationId, platformThreadId);
 
   if (spoke) {
-    await redisService.botWake.recordBotSpoke(keys, Date.now(), rules.windowSeconds * 1000);
+    const at = Date.now();
+    await redisService.botWake.recordBotSpoke(keys, at, rules.windowSeconds * 1000);
+    await rememberBotReply({ applicationId, at, platform, platformThreadId, spoken });
   } else if (wakeKind === 'followup') {
     await redisService.botWake.recordSilentWake(keys);
   }
