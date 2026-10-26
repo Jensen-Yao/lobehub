@@ -550,6 +550,46 @@ describe('DocumentHistoryService', () => {
       expect(rows[0].savedAt).toEqual(minutes(5));
     });
 
+    it('should keep a pinned review baseline when retention trims autosave history', async () => {
+      const doc = await createTestDocument('Hello');
+      const workspaceId = 'document-history-review-baseline-trim-ws';
+
+      await serverDB
+        .insert(workspaces)
+        .values({ id: workspaceId, name: 'Review baseline trim', primaryOwnerId: userId, slug: workspaceId });
+
+      const baseline = await historyService.createHistory({
+        documentId: doc.id,
+        editorData: { v: -1 },
+        saveSource: 'autosave',
+        savedAt: base,
+      });
+
+      await serverDB
+        .insert(documentReviewSessions)
+        .values({ baseHistoryId: baseline.id, documentId: doc.id, userId, workspaceId });
+
+      // Well past the autosave retention limit, all in distinct windows so each
+      // save writes its own row instead of coalescing.
+      for (let i = 0; i < DOCUMENT_HISTORY_SOURCE_LIMITS.autosave + 5; i++) {
+        await historyService.createHistory({
+          documentId: doc.id,
+          editorData: { v: i },
+          saveSource: 'autosave',
+          savedAt: minutes(30 * (i + 1)),
+        });
+      }
+
+      const rows = await listRows(doc.id);
+      const autosaveRows = rows.filter((row) => row.saveSource === 'autosave');
+
+      // The newest `limit` rows plus the pinned baseline survive.
+      expect(autosaveRows).toHaveLength(DOCUMENT_HISTORY_SOURCE_LIMITS.autosave + 1);
+      expect(autosaveRows.some((row) => row.id === baseline.id)).toBe(true);
+      // Trimming still happens: the oldest unpinned rows are gone.
+      expect(autosaveRows.some((row) => row.editorData?.v === 0)).toBe(false);
+    });
+
     it('should insert a new row once the save falls into the next window bucket', async () => {      const doc = await createTestDocument('Hello');
       const windowMinutes = DOCUMENT_HISTORY_AUTOSAVE_WINDOW_MS / 60_000;
 
