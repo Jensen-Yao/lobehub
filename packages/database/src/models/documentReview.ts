@@ -763,13 +763,12 @@ export class DocumentReviewModel {
           patch.checkedAt = now;
           if (params.explanation !== undefined) patch.explanation = params.explanation;
           if (params.evidence !== undefined) patch.evidence = params.evidence;
-          // A passing check has nothing left to fix.
-          patch.suggestion =
-            status === 'passed'
-              ? null
-              : params.suggestion === undefined
-                ? current.suggestion
-                : params.suggestion;
+          // A fresh verdict invalidates the previous fix. Either an applied
+          // suggestion already consumed its target, or an ordinary edit moved
+          // the text, so re-offering `current.suggestion` would surface a fix
+          // whose Apply returns ANCHOR_LOST. A caller that computed a new fix
+          // passes it explicitly; otherwise the row keeps no suggestion.
+          patch.suggestion = status === 'passed' ? null : (params.suggestion ?? null);
           break;
         }
         case 'apply_suggestion': {

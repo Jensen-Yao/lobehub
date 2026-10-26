@@ -271,6 +271,41 @@ describe('DocumentReviewModel', () => {
       expect(rechecked?.suggestion).toBeNull();
     });
 
+    it('drops the previous suggestion when a fresh check commits a new verdict', async () => {
+      const { checks } = await setupChecklist();
+      const id = checks[0].id;
+
+      const failed = await model.transitionCheck(id, {
+        event: 'check',
+        evidence: [{ quote: '最终验收合格后支付全部款项' }],
+        explanation: '付款仍以最终验收为触发条件',
+        outcome: 'failed',
+        suggestion: { original: '最终验收合格后', replacement: '各阶段验收合格后' },
+      });
+      expect(failed?.suggestion?.original).toBe('最终验收合格后');
+
+      // The re-check fails against different text: the stored fix no longer has
+      // a target, so offering it again would only produce ANCHOR_LOST on Apply.
+      const rechecked = await model.transitionCheck(id, {
+        event: 'check',
+        evidence: [{ quote: '支付全部款项' }],
+        explanation: '仍未约定验收标准',
+        outcome: 'failed',
+      });
+      expect(rechecked).toMatchObject({ explanation: '仍未约定验收标准', status: 'failed' });
+      expect(rechecked?.suggestion).toBeNull();
+
+      // A caller that did compute a new fix still replaces it in one write.
+      const withFix = await model.transitionCheck(id, {
+        event: 'check',
+        evidence: [{ quote: '支付全部款项' }],
+        explanation: '仍未约定验收标准',
+        outcome: 'failed',
+        suggestion: { original: '支付全部款项', replacement: '支付全部款项，验收标准见附件一' },
+      });
+      expect(withFix?.suggestion?.replacement).toBe('支付全部款项，验收标准见附件一');
+    });
+
     it('refuses to apply a fix to a passed or unchecked result', async () => {
       const { checks } = await setupChecklist();
       await expect(
