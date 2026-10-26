@@ -183,8 +183,10 @@ const describeArbitration = (title: string, arbitration: VerifyDisputeArbitratio
 /**
  * File a builder's dispute of one check in its Agent Run's verify round.
  *
- * - `missed_evidence` records the builder's note; the next review reads it next
- *   to the evidence. It changes no verdict by itself.
+ * - `missed_evidence` records the builder's note; the Goal review of the
+ *   delivery reads it as the builder's rebuttal next to the evidence. The
+ *   completion verifier and the review prediction do not consume it yet, so the
+ *   note is only advertised as far as it is read. It changes no verdict by itself.
  * - `invalid_criterion` is arbitrated right away by a panel of three models and
  *   the majority rules. Upheld waives the check (see `isCheckWaivedByDispute`);
  *   overruled is final for that check across the Acceptance, so a builder cannot
@@ -302,7 +304,7 @@ export const fileCheckDispute = async (
     if (!(await write(filed))) return refused();
     return {
       dispute: filed,
-      message: `Recorded. The review of "${item.title}" will read your note next to its evidence; the note alone does not pass the check.`,
+      message: `Recorded for "${item.title}". The Goal review of this delivery reads your note next to the check's evidence; other automated reviews do not read it yet, and the note alone does not pass the check.`,
       success: true,
     };
   }
