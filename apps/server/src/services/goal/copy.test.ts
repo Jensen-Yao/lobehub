@@ -6,7 +6,7 @@ import { getTestDB } from '@/database/core/getTestDB';
 import { DocumentModel } from '@/database/models/document';
 import { GoalModel } from '@/database/models/goal';
 import { VerifyCriterionModel } from '@/database/models/verifyCriterion';
-import { goalNodes, goals, workspaces } from '@/database/schemas';
+import { files, globalFiles, goalNodes, goals, workspaces } from '@/database/schemas';
 import type { LobeChatDatabase } from '@/database/type';
 
 import { GoalCopyService } from './copy';
@@ -127,6 +127,94 @@ describe('GoalCopyService.copyToWorkspace', () => {
     expect(
       await new VerifyCriterionModel(serverDB, userId, workspaceId).findByIds(sourceCriterionIds),
     ).toHaveLength(1);
+  });
+
+  it('re-points fixture resources at copies in the target scope', async () => {
+    const source = await new GoalService(serverDB, userId, workspaceId).create({
+      criteria: [{ instruction: 'Upload the sample and compare', title: 'Import works' }],
+      title: 'Import data',
+    });
+    const [criterionId] = source.goal.config!.acceptance!.criteriaIds!;
+    const sourceDocument = await new DocumentModel(serverDB, userId, workspaceId).create({
+      content: 'name,email',
+      fileType: 'text/csv',
+      source: 'fixture.csv',
+      sourceType: 'api',
+      title: 'fixture.csv',
+      totalCharCount: 10,
+      totalLineCount: 1,
+    });
+    await serverDB
+      .insert(globalFiles)
+      .values({
+        creator: userId,
+        fileType: 'image/png',
+        hashId: 'goal-copy-fixture-hash',
+        size: 1,
+        url: 'k-fx',
+      })
+      .onConflictDoNothing();
+    await serverDB.insert(files).values({
+      fileHash: 'goal-copy-fixture-hash',
+      fileType: 'image/png',
+      id: 'goal-copy-fixture-file',
+      name: 'sample.png',
+      size: 1,
+      url: 'k-fx',
+      userId,
+      workspaceId,
+    });
+    await new VerifyCriterionModel(serverDB, userId, workspaceId).update(criterionId, {
+      definition: {
+        fixtures: [
+          { id: 'csv', name: 'CSV', resource: { id: sourceDocument.id, type: 'document' } },
+          { id: 'png', name: 'PNG', resource: { id: 'goal-copy-fixture-file', type: 'file' } },
+          { id: 'gone', name: 'Gone', resource: { id: 'docs_missing', type: 'document' } },
+          { data: { rows: 3 }, id: 'inline', name: 'Inline' },
+        ],
+      },
+    });
+
+    const { goalId } = await new GoalCopyService(serverDB, userId, workspaceId).copyToWorkspace(
+      source.goal.id,
+      null,
+    );
+
+    const copy = (await new GoalModel(serverDB, userId).findById(goalId))!;
+    const [criterion] = await new VerifyCriterionModel(serverDB, userId).findByIds(
+      copy.config!.acceptance!.criteriaIds!,
+    );
+    const [csv, png, gone, inline] = criterion.definition!.fixtures!;
+    expect(csv.resource!.id).not.toBe(sourceDocument.id);
+    expect((await new DocumentModel(serverDB, userId).findById(csv.resource!.id))?.content).toBe(
+      'name,email',
+    );
+    expect(png.resource!.id).not.toBe('goal-copy-fixture-file');
+    const copiedFile = await serverDB.query.files.findFirst({
+      where: eq(files.id, png.resource!.id),
+    });
+    expect(copiedFile).toMatchObject({ fileHash: 'goal-copy-fixture-hash', workspaceId: null });
+    // An unreadable resource is dropped instead of pointing into the source scope.
+    expect(gone.resource).toBeUndefined();
+    expect(inline).toEqual({ data: { rows: 3 }, id: 'inline', name: 'Inline' });
+
+    // The copied fixtures resolve in the copy's scope, as verification will.
+    const [materialized] = await new VerifyCriterionModel(serverDB, userId).materialize(
+      [
+        {
+          id: 'check_1',
+          index: 0,
+          onFail: criterion.onFail,
+          required: criterion.required,
+          sourceCriterionId: criterion.id,
+          title: criterion.title,
+          verifierConfig: criterion.verifierConfig ?? {},
+          verifierType: criterion.verifierType,
+        },
+      ],
+      'ctx_goal_copy',
+    );
+    expect(materialized.resourceSnapshot?.fixtures.map((f) => f.fixtureId)).toEqual(['csv', 'png']);
   });
 
   it('refuses a goal outside the caller scope', async () => {

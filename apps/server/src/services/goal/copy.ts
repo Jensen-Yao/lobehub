@@ -1,8 +1,9 @@
-import type { GoalConfig, GoalCreateConfig } from '@lobechat/types';
+import type { GoalConfig, GoalCreateConfig, VerifyCheckDefinition } from '@lobechat/types';
 import { TRPCError } from '@trpc/server';
 import { and, asc, eq } from 'drizzle-orm';
 
 import { DocumentModel } from '@/database/models/document';
+import { FileModel } from '@/database/models/file';
 import { GoalModel } from '@/database/models/goal';
 import { VerifyCriterionModel } from '@/database/models/verifyCriterion';
 import { goalNodes } from '@/database/schemas';
@@ -104,9 +105,10 @@ export class GoalCopyService {
 
   /**
    * Clone the goal's acceptance criteria into the target scope, instruction
-   * documents included: criteria and their documents are scoped rows, so the
-   * copy cannot keep pointing at the source's. Returned ids keep the source order;
-   * a criterion the caller can no longer read is skipped.
+   * documents and fixture resources included: criteria, documents and files are
+   * scoped rows, and verification resolves them in the copy's scope, so the
+   * copy cannot keep pointing at the source's. Returned ids keep the source
+   * order; a criterion the caller can no longer read is skipped.
    */
   private copyCriteria = async (
     db: LobeChatDatabase,
@@ -116,16 +118,18 @@ export class GoalCopyService {
     if (ids.length === 0) return [];
     const sourceCriteria = new VerifyCriterionModel(db, this.userId, this.workspaceId);
     const sourceDocuments = new DocumentModel(db, this.userId, this.workspaceId);
+    const sourceFiles = new FileModel(db, this.userId, this.workspaceId);
     const targetCriteria = new VerifyCriterionModel(db, this.userId, targetWorkspaceId);
     const targetDocuments = new DocumentModel(db, this.userId, targetWorkspaceId);
 
-    const rows = new Map((await sourceCriteria.findByIds(ids)).map((row) => [row.id, row]));
-    const copied: string[] = [];
-    for (const id of ids) {
-      const row = rows.get(id);
-      if (!row) continue;
-      const document = row.documentId ? await sourceDocuments.findById(row.documentId) : undefined;
-      const documentCopy = document
+    // Source resource id → its copy, so a resource shared by several criteria is copied once.
+    const copiedDocuments = new Map<string, string | undefined>();
+    const copiedFiles = new Map<string, string | undefined>();
+
+    const copyDocument = async (id: string): Promise<string | undefined> => {
+      if (copiedDocuments.has(id)) return copiedDocuments.get(id);
+      const document = await sourceDocuments.findById(id);
+      const copy = document
         ? await targetDocuments.create({
             content: document.content,
             fileType: document.fileType,
@@ -136,10 +140,54 @@ export class GoalCopyService {
             totalLineCount: document.totalLineCount,
           })
         : undefined;
+      copiedDocuments.set(id, copy?.id);
+      return copy?.id;
+    };
+
+    // The row is copied; the blob is shared through its file hash.
+    const copyFile = async (id: string): Promise<string | undefined> => {
+      if (copiedFiles.has(id)) return copiedFiles.get(id);
+      const copy = (await sourceFiles.findById(id))
+        ? await sourceFiles.copyToWorkspace(id, targetWorkspaceId ?? null, this.userId)
+        : undefined;
+      copiedFiles.set(id, copy?.fileId);
+      return copy?.fileId;
+    };
+
+    const copyDefinition = async (
+      definition: VerifyCheckDefinition | null,
+    ): Promise<VerifyCheckDefinition | null> => {
+      if (!definition?.fixtures?.length) return definition;
+      const fixtures = [];
+      for (const fixture of definition.fixtures) {
+        const { resource } = fixture;
+        if (!resource) {
+          fixtures.push(fixture);
+          continue;
+        }
+        const id =
+          resource.type === 'document'
+            ? await copyDocument(resource.id)
+            : await copyFile(resource.id);
+        // A resource the caller can no longer read is dropped from the fixture
+        // rather than left pointing into the source scope.
+        fixtures.push(
+          id ? { ...fixture, resource: { ...resource, id } } : { ...fixture, resource: undefined },
+        );
+      }
+      return { ...definition, fixtures };
+    };
+
+    const rows = new Map((await sourceCriteria.findByIds(ids)).map((row) => [row.id, row]));
+    const copied: string[] = [];
+    for (const id of ids) {
+      const row = rows.get(id);
+      if (!row) continue;
+      const documentId = row.documentId ? await copyDocument(row.documentId) : undefined;
       const criterion = await targetCriteria.create({
-        definition: row.definition,
+        definition: await copyDefinition(row.definition),
         description: row.description,
-        documentId: documentCopy?.id ?? null,
+        documentId: documentId ?? null,
         onFail: row.onFail,
         required: row.required,
         tags: row.tags,
