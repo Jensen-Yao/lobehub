@@ -44,16 +44,14 @@ export function DraftThreadConversation({
             <p {...stylex.props(styles.muted)}>{t('threadEmpty')}</p>
           </WideScreenContainer>
         </Flexbox>
-        {!detail.channel.archived && (
-          <Composer
-            inThread
-            defaultRecipientIds={draftThreadFollowerIds(draft.root, detail.members)}
-            draftKey={channelDraftKey(detail.channel.id, `draft:${draft.root.id}`)}
-            members={detail.members.filter((member) => member.active)}
-            placeholder={t('threadComposer')}
-            onSend={onSend}
-          />
-        )}
+        <Composer
+          inThread
+          defaultRecipientIds={draftThreadFollowerIds(draft.root, detail.members)}
+          draftKey={channelDraftKey(detail.channel.id, `draft:${draft.root.id}`)}
+          members={detail.members.filter((member) => member.active)}
+          placeholder={t('threadComposer')}
+          onSend={onSend}
+        />
       </Flexbox>
     </Provider>
   );

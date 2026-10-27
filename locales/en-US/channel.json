@@ -4,7 +4,6 @@
   "activity.one": "{{name}} · {{status}}",
   "activity.two": "{{names}} are replying…",
   "agents": "Agents",
-  "archived": "This channel is archived.",
   "attachments.failed": "Upload failed. Try again.",
   "attachments.limit": "Attach up to {{count}} files.",
   "attachments.upload": "Attach files",

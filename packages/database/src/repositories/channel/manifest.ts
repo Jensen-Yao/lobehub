@@ -18,16 +18,14 @@ import { fileIdsByMessage } from './attachments';
 
 /** Freeze the public history cutoff and branch for this request. */
 export const buildManifest = (params: {
-  afterSequence: number;
   job: ChannelJobItem;
   member: ChannelMemberItem;
   request: ChannelMessageItem;
   thread: ChannelThreadItem | null;
 }): ChannelInputManifest => {
-  const { afterSequence, job, member, request, thread } = params;
+  const { job, member, request, thread } = params;
 
   return {
-    afterSequence,
     // Jobs inherit the request's branch, so the request itself always sorts last.
     cutoffSequence: request.sequence,
     requestMessageId: request.id,

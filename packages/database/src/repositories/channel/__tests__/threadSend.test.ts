@@ -25,7 +25,7 @@ const setup = async () => {
   const [job] = await jobsOf(db, root.id);
   const executions = new ChannelExecutionRepository(db);
   await executions.claim(team.channel.id, job.id, lease);
-  await executions.accepted(team.channel.id, job.id, {});
+  await executions.accepted(team.channel.id, job.id);
   await executions.saveDraft(team.channel.id, job.id, 'Hello from Author');
   const replyId = await executions.publish(team.channel.id, job.id);
   await executions.releaseWriter(team.channel.id, job.id);

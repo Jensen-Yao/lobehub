@@ -196,7 +196,7 @@ export class ChannelCoordinator {
         userInterventionConfig: { approvalMode: 'headless' },
       });
       if (!result.success) throw new Error(result.error || 'Agent could not start');
-      await this.executions.accepted(job.channelId, job.id, {});
+      await this.executions.accepted(job.channelId, job.id);
     } catch (error) {
       console.error('[channel:dispatch]', error);
       const operation = await new AgentOperationModel(
@@ -209,8 +209,6 @@ export class ChannelCoordinator {
       } else
         await this.executions.fail(job.channelId, job.id, {
           message: error instanceof Error ? error.message : 'Agent could not start',
-          // An untouched reservation proves no runtime was dispatched. Anything else is inspected.
-          notSubmitted: false,
         });
     } finally {
       clearInterval(renew);
@@ -263,7 +261,7 @@ export class ChannelCoordinator {
           await notifyChannel(this.db, channelId);
           return;
         }
-        await this.executions.accepted(channelId, jobId, {});
+        await this.executions.accepted(channelId, jobId);
         await this.executions.saveDraft(channelId, jobId, content);
       }
       await this.executions.publish(channelId, jobId);

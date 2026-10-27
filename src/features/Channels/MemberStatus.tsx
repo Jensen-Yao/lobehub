@@ -93,21 +93,18 @@ export function MemberStatus({ detail }: { detail: ChannelDetail }) {
                     <span {...stylex.props(styles.muted)}>{t('person')}</span>
                   )}
                 </Flexbox>
-                {entry.member.agentId &&
-                  entry.member.active &&
-                  channel.canDelete &&
-                  !channel.archived && (
-                    <ActionIcon
-                      aria-label={t('environment.editNamed', { name: entry.name })}
-                      icon={FolderCog}
-                      size="small"
-                      title={t('environment.title')}
-                      onClick={() => {
-                        setOpen(false);
-                        openChannelAgentEnvironment(channel.id, entry.member);
-                      }}
-                    />
-                  )}
+                {entry.member.agentId && entry.member.active && channel.canDelete && (
+                  <ActionIcon
+                    aria-label={t('environment.editNamed', { name: entry.name })}
+                    icon={FolderCog}
+                    size="small"
+                    title={t('environment.title')}
+                    onClick={() => {
+                      setOpen(false);
+                      openChannelAgentEnvironment(channel.id, entry.member);
+                    }}
+                  />
+                )}
                 {entry.member.agentId && (
                   <ActionIcon
                     aria-label={t('openAgentNamed', { name: entry.name })}
@@ -135,7 +132,7 @@ export function MemberStatus({ detail }: { detail: ChannelDetail }) {
           {overflow > 0 && <span {...stylex.props(styles.muted)}>+{overflow}</span>}
         </Button>
       </Popover>
-      {channel.canDelete && !channel.archived && (
+      {channel.canDelete && (
         <ActionIcon
           aria-label={t('invite.title')}
           icon={UserPlus}

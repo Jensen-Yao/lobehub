@@ -298,7 +298,7 @@ export const claimJob = async (
     // A savepoint, so losing the directory race to another channel keeps this transaction
     // and leaves no topic or operation behind.
     claimed = await tx.transaction(async (savepoint) => {
-      const { topic, afterSequence } = await resolveTopic(
+      const topic = await resolveTopic(
         savepoint,
         channel,
         job,
@@ -307,7 +307,7 @@ export const claimJob = async (
         request.sequence,
         executionConfig,
       );
-      const manifest = buildManifest({ afterSequence, job, member, request, thread });
+      const manifest = buildManifest({ job, member, request, thread });
       // Same shape as ordinary runs (`op_{ts}_{agentId}_{topicId}_{rand}`): trace storage
       // derives the Agent and topic from the operation ID.
       const operationId = `op_${Date.now()}_${member.agentId}_${topic.id}_${createNanoId(8)()}`;

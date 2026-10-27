@@ -120,18 +120,6 @@ export const styles = stylex.create({
     color: cssVar.colorInfo,
     backgroundColor: cssVar.colorInfoBg,
   },
-  activity: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    flexShrink: 0,
-    alignItems: 'center',
-    columnGap: 12,
-    minHeight: 32,
-    paddingBlock: 8,
-    fontSize: cssVar.fontSizeSM,
-    lineHeight: cssVar.lineHeightSM,
-    color: cssVar.colorTextSecondary,
-  },
   composer: {
     flexShrink: 0,
     paddingBlockEnd: 12,

@@ -40,7 +40,7 @@ const messageById = async (id: string) => {
 };
 
 const finish = async (channelId: string, jobId: string) => {
-  await execution.accepted(channelId, jobId, {});
+  await execution.accepted(channelId, jobId);
   await execution.saveDraft(channelId, jobId, 'Done');
   await execution.publish(channelId, jobId);
   await execution.releaseWriter(channelId, jobId);

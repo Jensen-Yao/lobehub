@@ -3,7 +3,7 @@ import type {
   ChannelContextMessage,
   ChannelJobStatus,
 } from '@lobechat/types';
-import { and, asc, eq, gt, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, isNotNull, isNull, or } from 'drizzle-orm';
 
 import type { ChannelJobItem } from '../../schemas';
 import {
@@ -12,7 +12,6 @@ import {
   channelJobs,
   channelMembers,
   channelMessages,
-  topics,
 } from '../../schemas';
 import type { LobeChatDatabase, Transaction } from '../../type';
 import type { ChannelClaim, ChannelClaimOptions } from './claim';
@@ -232,7 +231,7 @@ export class ChannelExecutionRepository {
    */
   input = async (channelId: string, jobId: string): Promise<ChannelContextMessage[]> => {
     const [job] = await this.db
-      .select({ manifest: channelJobs.manifest, topicId: channelJobs.topicId })
+      .select({ manifest: channelJobs.manifest })
       .from(channelJobs)
       .where(
         and(
@@ -249,11 +248,7 @@ export class ChannelExecutionRepository {
   };
 
   /** The runtime took the input; only now may the job publish. */
-  accepted = async (
-    channelId: string,
-    jobId: string,
-    receipt: { nativeSessionId?: string; nativeTurnId?: string },
-  ) =>
+  accepted = async (channelId: string, jobId: string) =>
     withChannelLock(this.db, channelId, async (tx) => {
       const job = await claimed(tx, channelId, jobId);
       if (job.acceptedAt || !job.writerHeld || job.status !== 'running') return;
@@ -263,30 +258,6 @@ export class ChannelExecutionRepository {
         .set({ acceptedAt: new Date() })
         .where(eq(channelJobs.id, job.id));
 
-      if (job.operationId) {
-        const [operation] = await tx
-          .select({ topicId: agentOperations.topicId })
-          .from(agentOperations)
-          .where(eq(agentOperations.id, job.operationId));
-        if (
-          receipt.nativeSessionId &&
-          job.executionConfig?.runtime !== 'native' &&
-          operation?.topicId
-        )
-          await tx
-            .update(topics)
-            .set({
-              metadata: sql`coalesce(${topics.metadata}, '{}'::jsonb) || ${JSON.stringify({ heteroSessionId: receipt.nativeSessionId })}::jsonb`,
-            })
-            .where(eq(topics.id, operation.topicId));
-        if (receipt.nativeTurnId)
-          await tx
-            .update(agentOperations)
-            .set({
-              metadata: sql`coalesce(${agentOperations.metadata}, '{}'::jsonb) || ${JSON.stringify({ nativeTurnId: receipt.nativeTurnId })}::jsonb`,
-            })
-            .where(eq(agentOperations.id, job.operationId));
-      }
       await advanceOperation(tx, job, 'running');
       await audit(tx, channelId, 'input_accepted', job.id, {
         cutoff: job.manifest?.cutoffSequence ?? null,
@@ -351,7 +322,7 @@ export class ChannelExecutionRepository {
   /**
    * Physical termination confirmed (process tree ended, or the native operation finished).
    * Releases the writer, and with it the member and the device directory; the only other
-   * release is a trusted `notSubmitted` failure, where nothing ran.
+   * release is retiring an untouched operation reservation.
    * Settles the job and its operation by how the run ended; see {@link releaseOutcome}.
    */
   releaseWriter = async (channelId: string, jobId: string) =>
@@ -377,15 +348,10 @@ export class ChannelExecutionRepository {
 
   /**
    * The run failed. Revokes its publication and fails its job unless it was already being
-   * stopped. `notSubmitted` marks a trusted pre-dispatch failure: nothing ran, so the writer
-   * is released in the same transaction. A late failure after the reply was published or the
-   * release settled the job changes nothing.
+   * stopped. The writer stays held until termination is confirmed. A late failure after the
+   * reply was published or the release settled the job changes nothing.
    */
-  fail = async (
-    channelId: string,
-    jobId: string,
-    failure: { message: string; notSubmitted?: boolean },
-  ) =>
+  fail = async (channelId: string, jobId: string, failure: { message: string }) =>
     withChannelLock(this.db, channelId, async (tx) => {
       const job = await claimed(tx, channelId, jobId, true);
       if (job.publishedMessageId || (!job.writerHeld && job.status !== 'running')) return;
@@ -397,11 +363,6 @@ export class ChannelExecutionRepository {
         .set({
           publicationRevoked: true,
           ...(!stopping && isOpenJob(job) && { status: 'failed' as const }),
-          ...(failure.notSubmitted && {
-            leaseExpiresAt: null,
-            leaseOwner: null,
-            writerHeld: false,
-          }),
         })
         .where(eq(channelJobs.id, job.id));
       await advanceOperation(
@@ -412,7 +373,6 @@ export class ChannelExecutionRepository {
       );
       await audit(tx, channelId, 'execution_failed', job.id, {
         message: failure.message,
-        notSubmitted: Boolean(failure.notSubmitted),
       });
     });
 

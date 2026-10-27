@@ -37,6 +37,7 @@ const message = (routingStatus: ChannelPublicMessage['routingStatus']): ChannelP
 });
 const job = (patch: Partial<ChannelPublicJob> = {}): ChannelPublicJob => ({
   blockedCode: null,
+  errorMessage: null,
   id: 'job',
   memberId: 'pi',
   messageId: 'message',
@@ -50,6 +51,7 @@ const detail = (patch: Partial<ChannelDetail> = {}): ChannelDetail => ({
   attachments: [],
   channel: {
     archived: false,
+    canDelete: true,
     createdAt: new Date(),
     id: 'channel',
     sequence: 1,

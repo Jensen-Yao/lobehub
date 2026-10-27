@@ -114,8 +114,6 @@ export class ChannelHistoryRepository {
           throw new ChannelError('FORBIDDEN', 'Workspace membership is no longer active');
       }
       await findThread(tx, channel.id, job.manifest.threadId);
-      // A continuation cursor tracks delivered requests, not which history the model read.
-      // On-demand reads always cover the entire authorized branch up to the frozen cutoff.
       return fn(tx, channel.id, job.manifest);
     });
   }

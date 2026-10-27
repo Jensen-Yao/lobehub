@@ -89,7 +89,6 @@ export default {
   'conversationEmpty': 'Start the conversation',
   'mentionHint':
     'Mention Agents to choose who replies. Without a mention, every Agent here replies.',
-  'archived': 'This channel is archived.',
   'attachments.upload': 'Attach files',
   'attachments.failed': 'Upload failed. Try again.',
   'attachments.limit': 'Attach up to {{count}} files.',

@@ -84,7 +84,7 @@ Every dispatch receives only the triggering request, its author and attachment r
 history is read on demand through `lobe-channel.readMessages` / `readMessage` in Native runs, or
 `lh channel history` / `lh channel message` in external runtimes. A Thread can read the main prefix
 through its root plus its own messages; the frozen request cutoff excludes later arrivals. Reads
-include published Agent answers and are independent of the continuation cursor. Existing private
+include published Agent answers, including when continuing a private topic. Existing private
 Agent transcripts stay in their ordinary topic and are never exposed through these tools.
 
 `ChannelHistoryRepository` binds reads to the live operation and rechecks requester/Agent membership,
@@ -127,14 +127,15 @@ all-candidate fallback. Stopping a reply still fences it; root completion never 
 - Call `recordStart` for the reserved idle operation before acknowledging dispatch. Only an exact
   user/workspace/topic/Agent match may initialize it. Repeated starts cannot overwrite running or
   terminal executions. The runtime remains responsible for normal topic activity updates.
-- Acknowledgement records native resume/turn IDs. Save the final answer once, then publish its
-  text to `channel_messages`; publication is idempotent and cannot publish a revoked delivery.
+- Acknowledgement records input acceptance; the ordinary runtime owns session metadata. Save the
+  final answer once, then publish its text to `channel_messages`; publication is idempotent and
+  cannot publish a revoked delivery.
   Public attachment uploads are authorized and locked before association. Generic file cleanup
   preserves files still referenced by Channel messages.
 - Job status describes the Channel delivery; execution status/errors/usage live on its operation.
   Operation completion is not proof that a device process ended. Only `releaseWriter` after
-  confirmed termination, or a trusted `notSubmitted` failure, releases the writer. Isolation frees
-  the member but keeps the device/directory lock. Never retry an unknown delivery.
+  confirmed termination, or `retireReservation` for an untouched operation, releases the writer.
+  Isolation frees the member but keeps the device/directory lock. Never retry an unknown delivery.
 - Existing hard-delete paths already reach Channel rows: Agent deletion (including trash purge,
   session and group deletion) cascades direct conversations, `UserModel.deleteUser` removes
   personal channels and direct conversations, and workspace deletion cascades every channel in it.

@@ -56,7 +56,7 @@ export const resolveTopic = async (
     !topic.isDeleted &&
     (job.threadId || Date.now() - topic.updatedAt.getTime() <= TOPIC_STALE_THRESHOLD)
   ) {
-    return { afterSequence: prior.manifest.cutoffSequence, topic };
+    return topic;
   }
 
   const [created] = await tx
@@ -69,5 +69,5 @@ export const resolveTopic = async (
       workspaceId: channel.workspaceId,
     })
     .returning();
-  return { afterSequence: 0, topic: created };
+  return created;
 };

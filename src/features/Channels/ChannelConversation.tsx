@@ -181,37 +181,29 @@ const Timeline = ({
                 <AsyncError error={actionError} variant="inline" />
               </WideScreenContainer>
             )}
-            {detail.channel.archived ? (
-              <WideScreenContainer fullWidth paddingInline={24}>
-                <Flexbox role="status" {...stylex.props(styles.activity)}>
-                  {t('archived')}
-                </Flexbox>
-              </WideScreenContainer>
-            ) : (
-              <Composer
-                activity={<ReplyActivity detail={detail} threadId={threadId} />}
-                defaultRecipientIds={defaultRecipientIds}
-                draftKey={channelDraftKey(channelId, threadId)}
-                inThread={!!threadId}
-                key={channelDraftKey(channelId, threadId)}
-                members={activeMembers}
-                placeholder={t(threadId ? 'threadComposer' : 'composer')}
-                replying={replying}
-                onStop={() => void stop()}
-                onSend={async (content, mentions, requestKey, fileIds) => {
-                  followLatest.current = true;
-                  await channelActions.send({
-                    channelId,
-                    content,
-                    fileIds,
-                    mentions,
-                    requestKey,
-                    threadId,
-                  });
-                  setBefore(undefined);
-                }}
-              />
-            )}
+            <Composer
+              activity={<ReplyActivity detail={detail} threadId={threadId} />}
+              defaultRecipientIds={defaultRecipientIds}
+              draftKey={channelDraftKey(channelId, threadId)}
+              inThread={!!threadId}
+              key={channelDraftKey(channelId, threadId)}
+              members={activeMembers}
+              placeholder={t(threadId ? 'threadComposer' : 'composer')}
+              replying={replying}
+              onStop={() => void stop()}
+              onSend={async (content, mentions, requestKey, fileIds) => {
+                followLatest.current = true;
+                await channelActions.send({
+                  channelId,
+                  content,
+                  fileIds,
+                  mentions,
+                  requestKey,
+                  threadId,
+                });
+                setBefore(undefined);
+              }}
+            />
           </>
         )}
       </AsyncBoundary>

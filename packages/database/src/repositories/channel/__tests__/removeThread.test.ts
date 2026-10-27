@@ -135,14 +135,14 @@ describe('Thread deletion', () => {
     const reply = await send('thread-running', thread.id, writer.id);
     const [running] = await jobsOf(db, reply.id);
     const claim = await executions.claim(channel.id, running.id, lease);
-    await executions.accepted(channel.id, running.id, {});
+    await executions.accepted(channel.id, running.id);
     await executions.saveDraft(channel.id, running.id, 'Too late');
     const queuedMessage = await send('thread-queued', thread.id, writer.id);
     const [queued] = await jobsOf(db, queuedMessage.id);
     const mainMessage = await send('main-running', null, other.id);
     const [main] = await jobsOf(db, mainMessage.id);
     await executions.claim(channel.id, main.id, lease);
-    await executions.accepted(channel.id, main.id, {});
+    await executions.accepted(channel.id, main.id);
     const pending = await asOwner.send(channel.id, {
       content: 'Route me',
       requestKey: 'pending',

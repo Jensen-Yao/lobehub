@@ -98,7 +98,7 @@ describe('Channel soft deletion', () => {
     });
     const [running] = await jobsOf(db, root.id);
     const claim = await executions.claim(channel.id, running.id, lease);
-    await executions.accepted(channel.id, running.id, {});
+    await executions.accepted(channel.id, running.id);
     await executions.saveDraft(channel.id, running.id, 'Too late');
     const thread = await asOwner.createThread(channel.id, {
       rootMessageId: root.id,

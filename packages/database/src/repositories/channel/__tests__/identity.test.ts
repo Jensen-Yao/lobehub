@@ -32,7 +32,7 @@ const publish = async (channelId: string, messageId: string) => {
   const [job] = await jobsOf(db, messageId);
   const claim = (await execution.claim(channelId, job.id, lease))!;
   expect(claim).not.toBeNull();
-  await execution.accepted(channelId, job.id, {});
+  await execution.accepted(channelId, job.id);
   await execution.saveDraft(channelId, job.id, 'Answer');
   const replyId = await execution.publish(channelId, job.id);
   await execution.releaseWriter(channelId, job.id);
@@ -231,7 +231,7 @@ describe('direct message sender references', () => {
       .update(channelMembers)
       .set({ agentId: replacement.id })
       .where(eq(channelMembers.id, member.id));
-    await execution.accepted(team.channel.id, job.id, {});
+    await execution.accepted(team.channel.id, job.id);
     await execution.saveDraft(team.channel.id, job.id, 'Original answer');
     const replyId = await execution.publish(team.channel.id, job.id);
     const [reply] = await db.select().from(channelMessages).where(eq(channelMessages.id, replyId));

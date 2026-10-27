@@ -38,10 +38,6 @@ describe('channelJoinEvents', () => {
     ]);
     expect(event.inviter).toBeUndefined();
   });
-
-  it('skips members from older cached views without a join time', () => {
-    expect(channelJoinEvents([owner, member('a', 0, { joinedAt: undefined })])).toEqual([]);
-  });
 });
 
 describe('channelTimeline', () => {

@@ -60,7 +60,7 @@ export const ChannelMessage = ({
   // Inside a thread, its root and replies link nowhere else.
   const thread =
     !threadId && !isRoot && detail.threads.find((entry) => entry.rootMessageId === message.id);
-  const canBranch = !threadId && !isRoot && !thread && !detail.channel.archived && !!onStartThread;
+  const canBranch = !threadId && !isRoot && !thread && !!onStartThread;
   const isRequest = message.author.type === 'user' && !isRoot;
   const mentionNames = detail.members
     .filter((member) => message.mentions.includes(member.id))

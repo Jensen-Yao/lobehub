@@ -6,7 +6,6 @@ import { buildChannelPrompt } from './channel';
 describe('Channel request prompt', () => {
   it('carries only the current request with attribution, never injected public history', () => {
     const manifest: ChannelInputManifest = {
-      afterSequence: 0,
       cutoffSequence: 2,
       requestMessageId: 'current',
       requesterMemberId: 'member',

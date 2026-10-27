@@ -4,7 +4,6 @@
   "activity.one": "{{name}} · {{status}}",
   "activity.two": "{{names}} 正在回复…",
   "agents": "Agent",
-  "archived": "此频道已归档。",
   "attachments.failed": "上传失败，请重试。",
   "attachments.limit": "最多添加 {{count}} 个附件。",
   "attachments.upload": "添加附件",

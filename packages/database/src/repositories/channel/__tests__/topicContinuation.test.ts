@@ -49,7 +49,7 @@ const setup = async (thread = false) => {
   };
   const claim = (id: string) => execution.claim(team.channel.id, id, lease);
   const finish = async (id: string, publish = true) => {
-    await execution.accepted(team.channel.id, id, {});
+    await execution.accepted(team.channel.id, id);
     await execution.saveDraft(team.channel.id, id, `Answer ${sequence}`);
     if (publish) await execution.publish(team.channel.id, id);
     await execution.releaseWriter(team.channel.id, id);
@@ -130,11 +130,10 @@ describe('Channel topic continuation', () => {
           .where(eq(topics.id, first.topic.id));
       const second = (await state.claim((await state.send()).id))!;
       expect(second.topic.id).not.toBe(first.topic.id);
-      expect(second.job.manifest?.afterSequence).toBe(0);
     },
   );
 
-  it('excludes delayed public copies of answers already in the topic, even across queued requests', async () => {
+  it('delivers only each request when continuing across delayed publications', async () => {
     const state = await setup();
     const first = (await state.claim((await state.send()).id))!;
     const next = await state.send();

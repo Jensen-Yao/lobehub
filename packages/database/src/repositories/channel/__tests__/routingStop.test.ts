@@ -111,7 +111,7 @@ describe('stop', () => {
     });
     const [job] = await jobsOf(db, message.id);
     await execution.claim(channel.id, job.id, lease);
-    await execution.accepted(channel.id, job.id, { nativeSessionId: 's' });
+    await execution.accepted(channel.id, job.id);
     await execution.saveDraft(channel.id, job.id, 'Draft');
 
     await expect(asMember.stop(channel.id, { jobId: job.id })).rejects.toMatchObject({

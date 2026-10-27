@@ -165,11 +165,9 @@ export interface ChannelHistoryMessageDetail {
 
 /**
  * Frozen conversation scope. Only requestMessageId is delivered eagerly; history tools may
- * read the entire branch up to cutoffSequence, independently of the continuation cursor.
+ * read the entire branch up to cutoffSequence.
  */
 export interface ChannelInputManifest {
-  /** Last delivered request cursor for continuation; never a lower bound on history reads. */
-  afterSequence: number;
   /** Immutable at claim time; later public messages belong to the next run. */
   cutoffSequence: number;
   /** The member that triggered this run; its user is the execution identity. */
@@ -188,8 +186,8 @@ export type ChannelAuditDetails = Record<string, boolean | number | string | str
 /** Public client projection. No execution configuration, private topic or draft fields. */
 export interface ChannelListItem {
   archived: boolean;
-  /** Server-computed for the current member. Missing in older cached projections. */
-  canDelete?: boolean;
+  /** Server-computed for the current member. */
+  canDelete: boolean;
   createdAt: Date;
   id: string;
   sequence: number;
@@ -204,8 +202,7 @@ export interface ChannelPublicMember {
   avatar: string | null;
   description: string | null;
   id: string;
-  /** Missing in cached projections from older servers. */
-  joinedAt?: Date;
+  joinedAt: Date;
   name: string | null;
   role: ChannelMemberRole | null;
   userAvatar: string | null;
@@ -237,8 +234,8 @@ export interface ChannelPublicMessage {
 
 export interface ChannelPublicJob {
   blockedCode: ChannelJobBlockCode | null;
-  /** Failure diagnostic only; optional for cached projections from older servers. */
-  errorMessage?: string | null;
+  /** Failure diagnostic only. */
+  errorMessage: string | null;
   id: string;
   memberId: string;
   messageId: string;

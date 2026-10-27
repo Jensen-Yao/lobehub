@@ -20,11 +20,11 @@ export const channelJoinEvents = (members: ChannelPublicMember[]): ChannelJoinEv
   const owner = members.find((member) => member.role === 'owner');
   const inviter = members.some((member) => member.role === 'admin') ? undefined : owner;
   const joined = members
-    .filter((member) => member !== owner && member.joinedAt)
-    .sort((a, b) => time(a.joinedAt!) - time(b.joinedAt!));
+    .filter((member) => member !== owner)
+    .sort((a, b) => time(a.joinedAt) - time(b.joinedAt));
   const events: ChannelJoinEvent[] = [];
   for (const member of joined) {
-    const at = time(member.joinedAt!);
+    const at = time(member.joinedAt);
     const last = events.at(-1);
     if (last && at - last.at <= BATCH_MS) last.members.push(member);
     else events.push({ at, id: `join:${member.id}`, inviter, members: [member] });

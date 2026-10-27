@@ -14,6 +14,7 @@ const member = (
   avatar: null,
   description: null,
   id,
+  joinedAt: new Date(),
   name: id,
   role: null,
   userAvatar: null,

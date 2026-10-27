@@ -30,7 +30,7 @@ const publishedReply = async (workspace = true) => {
   const [job] = await jobsOf(db, request.id);
   const executions = new ChannelExecutionRepository(db);
   await executions.claim(channel.id, job.id, lease);
-  await executions.accepted(channel.id, job.id, {});
+  await executions.accepted(channel.id, job.id);
   await executions.saveDraft(channel.id, job.id, 'Hello from Author');
   const replyId = await executions.publish(channel.id, job.id);
   await executions.releaseWriter(channel.id, job.id);
@@ -251,7 +251,7 @@ describe('Channel public view', () => {
     const [job] = await jobsOf(db, request.id);
     const executions = new ChannelExecutionRepository(db);
     await executions.claim(channel.id, job.id, lease);
-    await executions.accepted(channel.id, job.id, {});
+    await executions.accepted(channel.id, job.id);
     await executions.saveDraft(channel.id, job.id, 'Original reply');
     await executions.publish(channel.id, job.id);
     await db

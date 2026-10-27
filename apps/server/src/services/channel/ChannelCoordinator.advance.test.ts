@@ -85,7 +85,6 @@ describe('Channel concurrent startup', () => {
         executionConfig: { runtime: 'native' },
         manifest: {
           self: { agentId: id, memberId: id, name: id },
-          afterSequence: 0,
           cutoffSequence: 1,
           requestMessageId: 'message',
           requesterMemberId: 'user',
@@ -133,10 +132,8 @@ describe('Channel concurrent startup', () => {
     );
     const advancing = coordinator().advance('channel');
     try {
-      await vi.waitFor(() =>
-        expect(executions.accepted).toHaveBeenCalledWith('channel', 'job-2', {}),
-      );
-      expect(executions.accepted).not.toHaveBeenCalledWith('channel', 'job-0', {});
+      await vi.waitFor(() => expect(executions.accepted).toHaveBeenCalledWith('channel', 'job-2'));
+      expect(executions.accepted).not.toHaveBeenCalledWith('channel', 'job-0');
     } finally {
       gate.resolve({ success: true });
       await advancing;
@@ -150,15 +147,13 @@ describe('Channel concurrent startup', () => {
     vi.spyOn(instance, 'complete').mockReturnValue(gate.promise);
     const advancing = instance.advance('channel');
     try {
-      await vi.waitFor(() =>
-        expect(executions.accepted).toHaveBeenCalledWith('channel', 'job-2', {}),
-      );
+      await vi.waitFor(() => expect(executions.accepted).toHaveBeenCalledWith('channel', 'job-2'));
       expect(execAgent).not.toHaveBeenCalledWith(expect.objectContaining({ agentId: 'job-0' }));
     } finally {
       gate.resolve();
       await advancing;
     }
-    expect(executions.accepted).toHaveBeenCalledWith('channel', 'job-0', {});
+    expect(executions.accepted).toHaveBeenCalledWith('channel', 'job-0');
   });
 
   it('bounds startup concurrency and drains the remaining Agents', async () => {
@@ -189,6 +184,6 @@ describe('Channel concurrent startup', () => {
     executions.claim.mockResolvedValueOnce(null);
     await coordinator().advance('channel');
     expect(execAgent).toHaveBeenCalledTimes(2);
-    expect(executions.accepted).not.toHaveBeenCalledWith('channel', 'job-0', {});
+    expect(executions.accepted).not.toHaveBeenCalledWith('channel', 'job-0');
   });
 });

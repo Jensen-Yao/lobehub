@@ -41,7 +41,7 @@ const request = async (
 /** Claims and finishes a job with a published reply. */
 const answer = async (channelId: string, jobId: string) => {
   await execution.claim(channelId, jobId, lease);
-  await execution.accepted(channelId, jobId, { nativeSessionId: 's' });
+  await execution.accepted(channelId, jobId);
   await execution.saveDraft(channelId, jobId, 'Answer');
   await execution.publish(channelId, jobId);
   await execution.releaseWriter(channelId, jobId);

@@ -120,15 +120,23 @@ describe('Channel on-demand history', () => {
       });
   });
 
-  it('reads old messages even when the private topic has a continuation cursor', async () => {
+  it('reads earlier history and published answers when continuing the private topic', async () => {
     const state = await setup();
     const old = await state.say('A decision before the previous request');
-    const { operationId, claim } = await state.run();
-    await db
-      .update(channelJobs)
-      .set({ manifest: { ...claim.job.manifest!, afterSequence: old.sequence } })
-      .where(eq(channelJobs.id, claim.job.id));
-    expect((await state.history.readMessages(operationId)).messages[0].id).toBe(old.id);
+    const first = await state.run();
+    await execution.accepted(state.channel.id, first.claim.job.id);
+    await execution.saveDraft(state.channel.id, first.claim.job.id, 'Previous answer');
+    const answerId = await execution.publish(state.channel.id, first.claim.job.id);
+    await execution.releaseWriter(state.channel.id, first.claim.job.id);
+
+    const next = await state.run();
+    expect(next.claim.topic.id).toBe(first.claim.topic.id);
+    expect((await state.history.readMessages(next.operationId)).messages.map((m) => m.id)).toEqual([
+      old.id,
+      first.request.id,
+      answerId,
+      next.request.id,
+    ]);
   });
 
   it('bounds excerpts and lets callers read every character without silent truncation', async () => {
