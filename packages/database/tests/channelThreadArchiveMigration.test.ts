@@ -119,7 +119,9 @@ describe.each([184, 187])('Channel thread archive upgrade after migration %i', (
   it('replaces the old unique index and safely replays without losing archived threads', async () => {
     await assertArchiveAndRecreate(client);
     const before = await client.query('SELECT * FROM channel_threads ORDER BY id');
-    const entry = journal.entries.find(({ tag }) => tag === '0188_channel_thread_archive');
+    const entry = journal.entries.find(
+      ({ tag }) => tag === '0188_channel_soft_delete_and_thread_archive',
+    );
     const migration = readMigrationFiles({ migrationsFolder }).find(
       ({ folderMillis }) => folderMillis === entry?.when,
     );

@@ -6,7 +6,7 @@
   },
   "dialect": "postgresql",
   "enums": {},
-  "id": "d11c78ac-dcfb-4903-8106-d82e0fff24b4",
+  "id": "1c152648-f578-4c51-8acc-0312a39b9ef4",
   "policies": {},
   "prevId": "7c8b5944-a341-485c-a9f6-514a3a55e780",
   "roles": {},
@@ -11674,13 +11674,6 @@
           "notNull": true,
           "default": 0
         },
-        "archived": {
-          "name": "archived",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
         "visibility": {
           "name": "visibility",
           "type": "text",
@@ -11694,6 +11687,18 @@
           "primaryKey": false,
           "notNull": false,
           "default": "'{}'::jsonb"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_deleted": {
+          "name": "is_deleted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",

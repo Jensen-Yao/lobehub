@@ -28,6 +28,18 @@ export interface FollowupGateDeps {
 
 export interface FollowupGateInput {
   entryPoint: BotWakeEntryPoint;
+  /**
+   * The message is addressed to the bot (it says the bot's name), so it is answered now like an
+   * @mention instead of waiting for the scheduler's collect window. The scheduler exists to merge
+   * a burst of chatter nobody addressed into one run; making someone who called the bot by name
+   * wait for it only makes the bot look dead.
+   */
+  immediate?: boolean;
+  /**
+   * The wake came from `recorder.initiate`, which already ran the enforcing policies on this very
+   * message; judging again would repeat a model call to reach the same answer.
+   */
+  initiated?: boolean;
   /** The message as it would run (merged text). */
   merged: Message;
   /** Every original message behind `merged`, oldest first; these are what gets parked. */
@@ -51,19 +63,21 @@ export interface FollowupGateInput {
  */
 export const createFollowupGate = (deps: FollowupGateDeps) => {
   return async (input: FollowupGateInput): Promise<'proceed' | 'stop'> => {
-    const { entryPoint, merged, parked, thread, threadSubscribed } = input;
+    const { entryPoint, immediate, initiated, merged, parked, thread, threadSubscribed } = input;
 
     // Rollout off: no judging, no scheduling, no parking. The wake runs exactly as it used to.
     if (!(await deps.recorder.isRolledOut())) return 'proceed';
 
-    const decision = await deps.recorder.judge({
-      entryPoint,
-      message: merged,
-      outcome: 'wake',
-      reason: 'watch-keyword',
-      threadId: thread.id,
-      threadSubscribed,
-    });
+    const decision = initiated
+      ? undefined
+      : await deps.recorder.judge({
+          entryPoint,
+          message: merged,
+          outcome: 'wake',
+          reason: 'watch-keyword',
+          threadId: thread.id,
+          threadSubscribed,
+        });
     if (decision?.verdict === 'deny') {
       log('denied by %s: %s', decision.decidedBy, decision.reason);
       deps.observe(entryPoint, merged, thread, 'skip', 'policy-denied', threadSubscribed);
@@ -71,7 +85,7 @@ export const createFollowupGate = (deps: FollowupGateDeps) => {
       return 'stop';
     }
 
-    if (!deps.scheduler) return 'proceed';
+    if (!deps.scheduler || immediate) return 'proceed';
 
     const { channelKey } = resolveChannelKeys(deps.platform, deps.applicationId, thread.id);
     const verdict = await deps.scheduler.submit({
