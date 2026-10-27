@@ -203,9 +203,16 @@ export class ChannelRepository {
       channelId,
       async (tx, access) => {
         if (access.channel.isDeleted) throw new ChannelError('NOT_FOUND', 'Channel not found');
+        const admin = hasRole(access.member.role, 'admin');
+        const view = await readChannelView(tx, channelId, options);
         return {
-          channel: { ...access.channel, canDelete: hasRole(access.member.role, 'admin') },
-          ...(await readChannelView(tx, channelId, options)),
+          channel: { ...access.channel, canDelete: admin },
+          ...view,
+          // Mirrors `stop`: the requester or an admin.
+          jobs: view.jobs.map(({ requesterMemberId, ...job }) => ({
+            ...job,
+            canStop: admin || requesterMemberId === access.member.id,
+          })),
         };
       },
       { allowTrashed: true },
@@ -291,14 +298,16 @@ export class ChannelRepository {
     this.write(channelId, (tx, access) => sendMessage(tx, access, input));
 
   /**
-   * Stops one job (its requester or an admin) or a whole branch (admins). Returns the jobs
-   * whose writer is still held; the caller must stop them physically.
+   * Stops one job (its requester or an admin) or a branch: everything for admins, only the
+   * caller's own requests for members. Returns the jobs whose writer is still held; the
+   * caller must stop them physically.
    */
   stop = async (channelId: string, scope: ChannelStopScope): Promise<ChannelJobItem[]> =>
     this.write(
       channelId,
       async (tx, { member }) => {
-        if ('jobId' in scope && !hasRole(member.role, 'admin')) {
+        const admin = hasRole(member.role, 'admin');
+        if ('jobId' in scope && !admin) {
           const [job] = await tx
             .select({ requesterMemberId: channelJobs.requesterMemberId })
             .from(channelJobs)
@@ -306,9 +315,14 @@ export class ChannelRepository {
           if (job && job.requesterMemberId !== member.id)
             throw new ChannelError('FORBIDDEN', 'Only the requester or an admin can stop this job');
         }
-        return stopScope(tx, channelId, scope);
+        return stopScope(
+          tx,
+          channelId,
+          scope,
+          'threadId' in scope && !admin ? { memberId: member.id, userId: this.userId } : undefined,
+        );
       },
-      { allowTrashed: true, minRole: 'threadId' in scope ? 'admin' : 'member' },
+      { allowTrashed: true },
     );
 
   /** Soft-delete under the same lock as dispatch/publication; retain receipts until exit. */

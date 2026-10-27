@@ -47,7 +47,7 @@ export function Composer({
   inThread = false,
   members,
   onSend,
-  replying,
+  stoppable,
   onStop,
   placeholder,
 }: {
@@ -59,7 +59,8 @@ export function Composer({
   draftKey: string;
   inThread?: boolean;
   members: ChannelPublicMember[];
-  replying?: boolean;
+  /** A reply here that the caller may stop is running; an empty input then offers Stop. */
+  stoppable?: boolean;
   onStop?: () => void;
   placeholder?: string;
   onSend: (
@@ -249,9 +250,9 @@ export function Composer({
               />
             </div>
             <SendButton
-              aria-label={t(replying && !hasDraft ? 'stopReply' : 'send')}
+              aria-label={t(stoppable && !hasDraft ? 'stopReply' : 'send')}
               disabled={busy || !hasDraft || attachments.blocked}
-              generating={replying && !hasDraft}
+              generating={stoppable && !hasDraft}
               loading={busy}
               onSend={() => void send()}
               onStop={onStop}

@@ -233,6 +233,8 @@ export interface ChannelPublicMessage {
 
 export interface ChannelPublicJob {
   blockedCode: ChannelJobBlockCode | null;
+  /** Server-computed for the current member: its requester or an admin. */
+  canStop: boolean;
   /** Failure diagnostic only. */
   errorMessage: string | null;
   id: string;

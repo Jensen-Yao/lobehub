@@ -83,8 +83,9 @@ const Timeline = ({
     .filter((member) => member.actorType === 'agent')
     .filter((member) => !followerIds || followerIds.includes(member.id))
     .map((member) => member.id);
-  const replying = detail?.jobs.some(
-    (job) => (job.threadId ?? null) === threadId && isChannelJobActive(job),
+  // Members stop only their own requests; the server narrows a branch stop the same way.
+  const stoppable = detail?.jobs.some(
+    (job) => (job.threadId ?? null) === threadId && isChannelJobActive(job) && job.canStop,
   );
   // Join lines belong to the main conversation; a thread starts from its root message.
   const timeline = detail
@@ -189,7 +190,7 @@ const Timeline = ({
               key={channelDraftKey(channelId, threadId)}
               members={activeMembers}
               placeholder={t(threadId ? 'threadComposer' : 'composer')}
-              replying={replying}
+              stoppable={stoppable}
               onStop={() => void stop()}
               onSend={async (content, mentions, requestKey, fileIds) => {
                 followLatest.current = true;

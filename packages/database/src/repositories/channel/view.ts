@@ -114,6 +114,7 @@ export const readChannelView = async (
         id: channelJobs.id,
         memberId: channelJobs.memberId,
         messageId: channelJobs.messageId,
+        requesterMemberId: channelJobs.requesterMemberId,
         threadId: channelJobs.threadId,
         status: channelJobs.status,
         blockedCode: channelJobs.blockedCode,

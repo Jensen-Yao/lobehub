@@ -37,6 +37,7 @@ const message = (routingStatus: ChannelPublicMessage['routingStatus']): ChannelP
 });
 const job = (patch: Partial<ChannelPublicJob> = {}): ChannelPublicJob => ({
   blockedCode: null,
+  canStop: true,
   errorMessage: null,
   id: 'job',
   memberId: 'pi',

@@ -80,9 +80,9 @@ export function ReplyDetail({
           <span {...stylex.props(styles.muted)}>{t('receipt.failedHint')}</span>
         </Flexbox>
       )}
-      {(isChannelJobActive(job) || agentId) && (
+      {((job.canStop && isChannelJobActive(job)) || agentId) && (
         <Flexbox horizontal gap={4} wrap="wrap">
-          {isChannelJobActive(job) && (
+          {job.canStop && isChannelJobActive(job) && (
             <Button
               danger
               icon={Square}
