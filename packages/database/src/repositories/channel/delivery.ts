@@ -40,6 +40,12 @@ export const findThread = async (
   return thread;
 };
 
+/** Rejects a write into an archived Thread; it stays readable until an admin unarchives it. */
+export const assertThreadOpen = (thread: ChannelThreadItem | null) => {
+  if (thread?.status === 'archived') throw new ChannelError('CONFLICT', 'Thread is archived');
+  return thread;
+};
+
 /** Active members by id. Throws when any of them is missing or has left. */
 export const activeMembers = async (
   tx: Transaction,

@@ -18,6 +18,7 @@ const channel = (id: string): ChannelListItem => ({
   createdAt: new Date(),
   id,
   sequence: 0,
+  status: 'active',
   title: id,
   workspaceId: null,
 });

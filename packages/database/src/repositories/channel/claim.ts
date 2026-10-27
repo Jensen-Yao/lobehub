@@ -68,7 +68,7 @@ const block = async (
   await audit(tx, job.channelId, 'job_blocked', job.id, { code, reason });
 };
 
-/** Settles a job that must never run, e.g. its requester left or its environment changed. */
+/** Settles a job that must never run, e.g. its requester left or its branch was archived. */
 const cancel = async (tx: Transaction, job: ChannelJobItem, reason: string) => {
   await tx
     .update(channelJobs)
@@ -182,6 +182,17 @@ export const claimJob = async (
     );
   if (!job) return null;
 
+  // Archiving stops the work it covers; a job queued against it must never start.
+  if (channel.status === 'archived') {
+    await cancel(tx, job, 'channel_archived');
+    return null;
+  }
+  const thread = await findThread(tx, channel.id, job.threadId);
+  if (thread?.status === 'archived') {
+    await cancel(tx, job, 'thread_archived');
+    return null;
+  }
+
   const [request] = await tx
     .select()
     .from(channelMessages)
@@ -290,8 +301,6 @@ export const claimJob = async (
     await block(tx, job, 'device_offline', 'Waiting for the configured device to connect');
     return null;
   }
-
-  const thread = await findThread(tx, channel.id, job.threadId);
 
   const now = new Date();
   let claimed: Omit<ChannelClaim, 'member'>;

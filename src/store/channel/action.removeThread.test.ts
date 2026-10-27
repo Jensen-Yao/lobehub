@@ -23,6 +23,7 @@ const channel: ChannelListItem = {
   archived: false,
   canDelete: true,
   sequence: 0,
+  status: 'active',
   createdAt: new Date(),
   workspaceId: null,
 };
@@ -30,6 +31,7 @@ const removed: ChannelPublicThread = {
   id: 'removed',
   rootMessageId: 'root',
   rootSequence: 1,
+  status: 'active',
   followerMemberIds: [],
 };
 const kept: ChannelPublicThread = { ...removed, id: 'kept', rootMessageId: 'other-root' };

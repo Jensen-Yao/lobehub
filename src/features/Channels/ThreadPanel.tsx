@@ -1,7 +1,7 @@
 import type { ChannelDetail } from '@lobechat/types';
 import { ActionIcon, Avatar, DropdownMenu, Flexbox, Icon, Text } from '@lobehub/ui';
 import * as stylex from '@stylexjs/stylex';
-import { GitBranch, MoreHorizontal, Trash, X } from 'lucide-react';
+import { GitBranch, MoreHorizontal, X } from 'lucide-react';
 import { Activity, type ComponentProps, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -15,7 +15,7 @@ import { memberAvatar, memberName } from './memberName';
 import { styles } from './styles';
 import { type ChannelThreadDraft, draftThreadFollowerIds } from './threadDraft';
 import { threadTitle } from './threadTitle';
-import { useRemoveThread } from './useRemoveThread';
+import { useThreadMenu } from './useThreadMenu';
 
 /** Below this width the thread floats over the channel instead of sitting beside it. */
 export const THREAD_FLOAT_BREAKPOINT = 760;
@@ -83,7 +83,7 @@ export function ThreadPanel({
   threadId: string | null;
 }) {
   const { t } = useTranslation('channel');
-  const removeThread = useRemoveThread();
+  const threadMenu = useThreadMenu();
   // Keep the last preview/conversation mounted while the panel animates closed.
   const target = threadId || draft;
   const [lastTarget, setLastTarget] = useState(target);
@@ -100,6 +100,8 @@ export function ThreadPanel({
     channelSelectors.detail({ channelId, threadId: lastThreadId }),
   );
   const rootMessageId = threads.find((entry) => entry.id === lastThreadId)?.rootMessageId;
+  const openThread = threadId ? threads.find((entry) => entry.id === threadId) : undefined;
+  const menuItems = openThread ? threadMenu(detail.channel, openThread) : [];
   const title =
     threadTitle(
       (lastTarget && typeof lastTarget !== 'string' ? lastTarget.root : threadView?.rootMessage) ??
@@ -147,28 +149,16 @@ export function ThreadPanel({
             right={
               <Flexbox horizontal align="center" gap={8}>
                 {lastTarget && <ThreadFollowers detail={detail} target={lastTarget} />}
-                {threadId &&
-                  detail.channel.canDelete &&
-                  threads.some((thread) => thread.id === threadId) && (
-                    <DropdownMenu
-                      items={[
-                        {
-                          danger: true,
-                          icon: Trash,
-                          key: 'deleteThread',
-                          label: t('deleteThread'),
-                          onClick: () => removeThread(detail.channel, threadId),
-                        },
-                      ]}
-                    >
-                      <ActionIcon
-                        aria-label={t('more', { ns: 'common' })}
-                        icon={MoreHorizontal}
-                        size="small"
-                        title={t('more', { ns: 'common' })}
-                      />
-                    </DropdownMenu>
-                  )}
+                {menuItems.length > 0 && (
+                  <DropdownMenu items={menuItems}>
+                    <ActionIcon
+                      aria-label={t('more', { ns: 'common' })}
+                      icon={MoreHorizontal}
+                      size="small"
+                      title={t('more', { ns: 'common' })}
+                    />
+                  </DropdownMenu>
+                )}
                 <ActionIcon
                   aria-label={t('closeThread')}
                   icon={X}

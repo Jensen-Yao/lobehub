@@ -17,6 +17,12 @@ export interface ChannelViewParams {
 }
 
 class ChannelService {
+  archive = (channelId: string) => lambdaClient.channel.archive.mutate({ channelId });
+  unarchive = (channelId: string) => lambdaClient.channel.unarchive.mutate({ channelId });
+  archiveThread = (channelId: string, threadId: string) =>
+    lambdaClient.channel.archiveThread.mutate({ channelId, threadId });
+  unarchiveThread = (channelId: string, threadId: string) =>
+    lambdaClient.channel.unarchiveThread.mutate({ channelId, threadId });
   agentEnvironment = async (channelId: string, memberId: string) =>
     (await lambdaClient.channel.agentEnvironment.query({ channelId, memberId })).data;
   updateAgentEnvironment = (

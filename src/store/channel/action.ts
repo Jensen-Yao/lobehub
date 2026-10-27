@@ -1,3 +1,5 @@
+import type { ChannelPublicThread, ChannelStatus, ChannelThreadStatus } from '@lobechat/types';
+
 import { cacheScope } from '@/libs/replica';
 import { mutate, useClientDataSWR } from '@/libs/swr';
 import { channelKeys } from '@/libs/swr/keys';
@@ -79,6 +81,37 @@ class ChannelActionImpl {
       for (const token of tokens) token.rollback();
       throw error;
     }
+  };
+  /**
+   * Archive keeps the channel readable but closes it; the sidebar and the open view switch
+   * before the server confirms, and a failure switches them back.
+   */
+  setArchived = async (channelId: string, archived: boolean) => {
+    const status: ChannelStatus = archived ? 'archived' : 'active';
+    await this.#private.entity.optimistic(
+      channelId,
+      (channel) => ({ ...channel, status }),
+      () => (archived ? channelService.archive(channelId) : channelService.unarchive(channelId)),
+    );
+    // Archiving stopped every reply in progress.
+    if (archived) await this.#refreshAfterWrite(() => this.refreshDetail({ channelId }));
+  };
+  setThreadArchived = async (channelId: string, threadId: string, archived: boolean) => {
+    const status: ChannelThreadStatus = archived ? 'archived' : 'active';
+    const tokens = this.#private.detail.beginEntityOptimistic<ChannelPublicThread>(
+      channelThreadEntityId(channelId, threadId),
+      (thread) => ({ ...thread, status }),
+    );
+    try {
+      await (archived
+        ? channelService.archiveThread(channelId, threadId)
+        : channelService.unarchiveThread(channelId, threadId));
+      for (const token of tokens) token.commit();
+    } catch (error) {
+      for (const token of tokens) token.rollback();
+      throw error;
+    }
+    if (archived) await this.#refreshAfterWrite(() => this.refreshDetail({ channelId, threadId }));
   };
   /** Threads restored from the recycle bin; call before revalidating their views. */
   forgetThreadRemovals = (threadIds: string[]) => this.#private.forgetThreadRemovals(threadIds);

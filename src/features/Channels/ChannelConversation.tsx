@@ -11,6 +11,7 @@ import WideScreenContainer from '@/features/WideScreenContainer';
 import { channelService } from '@/services/channel';
 import { channelActions, channelSelectors, useChannelStore } from '@/store/channel';
 
+import { ArchivedNotice } from './ArchivedNotice';
 import { visibleChannelDetail } from './channelAccess';
 import { ChannelMessage, ThreadRootMessage } from './ChannelMessage';
 import { Composer } from './Composer';
@@ -75,10 +76,10 @@ const Timeline = ({
   };
 
   const activeMembers = detail?.members.filter((member) => member.status === 'active') ?? [];
+  const thread = threadId ? detail?.threads.find((entry) => entry.id === threadId) : undefined;
+  const channelArchived = detail?.channel.status === 'archived';
   // Unmentioned messages go to every Agent on the main conversation, to followers in a Thread.
-  const followerIds = threadId
-    ? (detail?.threads.find((entry) => entry.id === threadId)?.followerMemberIds ?? [])
-    : undefined;
+  const followerIds = threadId ? (thread?.followerMemberIds ?? []) : undefined;
   const defaultRecipientIds = activeMembers
     .filter((member) => member.actorType === 'agent')
     .filter((member) => !followerIds || followerIds.includes(member.id))
@@ -171,7 +172,7 @@ const Timeline = ({
                       message={item.message}
                       threadId={threadId}
                       onOpenThread={onOpenThread}
-                      onStartThread={onStartThread}
+                      onStartThread={channelArchived ? undefined : onStartThread}
                     />
                   ),
                 )}
@@ -182,29 +183,33 @@ const Timeline = ({
                 <AsyncError error={actionError} variant="inline" />
               </WideScreenContainer>
             )}
-            <Composer
-              activity={<ReplyActivity detail={detail} threadId={threadId} />}
-              defaultRecipientIds={defaultRecipientIds}
-              draftKey={channelDraftKey(channelId, threadId)}
-              inThread={!!threadId}
-              key={channelDraftKey(channelId, threadId)}
-              members={activeMembers}
-              placeholder={t(threadId ? 'threadComposer' : 'composer')}
-              stoppable={stoppable}
-              onStop={() => void stop()}
-              onSend={async (content, mentions, requestKey, fileIds) => {
-                followLatest.current = true;
-                await channelActions.send({
-                  channelId,
-                  content,
-                  fileIds,
-                  mentions,
-                  requestKey,
-                  threadId,
-                });
-                setBefore(undefined);
-              }}
-            />
+            {channelArchived || thread?.status === 'archived' ? (
+              <ArchivedNotice channel={detail.channel} threadId={threadId} />
+            ) : (
+              <Composer
+                activity={<ReplyActivity detail={detail} threadId={threadId} />}
+                defaultRecipientIds={defaultRecipientIds}
+                draftKey={channelDraftKey(channelId, threadId)}
+                inThread={!!threadId}
+                key={channelDraftKey(channelId, threadId)}
+                members={activeMembers}
+                placeholder={t(threadId ? 'threadComposer' : 'composer')}
+                stoppable={stoppable}
+                onStop={() => void stop()}
+                onSend={async (content, mentions, requestKey, fileIds) => {
+                  followLatest.current = true;
+                  await channelActions.send({
+                    channelId,
+                    content,
+                    fileIds,
+                    mentions,
+                    requestKey,
+                    threadId,
+                  });
+                  setBefore(undefined);
+                }}
+              />
+            )}
           </>
         )}
       </AsyncBoundary>

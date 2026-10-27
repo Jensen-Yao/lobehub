@@ -1,4 +1,4 @@
-import { Center, Flexbox, Spin, Text } from '@lobehub/ui';
+import { Center, Flexbox, Spin, Tag, Text } from '@lobehub/ui';
 import * as stylex from '@stylexjs/stylex';
 import { useSize } from 'ahooks';
 import { Hash } from 'lucide-react';
@@ -42,6 +42,7 @@ function EnabledChannelPage() {
             <Text ellipsis weight={500}>
               {detail?.channel.title || t('title')}
             </Text>
+            {detail?.channel.status === 'archived' && <Tag size="small">{t('archived')}</Tag>}
           </Flexbox>
         }
       />

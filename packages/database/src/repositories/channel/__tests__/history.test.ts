@@ -7,6 +7,7 @@ import {
   agentOperations,
   channelJobs,
   channelMembers,
+  channels,
   channelThreads,
   messages,
   workspaceMembers,
@@ -179,49 +180,65 @@ describe('Channel on-demand history', () => {
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
-  it.each(['requester', 'agent', 'workspace', 'revoked', 'terminal', 'thread'])(
-    'rechecks %s authority on every read',
-    async (change) => {
-      const state = await setup();
-      const root = await state.say('Root');
-      const [thread] = await db
-        .insert(channelThreads)
-        .values({
-          channelId: state.channel.id,
-          rootMessageId: root.id,
-          rootSequence: root.sequence,
-        })
-        .returning();
-      const { operationId, claim } = await state.run(thread.id);
-      await expect(state.history.readMessages(operationId)).resolves.toBeDefined();
-      if (change === 'requester' || change === 'agent')
-        await db
-          .update(channelMembers)
-          .set({ status: 'left' })
-          .where(eq(channelMembers.id, change === 'agent' ? state.agent.id : state.member.id));
-      if (change === 'workspace')
-        await db
-          .update(workspaceMembers)
-          .set({ deletedAt: new Date() })
-          .where(eq(workspaceMembers.userId, fixture.memberId));
-      if (change === 'revoked')
-        await db
-          .update(channelJobs)
-          .set({ publicationRevoked: true })
-          .where(eq(channelJobs.id, claim.job.id));
-      if (change === 'terminal')
-        await db
-          .update(agentOperations)
-          .set({ status: 'done' })
-          .where(eq(agentOperations.id, operationId));
-      if (change === 'thread')
-        await db
-          .update(channelThreads)
-          .set({ deletedAt: new Date(), isDeleted: true })
-          .where(eq(channelThreads.id, thread.id));
-      await expect(state.history.readMessages(operationId)).rejects.toThrow();
-    },
-  );
+  it.each([
+    'requester',
+    'agent',
+    'workspace',
+    'revoked',
+    'terminal',
+    'thread',
+    'archived channel',
+    'archived thread',
+  ])('rechecks %s authority on every read', async (change) => {
+    const state = await setup();
+    const root = await state.say('Root');
+    const [thread] = await db
+      .insert(channelThreads)
+      .values({
+        channelId: state.channel.id,
+        rootMessageId: root.id,
+        rootSequence: root.sequence,
+      })
+      .returning();
+    const { operationId, claim } = await state.run(thread.id);
+    await expect(state.history.readMessages(operationId)).resolves.toBeDefined();
+    if (change === 'requester' || change === 'agent')
+      await db
+        .update(channelMembers)
+        .set({ status: 'left' })
+        .where(eq(channelMembers.id, change === 'agent' ? state.agent.id : state.member.id));
+    if (change === 'workspace')
+      await db
+        .update(workspaceMembers)
+        .set({ deletedAt: new Date() })
+        .where(eq(workspaceMembers.userId, fixture.memberId));
+    if (change === 'revoked')
+      await db
+        .update(channelJobs)
+        .set({ publicationRevoked: true })
+        .where(eq(channelJobs.id, claim.job.id));
+    if (change === 'terminal')
+      await db
+        .update(agentOperations)
+        .set({ status: 'done' })
+        .where(eq(agentOperations.id, operationId));
+    if (change === 'thread')
+      await db
+        .update(channelThreads)
+        .set({ deletedAt: new Date(), isDeleted: true })
+        .where(eq(channelThreads.id, thread.id));
+    if (change === 'archived channel')
+      await db
+        .update(channels)
+        .set({ status: 'archived' })
+        .where(eq(channels.id, state.channel.id));
+    if (change === 'archived thread')
+      await db
+        .update(channelThreads)
+        .set({ status: 'archived' })
+        .where(eq(channelThreads.id, thread.id));
+    await expect(state.history.readMessages(operationId)).rejects.toThrow();
+  });
 
   it.each([{ limit: 0 }, { limit: 21 }, { limit: 1.5 }, { beforeSequence: -1 }])(
     'rejects invalid paging %j',

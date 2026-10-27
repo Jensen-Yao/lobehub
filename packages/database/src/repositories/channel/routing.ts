@@ -5,7 +5,7 @@ import type { ChannelMessageItem } from '../../schemas';
 import { channelMembers, channelMessages, channelThreads } from '../../schemas';
 import type { Transaction } from '../../type';
 import { notTrashed } from '../../utils/softDelete';
-import { candidateAgents, deliver, findThread } from './delivery';
+import { assertThreadOpen, candidateAgents, deliver, findThread } from './delivery';
 import { ChannelError } from './error';
 import { audit } from './transaction';
 
@@ -114,7 +114,7 @@ export const retryRouting = async (
   messageId: string,
 ): Promise<ChannelMessageItem> => {
   const message = await findMessage(tx, channelId, messageId);
-  await findThread(tx, channelId, message.threadId);
+  assertThreadOpen(await findThread(tx, channelId, message.threadId));
   if (message.routingStatus !== 'unassigned')
     throw new ChannelError('CONFLICT', 'Only an unassigned message can be routed again');
 

@@ -40,6 +40,16 @@ export const channelRouter = router({
       data: await ctx.channelService.repository.userCandidates(input.channelId, input.search),
       success: true,
     })),
+  archive: channelProcedure.input(z.object({ channelId })).mutation(async ({ ctx, input }) => {
+    await ctx.channelService.archive(input.channelId);
+    return { success: true };
+  }),
+  archiveThread: channelProcedure
+    .input(z.object({ channelId, threadId }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.channelService.archiveThread(input.channelId, input.threadId);
+      return { success: true };
+    }),
   addAgent: channelProcedure
     .input(z.object({ channelId, agent: agentSelection }))
     .mutation(async ({ ctx, input }) => ({
@@ -158,6 +168,16 @@ export const channelRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       await ctx.channelService.stop(input.channelId, input.scope);
+      return { success: true };
+    }),
+  unarchive: channelProcedure.input(z.object({ channelId })).mutation(async ({ ctx, input }) => {
+    await ctx.channelService.unarchive(input.channelId);
+    return { success: true };
+  }),
+  unarchiveThread: channelProcedure
+    .input(z.object({ channelId, threadId }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.channelService.unarchiveThread(input.channelId, input.threadId);
       return { success: true };
     }),
 });

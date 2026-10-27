@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { createStore, Provider } from '@/features/Conversation/store';
 import WideScreenContainer from '@/features/WideScreenContainer';
 
+import { ArchivedNotice } from './ArchivedNotice';
 import { ThreadRootMessage } from './ChannelMessage';
 import { Composer } from './Composer';
 import { styles } from './styles';
@@ -44,14 +45,19 @@ export function DraftThreadConversation({
             <p {...stylex.props(styles.muted)}>{t('threadEmpty')}</p>
           </WideScreenContainer>
         </Flexbox>
-        <Composer
-          inThread
-          defaultRecipientIds={draftThreadFollowerIds(draft.root, detail.members)}
-          draftKey={channelDraftKey(detail.channel.id, `draft:${draft.root.id}`)}
-          members={detail.members.filter((member) => member.status === 'active')}
-          placeholder={t('threadComposer')}
-          onSend={onSend}
-        />
+        {/* The channel can be archived while this preview is open. */}
+        {detail.channel.status === 'archived' ? (
+          <ArchivedNotice channel={detail.channel} threadId={null} />
+        ) : (
+          <Composer
+            inThread
+            defaultRecipientIds={draftThreadFollowerIds(draft.root, detail.members)}
+            draftKey={channelDraftKey(detail.channel.id, `draft:${draft.root.id}`)}
+            members={detail.members.filter((member) => member.status === 'active')}
+            placeholder={t('threadComposer')}
+            onSend={onSend}
+          />
+        )}
       </Flexbox>
     </Provider>
   );

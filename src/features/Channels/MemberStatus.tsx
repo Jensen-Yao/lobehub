@@ -53,6 +53,8 @@ export function MemberStatus({ detail }: { detail: ChannelDetail }) {
   const [open, setOpen] = useState(false);
   const popoverKey = useCloseOnNavigate(open, () => setOpen(false));
   const { channel, jobs = [], members: allMembers = [] } = detail;
+  // An archived channel is read-only: no new members or environment changes until reopened.
+  const manageable = channel.canDelete && channel.status !== 'archived';
   const entries: MemberEntry[] = getVisibleStatusMembers(allMembers, channel.workspaceId).map(
     (member) => {
       const job = member.actorType === 'agent' ? memberCurrentJob(jobs, member.id) : undefined;
@@ -93,7 +95,7 @@ export function MemberStatus({ detail }: { detail: ChannelDetail }) {
                     <span {...stylex.props(styles.muted)}>{t('person')}</span>
                   )}
                 </Flexbox>
-                {entry.member.agentId && entry.member.status === 'active' && channel.canDelete && (
+                {entry.member.agentId && entry.member.status === 'active' && manageable && (
                   <ActionIcon
                     aria-label={t('environment.editNamed', { name: entry.name })}
                     icon={FolderCog}
@@ -132,7 +134,7 @@ export function MemberStatus({ detail }: { detail: ChannelDetail }) {
           {overflow > 0 && <span {...stylex.props(styles.muted)}>+{overflow}</span>}
         </Button>
       </Popover>
-      {channel.canDelete && (
+      {manageable && (
         <ActionIcon
           aria-label={t('invite.title')}
           icon={UserPlus}

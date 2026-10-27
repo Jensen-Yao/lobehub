@@ -17,6 +17,7 @@ const channel: ChannelListItem = {
   createdAt: new Date(),
   id: 'chn_000000000001',
   sequence: 0,
+  status: 'active',
   title: 'Old name',
   workspaceId: null,
 };

@@ -8,6 +8,7 @@ import {
   channelAudit,
   channelMembers,
   channelMessages,
+  channels,
   channelThreads,
   workspaceMembers,
 } from '../../../schemas';
@@ -61,6 +62,42 @@ describe('Channel routing input and lease', () => {
     expect(await execution.resolveRouting(channel.id, message.id, 1, decision)).toBe(false);
     expect(await jobsOf(db, message.id)).toHaveLength(1);
     expect(await routing.pending(channel.id)).toEqual([]);
+  });
+
+  it('sends nothing to the model once the channel or the thread is archived', async () => {
+    const { asMember, channel, coder, message } = await prepare();
+    await db.update(channels).set({ status: 'archived' }).where(eq(channels.id, channel.id));
+    expect(await routing.claim(channel.id, message.id)).toBeNull();
+    await db.update(channels).set({ status: 'active' }).where(eq(channels.id, channel.id));
+
+    await execution.resolveRouting(channel.id, message.id, 1, {
+      reason: 'Nobody',
+      status: 'unassigned',
+    });
+    const thread = await asMember.createThread(channel.id, {
+      followerMemberIds: [coder.id],
+      rootMessageId: message.id,
+    });
+    const reply = await asMember.send(channel.id, {
+      content: 'Follow-up',
+      requestKey: 'thread-request',
+      routing: 'jev',
+      threadId: thread.id,
+    });
+    expect(reply.routingStatus).toBe('pending');
+    await db
+      .update(channelThreads)
+      .set({ status: 'archived' })
+      .where(eq(channelThreads.id, thread.id));
+    expect(await routing.claim(channel.id, reply.id)).toBeNull();
+    const [settled] = await db
+      .select()
+      .from(channelMessages)
+      .where(eq(channelMessages.id, reply.id));
+    expect(settled).toMatchObject({
+      routingReason: 'The thread is archived',
+      routingStatus: 'unassigned',
+    });
   });
 
   it('recovers expired leases with a new fencing token and discards late answers', async () => {

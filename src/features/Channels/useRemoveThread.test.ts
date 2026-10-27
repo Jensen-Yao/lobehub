@@ -30,6 +30,7 @@ const channel: ChannelListItem = {
   archived: false,
   canDelete: true,
   sequence: 0,
+  status: 'active',
   createdAt: new Date(),
   workspaceId: null,
 };

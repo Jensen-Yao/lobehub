@@ -15,7 +15,18 @@ import {
   Text,
   toast,
 } from '@lobehub/ui';
-import { Copy, GitBranch, Hash, MoreHorizontal, PencilLine, Plus, Trash } from 'lucide-react';
+import {
+  Archive,
+  ArchiveRestore,
+  Copy,
+  GitBranch,
+  Hash,
+  MoreHorizontal,
+  PencilLine,
+  Plus,
+  Trash,
+} from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useActiveWorkspaceSlug } from '@/business/client/hooks/useActiveWorkspaceSlug';
@@ -35,9 +46,10 @@ import { isTrpcErrorCode } from '@/utils/trpcError';
 import { openCreateChannel } from './CreateChannel';
 import { channelPath, matchChannel } from './paths';
 import { threadTitle } from './threadTitle';
+import { useChannelArchive } from './useChannelArchive';
 import { useChannelEvents } from './useChannelEvents';
 import { useRemoveChannel } from './useRemoveChannel';
-import { useRemoveThread } from './useRemoveThread';
+import { useThreadMenu } from './useThreadMenu';
 
 const ChannelThreads = ({
   channelId,
@@ -49,7 +61,7 @@ const ChannelThreads = ({
   const { t } = useTranslation('channel');
   const navigate = useWorkspaceAwareNavigate();
   const slug = useActiveWorkspaceSlug();
-  const removeThread = useRemoveThread();
+  const threadMenu = useThreadMenu();
   // The open Channel's page already loads this view; the sidebar only reads it.
   const detail = useChannelStore(channelSelectors.detail({ channelId, threadId: null }));
   if (!detail?.threads.length) return null;
@@ -59,17 +71,9 @@ const ChannelThreads = ({
       {detail.threads.map((thread, index) => {
         const path = channelPath(channelId, thread.id);
         const active = thread.id === threadId;
-        const items = detail.channel.canDelete
-          ? [
-              {
-                danger: true,
-                icon: Trash,
-                key: 'deleteThread',
-                label: t('deleteThread'),
-                onClick: () => removeThread(detail.channel, thread.id),
-              },
-            ]
-          : [];
+        // Archived threads stay reachable from their root message, out of the sidebar.
+        if (thread.status === 'archived' && !active) return null;
+        const items = threadMenu(detail.channel, thread);
         return (
           <NavItem
             active={active}
@@ -115,6 +119,8 @@ const EnabledChannelList = () => {
   useChannelEvents();
 
   const remove = useRemoveChannel();
+  const { archive, unarchive } = useChannelArchive();
+  const [showArchived, setShowArchived] = useState(false);
   const activeChannelId = matchChannel(pathname);
   const create = () => openCreateChannel((id) => navigate(channelPath(id)));
   const activeThreadId = new URLSearchParams(search).get('thread');
@@ -134,7 +140,7 @@ const EnabledChannelList = () => {
       },
     });
   const menuItems = (channel: ChannelListItem) => [
-    ...(channel.canDelete
+    ...(channel.canDelete && channel.status !== 'archived'
       ? [{ icon: PencilLine, key: 'rename', label: t('rename'), onClick: () => rename(channel) }]
       : []),
     {
@@ -153,6 +159,19 @@ const EnabledChannelList = () => {
     },
     ...(channel.canDelete
       ? [
+          channel.status === 'archived'
+            ? {
+                icon: ArchiveRestore,
+                key: 'unarchive',
+                label: t('unarchive'),
+                onClick: () => void unarchive(channel.id),
+              }
+            : {
+                icon: Archive,
+                key: 'archive',
+                label: t('archive'),
+                onClick: () => archive(channel),
+              },
           { type: 'divider' as const },
           {
             danger: true,
@@ -164,6 +183,37 @@ const EnabledChannelList = () => {
         ]
       : []),
   ];
+
+  const renderChannel = (channel: ChannelListItem) => {
+    const path = channelPath(channel.id);
+    const open = activeChannelId === channel.id;
+    return (
+      <Flexbox key={channel.id}>
+        <NavItem
+          active={open && !activeThreadId}
+          aria-current={open && !activeThreadId ? 'page' : undefined}
+          contextMenuItems={() => menuItems(channel)}
+          data-channel-id={channel.id}
+          href={buildWorkspaceAwarePath(path, slug)}
+          icon={Hash}
+          title={channel.title}
+          actions={() => (
+            <DropdownMenu items={menuItems(channel)}>
+              <ActionIcon icon={MoreHorizontal} size="small" title={t('more', { ns: 'common' })} />
+            </DropdownMenu>
+          )}
+          onClick={() => navigate(path)}
+        />
+        {open && <ChannelThreads channelId={channel.id} threadId={activeThreadId} />}
+      </Flexbox>
+    );
+  };
+  // Archived channels leave the active list but stay one click away; an open one stays visible.
+  const active = channels?.filter((channel) => channel.status !== 'archived') ?? [];
+  const archived = channels?.filter((channel) => channel.status === 'archived') ?? [];
+  const shownArchived = showArchived
+    ? archived
+    : archived.filter((channel) => channel.id === activeChannelId);
 
   return (
     <AccordionRoot defaultValue={['channels']} indicatorPlacement="inline">
@@ -206,35 +256,23 @@ const EnabledChannelList = () => {
                 onRetry={() => void channelActions.refreshList()}
               />
             )}
-            {channels?.length === 0 && <EmptyNavItem title={t('create')} onClick={create} />}
-            {channels?.map((channel) => {
-              const path = channelPath(channel.id);
-              const open = activeChannelId === channel.id;
-              return (
-                <Flexbox key={channel.id}>
-                  <NavItem
-                    active={open && !activeThreadId}
-                    aria-current={open && !activeThreadId ? 'page' : undefined}
-                    contextMenuItems={() => menuItems(channel)}
-                    data-channel-id={channel.id}
-                    href={buildWorkspaceAwarePath(path, slug)}
-                    icon={Hash}
-                    title={channel.title}
-                    actions={() => (
-                      <DropdownMenu items={menuItems(channel)}>
-                        <ActionIcon
-                          icon={MoreHorizontal}
-                          size="small"
-                          title={t('more', { ns: 'common' })}
-                        />
-                      </DropdownMenu>
-                    )}
-                    onClick={() => navigate(path)}
-                  />
-                  {open && <ChannelThreads channelId={channel.id} threadId={activeThreadId} />}
-                </Flexbox>
-              );
-            })}
+            {channels && !active.length && <EmptyNavItem title={t('create')} onClick={create} />}
+            {active.map(renderChannel)}
+            {archived.length > 0 && (
+              <>
+                <NavItem
+                  aria-expanded={showArchived}
+                  icon={Archive}
+                  title={t('archivedGroup', { count: archived.length })}
+                  onClick={() => setShowArchived(!showArchived)}
+                />
+                {shownArchived.length > 0 && (
+                  <Flexbox gap={1} style={{ paddingInlineStart: 12 }}>
+                    {shownArchived.map(renderChannel)}
+                  </Flexbox>
+                )}
+              </>
+            )}
           </Flexbox>
         </AccordionPanel>
       </AccordionItem>

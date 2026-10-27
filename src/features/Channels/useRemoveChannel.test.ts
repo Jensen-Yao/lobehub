@@ -34,6 +34,7 @@ const channel: ChannelListItem = {
   createdAt: new Date(),
   id: 'chn_abcdefghijkl',
   sequence: 0,
+  status: 'active',
   title: 'Important channel',
   workspaceId: null,
 };

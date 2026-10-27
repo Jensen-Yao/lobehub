@@ -152,4 +152,21 @@ export default {
   'moveToTrashConfirm':
     'Move “{{title}}” to trash? Replies will stop. You can restore the channel and its history from Trash. Agents and files will be kept.',
   'moveToTrashSuccess': 'Channel moved to trash',
+  'archive': 'Archive channel',
+  'archiveConfirm':
+    'Archive “{{title}}”? Replies in progress will stop and the channel will take no new messages. Members can still read its history, and an owner or administrator can unarchive it at any time.',
+  'archiveForbidden': 'Only the channel owner or an administrator can archive or unarchive.',
+  'archiveSuccess': 'Channel archived',
+  'archiveThread': 'Archive thread',
+  'archiveThreadSuccess': 'Thread archived',
+  'archived': 'Archived',
+  'archivedGroup': 'Archived · {{count}}',
+  'archivedNotice':
+    'This channel is archived. Its history stays readable, but it takes no new messages.',
+  'threadArchivedNotice':
+    'This thread is archived. Its replies stay readable, but it takes no new messages.',
+  'unarchive': 'Unarchive channel',
+  'unarchiveSuccess': 'Channel unarchived',
+  'unarchiveThread': 'Unarchive thread',
+  'unarchiveThreadSuccess': 'Thread unarchived',
 };

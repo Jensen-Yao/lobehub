@@ -217,6 +217,7 @@ export interface ChannelListItem {
   createdAt: Date;
   id: string;
   sequence: number;
+  status: ChannelStatus;
   title: string;
   workspaceId: string | null;
 }
@@ -278,6 +279,7 @@ export interface ChannelPublicThread {
   id: string;
   rootMessageId: string;
   rootSequence: number;
+  status: ChannelThreadStatus;
 }
 
 export interface ChannelDetail {

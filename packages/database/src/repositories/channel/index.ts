@@ -20,6 +20,7 @@ import {
   requireAgentMember,
   requireChannelAgent,
 } from './agent';
+import { findThread } from './delivery';
 import { ChannelError } from './error';
 import { addChannelUser, channelUserCandidates } from './people';
 import { retryRouting } from './routing';
@@ -215,7 +216,7 @@ export class ChannelRepository {
           })),
         };
       },
-      { allowTrashed: true },
+      { allowArchived: true, allowTrashed: true },
     );
 
   createThread = async (channelId: string, input: Parameters<typeof createChannelThread>[2]) =>
@@ -235,10 +236,13 @@ export class ChannelRepository {
           .where(eq(channelMembers.id, member.id));
         return lastReadSequence;
       },
-      { allowTrashed: true },
+      { allowArchived: true, allowTrashed: true },
     );
 
-  /** Active channels the caller belongs to in the current scope, newest first. */
+  /**
+   * Channels the caller belongs to in the current scope, newest first. Archived ones are
+   * included with their `status`, so they stay readable outside the active list.
+   */
   list = async (): Promise<Array<ChannelItem & { canDelete: boolean }>> => {
     const rows = await this.db
       .select({ channel: channels, role: channelMembers.role })
@@ -289,6 +293,8 @@ export class ChannelRepository {
         throw new ChannelError('FORBIDDEN', `Requires the ${minRole} role in this channel`);
       if (access.channel.isDeleted && !options.allowTrashed)
         throw new ChannelError('CONFLICT', 'Channel is in the trash');
+      if (access.channel.status === 'archived' && !options.allowArchived)
+        throw new ChannelError('CONFLICT', 'Channel is archived');
 
       return fn(tx, access);
     });
@@ -322,7 +328,71 @@ export class ChannelRepository {
           'threadId' in scope && !admin ? { memberId: member.id, userId: this.userId } : undefined,
         );
       },
-      { allowTrashed: true },
+      { allowArchived: true, allowTrashed: true },
+    );
+
+  /**
+   * Archive: keep the channel for good, readable but closed to messages and Agent work. Stops
+   * everything in it like a deletion and keeps receipts until the coordinator confirms exit.
+   */
+  archive = async (channelId: string): Promise<ChannelJobItem[]> =>
+    this.write(
+      channelId,
+      async (tx, { channel }) => {
+        const writers = await stopScope(tx, channelId, { all: true });
+        if (channel.status !== 'archived') {
+          await tx.update(channels).set({ status: 'archived' }).where(eq(channels.id, channelId));
+          await audit(tx, channelId, 'archived', channelId);
+        }
+        return writers;
+      },
+      { allowArchived: true, minRole: 'admin' },
+    );
+
+  /** Reopens an archived channel. Work stopped by the archive stays stopped. */
+  unarchive = async (channelId: string): Promise<void> =>
+    this.write(
+      channelId,
+      async (tx, { channel }) => {
+        if (channel.status === 'active') return;
+        await tx.update(channels).set({ status: 'active' }).where(eq(channels.id, channelId));
+        await audit(tx, channelId, 'unarchived', channelId);
+      },
+      { allowArchived: true, minRole: 'admin' },
+    );
+
+  /** Archive a branch: its history stays readable, but it takes no replies and leaves Agent context. */
+  archiveThread = async (channelId: string, threadId: string): Promise<ChannelJobItem[]> =>
+    this.write(
+      channelId,
+      async (tx) => {
+        const thread = await findThread(tx, channelId, threadId);
+        const writers = await stopScope(tx, channelId, { threadId });
+        if (thread?.status !== 'archived') {
+          await tx
+            .update(channelThreads)
+            .set({ status: 'archived' })
+            .where(eq(channelThreads.id, threadId));
+          await audit(tx, channelId, 'thread_archived', threadId);
+        }
+        return writers;
+      },
+      { minRole: 'admin' },
+    );
+
+  unarchiveThread = async (channelId: string, threadId: string): Promise<void> =>
+    this.write(
+      channelId,
+      async (tx) => {
+        const thread = await findThread(tx, channelId, threadId);
+        if (thread?.status === 'active') return;
+        await tx
+          .update(channelThreads)
+          .set({ status: 'active' })
+          .where(eq(channelThreads.id, threadId));
+        await audit(tx, channelId, 'thread_unarchived', threadId);
+      },
+      { minRole: 'admin' },
     );
 
   /** Soft-delete under the same lock as dispatch/publication; retain receipts until exit. */
@@ -350,7 +420,7 @@ export class ChannelRepository {
         }
         return writers;
       },
-      { allowTrashed: true, minRole: 'admin' },
+      { allowArchived: true, allowTrashed: true, minRole: 'admin' },
     );
 
   /**

@@ -8,7 +8,14 @@ import type { Transaction } from '../../type';
 import { isUuid } from '../../utils/uuid';
 import { buildWorkspaceWhere } from '../../utils/workspace';
 import { attachFiles, fileIdsByMessage } from './attachments';
-import { activeMembers, appendMessage, candidateAgents, deliver, findThread } from './delivery';
+import {
+  activeMembers,
+  appendMessage,
+  assertThreadOpen,
+  candidateAgents,
+  deliver,
+  findThread,
+} from './delivery';
 import { ChannelError } from './error';
 import { audit } from './transaction';
 import type { ChannelAccess } from './types';
@@ -64,9 +71,12 @@ export const sendMessage = async (
   input: ChannelSendInput,
 ): Promise<ChannelMessageItem> => {
   const { fileIds, mentions } = validateSendInput(input);
-  const thread = input.rootMessageId
-    ? await createChannelThread(tx, channel.id, { rootMessageId: input.rootMessageId })
-    : await findThread(tx, channel.id, input.threadId || null);
+  // Reopening an archived branch from its root must not post into it either.
+  const thread = assertThreadOpen(
+    input.rootMessageId
+      ? await createChannelThread(tx, channel.id, { rootMessageId: input.rootMessageId })
+      : await findThread(tx, channel.id, input.threadId || null),
+  );
   const threadId = thread?.id ?? null;
 
   const [existing] = await tx

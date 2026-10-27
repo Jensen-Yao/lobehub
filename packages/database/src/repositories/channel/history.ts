@@ -80,6 +80,7 @@ export class ChannelHistoryRepository {
       const { job, operation } = row;
       if (
         channel.isDeleted ||
+        channel.status === 'archived' ||
         !job.manifest ||
         job.publicationRevoked ||
         job.status !== 'running' ||
@@ -113,7 +114,9 @@ export class ChannelHistoryRepository {
         if (!membership)
           throw new ChannelError('FORBIDDEN', 'Workspace membership is no longer active');
       }
-      await findThread(tx, channel.id, job.manifest.threadId);
+      // An archived branch leaves Agent context even for a run that already started in it.
+      if ((await findThread(tx, channel.id, job.manifest.threadId))?.status === 'archived')
+        throw new ChannelError('CONFLICT', 'Channel operation is no longer active');
       return fn(tx, channel.id, job.manifest);
     });
   }

@@ -55,6 +55,7 @@ const detail = (patch: Partial<ChannelDetail> = {}): ChannelDetail => ({
     createdAt: new Date(),
     id: 'channel',
     sequence: 1,
+    status: 'active',
     title: 'Channel',
     workspaceId: null,
   },

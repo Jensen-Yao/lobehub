@@ -39,9 +39,22 @@ export class ChannelRoutingRepository {
         .select()
         .from(channelMessages)
         .where(and(eq(channelMessages.channelId, channelId), eq(channelMessages.id, messageId)));
-      if (!message || message.routingStatus !== 'pending' || channel.isDeleted) return null;
+      if (
+        !message ||
+        message.routingStatus !== 'pending' ||
+        channel.isDeleted ||
+        channel.status === 'archived'
+      )
+        return null;
 
       const thread = await findThread(tx, channelId, message.threadId);
+      if (thread?.status === 'archived') {
+        await resolveRouting(tx, channelId, messageId, message.routingAttempt, {
+          reason: 'The thread is archived',
+          status: 'unassigned',
+        });
+        return null;
+      }
       if (thread) {
         const [root] = await tx
           .select({ routingStatus: channelMessages.routingStatus })

@@ -160,6 +160,23 @@ export const styles = stylex.create({
     flexShrink: 1,
     minWidth: 0,
   },
+  /** Takes the composer's place while the channel or thread is archived. */
+  archivedNotice: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBlockEnd: 12,
+    paddingBlock: 8,
+    paddingInline: 16,
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: cssVar.colorBorderSecondary,
+    borderRadius: cssVar.borderRadiusLG,
+    fontSize: 13,
+    color: cssVar.colorTextSecondary,
+    backgroundColor: cssVar.colorFillQuaternary,
+  },
   muted: {
     fontSize: 12,
     color: cssVar.colorTextSecondary,

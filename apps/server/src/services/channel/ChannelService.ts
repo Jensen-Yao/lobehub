@@ -157,6 +157,27 @@ export class ChannelService {
     await Promise.all([wakeChannel(channelId), this.changed(channelId)]);
   };
 
+  /** Like `remove`, the coordinator physically stops the runs the archive revoked. */
+  archive = async (channelId: string) => {
+    await this.repository.archive(channelId);
+    await Promise.all([wakeChannel(channelId), this.changed(channelId)]);
+  };
+
+  unarchive = async (channelId: string) => {
+    await this.repository.unarchive(channelId);
+    await this.changed(channelId);
+  };
+
+  archiveThread = async (channelId: string, threadId: string) => {
+    await this.repository.archiveThread(channelId, threadId);
+    await Promise.all([wakeChannel(channelId), this.changed(channelId)]);
+  };
+
+  unarchiveThread = async (channelId: string, threadId: string) => {
+    await this.repository.unarchiveThread(channelId, threadId);
+    await this.changed(channelId);
+  };
+
   removeThread = async (channelId: string, threadId: string) => {
     await this.repository.removeThread(channelId, threadId);
     await Promise.all([wakeChannel(channelId), this.changed(channelId)]);
