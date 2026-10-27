@@ -115,7 +115,7 @@ describe('Channel routing input and lease', () => {
     await db.update(agents).set({ isDeleted: true }).where(eq(agents.id, reviewer.agentId!));
     await db
       .update(channelMembers)
-      .set({ active: false })
+      .set({ status: 'left' })
       .where(eq(channelMembers.id, inactive.id));
     expect((await routing.claim(channel.id, message.id))?.candidates).toEqual([]);
   });
@@ -127,7 +127,7 @@ describe('Channel routing input and lease', () => {
       if (scope === 'channel')
         await db
           .update(channelMembers)
-          .set({ active: false })
+          .set({ status: 'left' })
           .where(eq(channelMembers.id, member.id));
       else
         await db

@@ -90,7 +90,7 @@ export class ChannelRoutingRepository {
                 eq(channelMembers.channelId, channelId),
                 eq(channelMembers.userId, message.userId),
                 eq(channelMembers.actorType, 'user'),
-                eq(channelMembers.active, true),
+                eq(channelMembers.status, 'active'),
               ),
             )
         : [];
@@ -131,7 +131,7 @@ export class ChannelRoutingRepository {
           and(
             eq(channelMembers.channelId, channelId),
             eq(channelMembers.actorType, 'agent'),
-            eq(channelMembers.active, true),
+            eq(channelMembers.status, 'active'),
             thread ? inArray(channelMembers.id, thread.followerMemberIds) : undefined,
             buildWorkspaceWhere(
               { userId: message.userId, workspaceId: channel.workspaceId ?? undefined },

@@ -219,7 +219,7 @@ export const createChannelThread = async (
           .where(
             and(
               eq(channelMembers.channelId, channelId),
-              eq(channelMembers.active, true),
+              eq(channelMembers.status, 'active'),
               inArray(channelMembers.id, root.recipientMemberIds),
             ),
           )
@@ -235,7 +235,7 @@ export const createChannelThread = async (
             eq(channelMembers.channelId, channelId),
             eq(channelMembers.agentId, root.agentId),
             eq(channelMembers.actorType, 'agent'),
-            eq(channelMembers.active, true),
+            eq(channelMembers.status, 'active'),
           ),
         )
     : [];

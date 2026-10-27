@@ -73,7 +73,7 @@ describe('Channel soft deletion', () => {
     await expect(asMember.remove(channel.id)).rejects.toMatchObject({ code: 'FORBIDDEN' });
     await db
       .update(channelMembers)
-      .set({ active: false, role: 'admin' })
+      .set({ role: 'admin', status: 'removed' })
       .where(eq(channelMembers.id, member.id));
     await expect(asMember.remove(channel.id)).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });

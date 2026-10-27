@@ -31,7 +31,7 @@ describe('Channel human membership', () => {
       expect.objectContaining({ userId: fixture.memberId, username: 'mia' }),
     ]);
     const added = await owner.addUser(channel.id, fixture.memberId);
-    expect(added).toMatchObject({ active: true, role: 'member', userId: fixture.memberId });
+    expect(added).toMatchObject({ role: 'member', status: 'active', userId: fixture.memberId });
     expect((await owner.addUser(channel.id, fixture.memberId)).id).toBe(added.id);
     expect(await owner.userCandidates(channel.id)).toEqual([]);
     const member = new ChannelRepository(db, fixture.memberId, fixture.workspaceId);
@@ -101,12 +101,12 @@ describe('Channel human membership', () => {
     const previous = await fixture.addPerson(channel.id, fixture.memberId, 'admin');
     await db
       .update(channelMembers)
-      .set({ active: false })
+      .set({ status: 'left' })
       .where(eq(channelMembers.id, previous.id));
     expect(await owner.addUser(channel.id, fixture.memberId)).toMatchObject({
       id: previous.id,
-      active: true,
       role: 'member',
+      status: 'active',
     });
   });
 

@@ -74,7 +74,7 @@ export const addAgentMember = async (
       and(
         eq(channelMembers.channelId, channel.id),
         eq(channelMembers.agentId, input.agentId),
-        eq(channelMembers.active, true),
+        eq(channelMembers.status, 'active'),
       ),
     )
     .limit(1);
@@ -103,7 +103,7 @@ export const requireAgentMember = async (tx: Transaction, channelId: string, mem
         eq(channelMembers.channelId, channelId),
         eq(channelMembers.id, memberId),
         eq(channelMembers.actorType, 'agent'),
-        eq(channelMembers.active, true),
+        eq(channelMembers.status, 'active'),
       ),
     )
     .limit(1);

@@ -4,11 +4,11 @@ import { describe, expect, it } from 'vitest';
 import { draftThreadFollowerIds } from './threadDraft';
 
 const members = [
-  { id: 'author', actorType: 'agent', agentId: 'agent', active: true },
-  { id: 'recipient', actorType: 'agent', agentId: 'other-agent', active: true },
-  { id: 'inactive', actorType: 'agent', agentId: 'agent', active: false },
-  { id: 'unrelated', actorType: 'agent', agentId: 'third-agent', active: true },
-  { id: 'person', actorType: 'user', userId: 'user', active: true },
+  { id: 'author', actorType: 'agent', agentId: 'agent', status: 'active' },
+  { id: 'recipient', actorType: 'agent', agentId: 'other-agent', status: 'active' },
+  { id: 'inactive', actorType: 'agent', agentId: 'agent', status: 'left' },
+  { id: 'unrelated', actorType: 'agent', agentId: 'third-agent', status: 'active' },
+  { id: 'person', actorType: 'user', userId: 'user', status: 'active' },
 ] as ChannelPublicMember[];
 const root = (author: ChannelPublicMessage['author'], recipientMemberIds: string[]) =>
   ({ author, recipientMemberIds }) as ChannelPublicMessage;

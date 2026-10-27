@@ -222,7 +222,6 @@ export interface ChannelListItem {
 }
 
 export interface ChannelPublicMember {
-  active: boolean;
   actorType: ChannelMemberActorType;
   agentId: string | null;
   avatar: string | null;
@@ -231,6 +230,7 @@ export interface ChannelPublicMember {
   joinedAt: Date;
   name: string | null;
   role: ChannelMemberRole | null;
+  status: ChannelMemberStatus;
   userAvatar: string | null;
   userId: string | null;
   userName: string | null;

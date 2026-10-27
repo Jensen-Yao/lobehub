@@ -126,7 +126,7 @@ describe('First thread reply transaction', () => {
 
   it('does not restore an inactive recipient when deriving followers from the root', async () => {
     const { asOwner, author, channel, input, root } = await setup();
-    await db.update(channelMembers).set({ active: false }).where(eq(channelMembers.id, author.id));
+    await db.update(channelMembers).set({ status: 'left' }).where(eq(channelMembers.id, author.id));
     const message = await asOwner.send(channel.id, { ...input, rootMessageId: root.id });
     expect((await threads(channel.id))[0].followerMemberIds).toEqual([]);
     expect(await jobsOf(db, message.id)).toEqual([]);

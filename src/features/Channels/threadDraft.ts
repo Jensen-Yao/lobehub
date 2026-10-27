@@ -14,7 +14,7 @@ export const draftThreadFollowerIds = (
   members
     .filter(
       (member) =>
-        member.active &&
+        member.status === 'active' &&
         (root.recipientMemberIds.includes(member.id) ||
           (root.author.type === 'agent' &&
             !!root.author.id &&

@@ -20,7 +20,7 @@ export const notifyChannel = async (db: LobeChatDatabase, channelId: string) => 
         and(
           eq(channelMembers.channelId, channelId),
           eq(channelMembers.actorType, 'user'),
-          eq(channelMembers.active, true),
+          eq(channelMembers.status, 'active'),
           isNotNull(channelMembers.userId),
         ),
       );

@@ -159,7 +159,7 @@ describe('Channel public view', () => {
       const { asOwner, author, channel, other, replyId } = await publishedReply();
       await db
         .update(channelMembers)
-        .set(state === 'inactive' ? { active: false } : { agentId: other.agentId })
+        .set(state === 'inactive' ? { status: 'removed' as const } : { agentId: other.agentId })
         .where(eq(channelMembers.id, author.id));
       const thread = await asOwner.createThread(channel.id, {
         followerMemberIds: [],

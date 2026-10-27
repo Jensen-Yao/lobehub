@@ -93,7 +93,7 @@ export function MemberStatus({ detail }: { detail: ChannelDetail }) {
                     <span {...stylex.props(styles.muted)}>{t('person')}</span>
                   )}
                 </Flexbox>
-                {entry.member.agentId && entry.member.active && channel.canDelete && (
+                {entry.member.agentId && entry.member.status === 'active' && channel.canDelete && (
                   <ActionIcon
                     aria-label={t('environment.editNamed', { name: entry.name })}
                     icon={FolderCog}
@@ -141,7 +141,7 @@ export function MemberStatus({ detail }: { detail: ChannelDetail }) {
           onClick={() =>
             openInviteMembers({
               agentIds: allMembers.flatMap((member) =>
-                member.active && member.agentId ? [member.agentId] : [],
+                member.status === 'active' && member.agentId ? [member.agentId] : [],
               ),
               id: channel.id,
               workspaceId: channel.workspaceId,

@@ -35,7 +35,9 @@ const ThreadFollowers = ({
     typeof target === 'string'
       ? (threads.find((entry) => entry.id === target)?.followerMemberIds ?? [])
       : draftThreadFollowerIds(target.root, members);
-  const followers = members.filter((member) => member.active && followerIds.includes(member.id));
+  const followers = members.filter(
+    (member) => member.status === 'active' && followerIds.includes(member.id),
+  );
   if (!followers.length) return null;
   const names = followers.map((member) => memberName(member, t('deletedMember'))).join('、');
   const overflow = followers.length - MAX_FOLLOWER_AVATARS;

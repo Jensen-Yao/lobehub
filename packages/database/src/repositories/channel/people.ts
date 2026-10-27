@@ -58,7 +58,7 @@ export const channelUserCandidates = async (
               and(
                 eq(channelMembers.channelId, access.channel.id),
                 eq(channelMembers.userId, users.id),
-                eq(channelMembers.active, true),
+                eq(channelMembers.status, 'active'),
               ),
             ),
         ),
@@ -78,11 +78,11 @@ export const addChannelUser = async (tx: Transaction, access: ChannelAccess, use
     .select()
     .from(channelMembers)
     .where(and(eq(channelMembers.channelId, access.channel.id), eq(channelMembers.userId, userId)));
-  if (existing?.active) return existing;
+  if (existing?.status === 'active') return existing;
   const [member] = existing
     ? await tx
         .update(channelMembers)
-        .set({ active: true, role: 'member' })
+        .set({ role: 'member', status: 'active' })
         .where(eq(channelMembers.id, existing.id))
         .returning()
     : await tx

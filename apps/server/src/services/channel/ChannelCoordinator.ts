@@ -56,7 +56,7 @@ export class ChannelCoordinator {
       ? await this.db
           .select({ config: channelMembers.config })
           .from(channelMembers)
-          .where(and(eq(channelMembers.channelId, channelId), eq(channelMembers.active, true)))
+          .where(and(eq(channelMembers.channelId, channelId), eq(channelMembers.status, 'active')))
       : [];
     const owners = [
       ...new Set(

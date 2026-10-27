@@ -197,7 +197,7 @@ describe('Channel on-demand history', () => {
       if (change === 'requester' || change === 'agent')
         await db
           .update(channelMembers)
-          .set({ active: false })
+          .set({ status: 'left' })
           .where(eq(channelMembers.id, change === 'agent' ? state.agent.id : state.member.id));
       if (change === 'workspace')
         await db

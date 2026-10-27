@@ -6,9 +6,8 @@ import { getVisibleStatusMembers } from './visibleMembers';
 const member = (
   id: string,
   actorType: ChannelPublicMember['actorType'],
-  active = true,
+  status: ChannelPublicMember['status'] = 'active',
 ): ChannelPublicMember => ({
-  active,
   actorType,
   agentId: actorType === 'agent' ? id : null,
   avatar: null,
@@ -17,6 +16,7 @@ const member = (
   joinedAt: new Date(),
   name: id,
   role: null,
+  status,
   userAvatar: null,
   userId: actorType === 'user' ? id : null,
   userName: null,
@@ -26,14 +26,14 @@ const member = (
 describe('Channel header member visibility', () => {
   const owner = member('owner', 'user');
   const agent = member('pi', 'agent');
-  const inactiveAgent = member('removed-agent', 'agent', false);
-  const inactivePerson = member('removed-person', 'user', false);
+  const inactiveAgent = member('removed-agent', 'agent', 'removed');
+  const inactivePerson = member('removed-person', 'user', 'left');
   const members = [owner, agent, inactiveAgent, inactivePerson];
 
   it('shows only active Agents in personal channels without changing membership', () => {
     expect(getVisibleStatusMembers(members, null)).toEqual([agent]);
     expect(members).toEqual([owner, agent, inactiveAgent, inactivePerson]);
-    expect(owner.active).toBe(true);
+    expect(owner.status).toBe('active');
   });
 
   it('keeps the person in workspace channels even when there is only one person', () => {

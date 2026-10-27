@@ -97,7 +97,7 @@ describe('Thread deletion', () => {
     await expect(asMember.removeThread(channel.id, thread.id)).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });
-    await db.update(channelMembers).set({ active: false }).where(eq(channelMembers.id, member.id));
+    await db.update(channelMembers).set({ status: 'left' }).where(eq(channelMembers.id, member.id));
     await expect(asMember.removeThread(channel.id, thread.id)).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });

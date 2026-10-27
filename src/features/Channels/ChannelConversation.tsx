@@ -74,7 +74,7 @@ const Timeline = ({
     }
   };
 
-  const activeMembers = detail?.members.filter((member) => member.active) ?? [];
+  const activeMembers = detail?.members.filter((member) => member.status === 'active') ?? [];
   // Unmentioned messages go to every Agent on the main conversation, to followers in a Thread.
   const followerIds = threadId
     ? (detail?.threads.find((entry) => entry.id === threadId)?.followerMemberIds ?? [])

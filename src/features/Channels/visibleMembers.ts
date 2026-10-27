@@ -4,4 +4,7 @@ import type { ChannelListItem, ChannelPublicMember } from '@lobechat/types';
 export const getVisibleStatusMembers = (
   members: ChannelPublicMember[],
   workspaceId: ChannelListItem['workspaceId'],
-) => members.filter((member) => member.active && (member.actorType === 'agent' || !!workspaceId));
+) =>
+  members.filter(
+    (member) => member.status === 'active' && (member.actorType === 'agent' || !!workspaceId),
+  );

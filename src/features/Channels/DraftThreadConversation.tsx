@@ -48,7 +48,7 @@ export function DraftThreadConversation({
           inThread
           defaultRecipientIds={draftThreadFollowerIds(draft.root, detail.members)}
           draftKey={channelDraftKey(detail.channel.id, `draft:${draft.root.id}`)}
-          members={detail.members.filter((member) => member.active)}
+          members={detail.members.filter((member) => member.status === 'active')}
           placeholder={t('threadComposer')}
           onSend={onSend}
         />
