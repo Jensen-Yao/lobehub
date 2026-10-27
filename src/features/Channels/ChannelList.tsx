@@ -39,8 +39,7 @@ import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwar
 import { buildWorkspaceAwarePath } from '@/features/Workspace/workspaceAwarePath';
 import { useActiveLocation } from '@/hooks/useActiveLocation';
 import { channelActions, channelSelectors, useChannelStore } from '@/store/channel';
-import { useUserStore } from '@/store/user';
-import { labPreferSelectors, preferenceSelectors } from '@/store/user/selectors';
+import { serverConfigSelectors, useServerConfigStore } from '@/store/serverConfig';
 import { isTrpcErrorCode } from '@/utils/trpcError';
 
 import { openCreateChannel } from './CreateChannel';
@@ -281,8 +280,9 @@ const EnabledChannelList = () => {
 };
 
 const ChannelList = () => {
-  const enabled = useUserStore(
-    (s) => preferenceSelectors.isPreferenceInit(s) && labPreferSelectors.enableChannels(s),
+  // Before the per-user flags load the store holds defaults; wait instead of guessing.
+  const enabled = useServerConfigStore(
+    (s) => s.serverConfigInit && serverConfigSelectors.enableChannels(s),
   );
   return enabled ? <EnabledChannelList /> : null;
 };

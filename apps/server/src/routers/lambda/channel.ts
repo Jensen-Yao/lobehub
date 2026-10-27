@@ -7,6 +7,7 @@ import { ChannelError } from '@/database/repositories/channel';
 import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { ChannelService } from '@/server/services/channel/ChannelService';
+import { isChannelEnabled } from '@/server/services/channel/featureGate';
 
 import { channelHistoryProcedures } from './channelHistory';
 
@@ -20,6 +21,11 @@ const agentSelection = z.object({
   workingDirectory: z.string().trim().min(1).max(4096).optional(),
 });
 const channelProcedure = wsCompatProcedure.use(serverDatabase).use(async ({ ctx, next }) => {
+  if (!(await isChannelEnabled(ctx.userId)))
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Channels are not enabled for this account',
+    });
   const result = await next({
     ctx: {
       channelService: new ChannelService(ctx.serverDB, ctx.userId, ctx.workspaceId ?? undefined),

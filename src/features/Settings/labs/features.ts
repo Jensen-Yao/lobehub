@@ -16,7 +16,6 @@ export type LabStage = 'alpha' | 'beta';
 type LabFeatureI18nKey =
   | 'agentGraphConfig'
   | 'artifactDeployment'
-  | 'channels'
   | 'claudeCodeSdk'
   | 'codexAppServer'
   | 'desktopSplitView'
@@ -54,12 +53,6 @@ export interface LabFeatureItem {
 }
 
 const ALL_LAB_FEATURES: LabFeatureItem[] = [
-  {
-    flag: 'enableChannels',
-    i18nKey: 'channels',
-    searchKeywords: ['channel', 'channels', 'multi-agent', 'collaboration'],
-    stage: 'alpha',
-  },
   {
     flag: 'enableAgentGraphConfig',
     i18nKey: 'agentGraphConfig',

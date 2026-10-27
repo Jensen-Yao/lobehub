@@ -7,6 +7,8 @@ import { files } from '@/database/schemas';
 import type { LobeChatDatabase } from '@/database/type';
 import { FileService } from '@/server/services/file';
 
+import { assertChannelEnabled } from './featureGate';
+
 /** Both the builtin tool and operation-authenticated CLI use this exact read boundary. */
 export class ChannelHistoryService {
   private readonly repository: ChannelHistoryRepository;
@@ -20,10 +22,13 @@ export class ChannelHistoryService {
     this.repository = new ChannelHistoryRepository(db, userId, workspaceId);
   }
 
-  readMessages = (params: ChannelReadMessagesParams) =>
-    this.repository.readMessages(this.operationId, params);
+  readMessages = async (params: ChannelReadMessagesParams) => {
+    await assertChannelEnabled(this.userId);
+    return this.repository.readMessages(this.operationId, params);
+  };
 
   readMessage = async (params: ChannelReadMessageParams) => {
+    await assertChannelEnabled(this.userId);
     const result = await this.repository.readMessage(this.operationId, params);
     const ids = result.message.fileIds ?? [];
     const shared = ids.length

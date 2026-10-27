@@ -9,8 +9,7 @@ import { useParams } from 'react-router';
 import NotFound from '@/components/404';
 import NavHeader from '@/features/NavHeader';
 import { channelActions, channelSelectors, useChannelStore } from '@/store/channel';
-import { useUserStore } from '@/store/user';
-import { labPreferSelectors, preferenceSelectors } from '@/store/user/selectors';
+import { serverConfigSelectors, useServerConfigStore } from '@/store/serverConfig';
 
 import { visibleChannelDetail } from './channelAccess';
 import { ChannelConversation } from './ChannelConversation';
@@ -73,12 +72,10 @@ function EnabledChannelPage() {
   );
 }
 
-/** Do not mount subscriptions or conversations until the user opts into Labs. */
+/** Do not mount subscriptions or conversations unless the `channel` flag is on for the user. */
 export default function ChannelPage() {
-  const [ready, enabled] = useUserStore((s) => [
-    preferenceSelectors.isPreferenceInit(s),
-    labPreferSelectors.enableChannels(s),
-  ]);
+  const ready = useServerConfigStore((s) => s.serverConfigInit);
+  const enabled = useServerConfigStore(serverConfigSelectors.enableChannels);
   if (!ready)
     return (
       <Center height="100%">
