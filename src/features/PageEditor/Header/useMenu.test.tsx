@@ -16,6 +16,7 @@ const resourcePermissionMock = vi.hoisted(() => ({
   workspaceId: undefined as string | undefined,
 }));
 const wsNavigateMock = vi.hoisted(() => vi.fn());
+const favoriteMenuItemMock = vi.hoisted(() => vi.fn(() => null));
 const documentStoreMock = vi.hoisted(() => ({ state: {} as Record<string, unknown> }));
 const menuActionMocks = vi.hoisted(() => ({
   handleCopyLink: vi.fn(),
@@ -75,7 +76,7 @@ vi.mock('@/business/client/hooks/useDocumentTransferMenuItem', () => ({
 vi.mock('@/features/Favorites', () => ({
   FavoriteButton: () => null,
   useCurrentFavoritePath: () => '/favorite-path',
-  useFavoriteMenuItem: () => null,
+  useFavoriteMenuItem: favoriteMenuItemMock,
 }));
 vi.mock('@/features/VisibilityConfirmContent', () => ({
   default: () => null,
@@ -184,6 +185,14 @@ describe('PageEditor header menu', () => {
     resourcePermissionMock.workspaceId = undefined;
     documentStoreMock.state = { documentDetailMap: {} };
     vi.clearAllMocks();
+  });
+
+  it('favorites the page under its canonical link, not the location underneath a modal', () => {
+    renderHook(() => useMenu());
+
+    expect(favoriteMenuItemMock).toHaveBeenCalledWith(
+      expect.objectContaining({ path: '/page/doc-1', targetId: 'doc-1', type: 'page' }),
+    );
   });
 
   it('exports an HTML page as HTML and offers no editor history', () => {

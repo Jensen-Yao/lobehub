@@ -17,7 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { useActiveWorkspaceId } from '@/business/client/hooks/useActiveWorkspaceId';
 import { useAuthorInfo } from '@/business/client/hooks/useAuthorInfo';
 import { useDocumentTransferMenuItem } from '@/business/client/hooks/useDocumentTransferMenuItem';
-import { useCurrentFavoritePath, useFavoriteMenuItem } from '@/features/Favorites';
+import { useFavoriteMenuItem } from '@/features/Favorites';
 import { useResourcePermission } from '@/features/ResourcePermission/useResourcePermission';
 import VisibilityConfirmContent from '@/features/VisibilityConfirmContent';
 import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
@@ -58,12 +58,13 @@ export const useMenu = (options: UseMenuOptions = {}): { menuItems: any[] } => {
     s.title,
     s.emoji,
   ]);
-  const favoritePath = useCurrentFavoritePath();
   const favoriteMenuItem = useFavoriteMenuItem(
     documentId
       ? {
           icon: pageEmoji ?? null,
-          path: favoritePath,
+          // The canonical link: this menu also opens in the document modal,
+          // which leaves the location on whatever page is underneath.
+          path: `/page/${documentId}`,
           targetId: documentId,
           snapshotReady: !!pageTitle,
           title: pageTitle || t('pageEditor.titlePlaceholder'),
