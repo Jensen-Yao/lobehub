@@ -6,8 +6,6 @@ import type { ReactNode } from 'react';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useActiveWorkspaceSlug } from '@/business/client/hooks/useActiveWorkspaceSlug';
-import { useWorkspaces } from '@/business/client/hooks/useWorkspaces';
 import { ConnectorSourceType, ConnectorStatus } from '@/database/schemas';
 import type { ConnectorWithTools } from '@/store/tool/slices/connector/types';
 
@@ -67,16 +65,12 @@ interface ConnectorOverviewInfoProps {
 }
 
 /**
- * Overview facts of a connector: what kind of object it is, which scope owns
- * it, whether it is authorized, and who authorized it. Tool permissions live in
+ * Overview facts of a connector: what kind of object it is, whether it is
+ * authorized, and who authorized it. Tool permissions live in
  * the Tools tab, not here.
  */
 const ConnectorOverviewInfo = memo<ConnectorOverviewInfoProps>(({ connector }) => {
   const { t } = useTranslation('tool');
-  const { t: ts } = useTranslation('setting');
-  const activeWorkspaceSlug = useActiveWorkspaceSlug();
-  // Without any workspace there is only one scope, so the row would say nothing.
-  const hasWorkspace = useWorkspaces().length > 0;
 
   const kind = getConnectorKind(connector);
   const isBuiltin = kind === 'builtin';
@@ -94,15 +88,6 @@ const ConnectorOverviewInfo = memo<ConnectorOverviewInfoProps>(({ connector }) =
       <Row label={t('connector.overview.type')}>
         <Text>{t(`connector.kind.${kind}`)}</Text>
       </Row>
-      {hasWorkspace && (
-        <Row label={t('connector.overview.scope')}>
-          <Text>
-            {activeWorkspaceSlug
-              ? ts('tools.connectorScope.workspace')
-              : ts('tools.connectorScope.personal')}
-          </Text>
-        </Row>
-      )}
       <Row label={t('connector.overview.status')}>
         <Tag color={status.color}>{status.label}</Tag>
       </Row>

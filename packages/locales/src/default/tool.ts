@@ -130,7 +130,6 @@ export default {
   'connector.noTools': 'No tool permissions to configure.',
   'connector.notConnected': 'Not connected',
   'connector.overview.authorizedBy': 'Authorized by',
-  'connector.overview.scope': 'Scope',
   'connector.overview.status': 'Status',
   'connector.overview.type': 'Type',
   'connector.permission.approvalAll': 'Needs approval all',

@@ -2129,8 +2129,6 @@
   "tools.connectorPolicy.options.onlyAdmins": "仅 Owner 和管理员",
   "tools.connectorPolicy.title": "连接器管理权限",
   "tools.connectorPolicy.updateFailed": "没能更新连接器管理权限，请重试",
-  "tools.connectorScope.personal": "个人",
-  "tools.connectorScope.workspace": "工作区",
   "tools.disabled": "当前模型不支持函数调用，无法使用技能",
   "tools.legacyConnector.configure": "配置",
   "tools.legacyConnector.upgradeDesc": "此连接器仍在使用旧的插件格式。点击「配置」完成升级后，即可在此管理它的工具权限。",

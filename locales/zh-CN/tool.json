@@ -120,7 +120,6 @@
   "connector.noTools": "暂无可配置权限的工具。",
   "connector.notConnected": "未连接",
   "connector.overview.authorizedBy": "授权人",
-  "connector.overview.scope": "作用域",
   "connector.overview.status": "状态",
   "connector.overview.type": "类型",
   "connector.permission.approvalAll": "全部需审批",

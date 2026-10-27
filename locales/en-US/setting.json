@@ -2129,8 +2129,6 @@
   "tools.connectorPolicy.options.onlyAdmins": "Owners and admins",
   "tools.connectorPolicy.title": "Who can manage connectors",
   "tools.connectorPolicy.updateFailed": "Couldn't update who can manage connectors. Please try again.",
-  "tools.connectorScope.personal": "Personal",
-  "tools.connectorScope.workspace": "Workspace",
   "tools.disabled": "The current model does not support function calls and cannot use the skill",
   "tools.legacyConnector.configure": "Configure",
   "tools.legacyConnector.upgradeDesc": "This connector still uses the legacy plugin format. Configure it to finish upgrading, then manage its tool permissions here.",
