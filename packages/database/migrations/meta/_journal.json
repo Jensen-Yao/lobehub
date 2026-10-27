@@ -1323,6 +1323,13 @@
       "when": 1793022327507,
       "tag": "0188_channel_thread_archive",
       "breakpoints": true
+    },
+    {
+      "idx": 189,
+      "version": "7",
+      "when": 1793070498811,
+      "tag": "0189_channel_soft_delete",
+      "breakpoints": true
     }
   ],
   "version": "6"

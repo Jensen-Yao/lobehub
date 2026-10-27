@@ -75,7 +75,7 @@ describe('Channel human membership', () => {
     expect((await owner.detail(channel.id)).members).toHaveLength(1);
   });
 
-  it('rejects personal, wrong-scope, direct and archived channels', async () => {
+  it('rejects personal, wrong-scope, direct and trashed channels', async () => {
     const { owner, channel } = await create();
     const personal = new ChannelRepository(db, fixture.ownerId);
     await expect(personal.addUser(channel.id, fixture.memberId)).rejects.toMatchObject({

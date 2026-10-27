@@ -45,7 +45,7 @@ export class ChannelCoordinator {
   advance = async (channelId: string) => {
     const [channel] = await this.db.select().from(channels).where(eq(channels.id, channelId));
     if (!channel) return;
-    if (!channel.archived) await new ChannelRoutingService(this.db).advance(channelId);
+    if (!channel.isDeleted) await new ChannelRoutingService(this.db).advance(channelId);
     const { heads, inFlight } = await this.executions.candidates(channelId);
     const pending = [...inFlight, ...heads];
 

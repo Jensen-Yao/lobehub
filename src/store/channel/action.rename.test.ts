@@ -13,7 +13,6 @@ vi.mock('@/services/channel', () => ({
 }));
 
 const channel: ChannelListItem = {
-  archived: false,
   canDelete: true,
   createdAt: new Date(),
   id: 'chn_000000000001',

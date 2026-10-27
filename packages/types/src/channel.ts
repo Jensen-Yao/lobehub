@@ -185,7 +185,6 @@ export type ChannelAuditDetails = Record<string, boolean | number | string | str
 
 /** Public client projection. No execution configuration, private topic or draft fields. */
 export interface ChannelListItem {
-  archived: boolean;
   /** Server-computed for the current member. */
   canDelete: boolean;
   createdAt: Date;

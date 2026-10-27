@@ -23,7 +23,6 @@ const thread = { ...main, threadId: 'thread' };
 const data = {
   attachments: [],
   channel: {
-    archived: false,
     createdAt: new Date(),
     id: 'channel',
     sequence: 1,

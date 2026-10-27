@@ -50,7 +50,6 @@ const job = (patch: Partial<ChannelPublicJob> = {}): ChannelPublicJob => ({
 const detail = (patch: Partial<ChannelDetail> = {}): ChannelDetail => ({
   attachments: [],
   channel: {
-    archived: false,
     canDelete: true,
     createdAt: new Date(),
     id: 'channel',

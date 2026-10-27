@@ -36,7 +36,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import { idGenerator } from '../utils/idGenerator';
-import { createdAt, timestamptz, updatedAt } from './_helpers';
+import { createdAt, softDeleteColumns, timestamptz, updatedAt } from './_helpers';
 import { agents } from './agent';
 import { agentOperations } from './agentOperations';
 import { files } from './file';
@@ -81,7 +81,6 @@ export const channels = pgTable(
     title: text('title').notNull(),
     /** Last allocated message sequence; incremented under the row lock when a message lands. */
     sequence: integer('sequence').notNull().default(0),
-    archived: boolean('archived').notNull().default(false),
 
     /**
      * `public`: any workspace member can find and join. `private`: members only.
@@ -89,6 +88,8 @@ export const channels = pgTable(
      */
     visibility: text('visibility').$type<ChannelVisibility>().notNull().default('private'),
     metadata: jsonb('metadata').$type<ChannelMetadata>().default({}),
+    /** Recycle bin — see `schemas/trash.ts`. */
+    ...softDeleteColumns(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

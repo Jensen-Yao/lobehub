@@ -150,14 +150,36 @@ describe('TrashAction', () => {
 
   describe('purge / emptyTrash', () => {
     it('purge removes the rows from the active view', async () => {
-      vi.mocked(trashService.purge).mockResolvedValue({ purged: 1 });
+      vi.mocked(trashService.purge).mockResolvedValue({ blocked: [], purged: 1 });
       await useTrashStore.getState().purge(['trash_1']);
       expect(trashService.purge).toHaveBeenCalledWith(['trash_1']);
       expect(ids()).toEqual(['trash_2']);
     });
 
+    it('purge keeps a row the server could not delete yet and reports it', async () => {
+      vi.mocked(trashService.purge).mockResolvedValue({ blocked: ['trash_2'], purged: 1 });
+      const outcome = await useTrashStore.getState().purge(['trash_1', 'trash_2']);
+      expect(outcome).toEqual({ blocked: ['trash_2'], purged: 1 });
+      expect(ids()).toEqual(['trash_2']);
+    });
+
+    it('emptyTrash leaves the view in place when roots stayed in the bin', async () => {
+      vi.mocked(trashService.emptyTrash).mockResolvedValue({
+        blocked: 1,
+        hasMore: false,
+        purged: 1,
+      });
+      expect(await useTrashStore.getState().emptyTrash({})).toEqual({ blocked: 1 });
+      // The refresh that follows reloads what is still in the bin; nothing is collapsed here.
+      expect(ids()).toEqual(['trash_1', 'trash_2']);
+    });
+
     it('emptyTrash sweeps the given view in the scope it started in and clears it', async () => {
-      vi.mocked(trashService.emptyTrash).mockResolvedValue({ hasMore: false, purged: 2 });
+      vi.mocked(trashService.emptyTrash).mockResolvedValue({
+        blocked: 0,
+        hasMore: false,
+        purged: 2,
+      });
       const filter = { projectId: 'proj_a', resourceType: 'topic' } as const;
       seed([buildItem({ id: 'topic_only', resourceType: 'topic' })], filter);
       await useTrashStore.getState().emptyTrash(filter);
@@ -168,9 +190,9 @@ describe('TrashAction', () => {
 
     it('emptyTrash keeps calling while the server reports more batches', async () => {
       vi.mocked(trashService.emptyTrash)
-        .mockResolvedValueOnce({ hasMore: true, purged: 50 })
-        .mockResolvedValueOnce({ hasMore: true, purged: 50 })
-        .mockResolvedValueOnce({ hasMore: false, purged: 7 });
+        .mockResolvedValueOnce({ blocked: 0, hasMore: true, purged: 50 })
+        .mockResolvedValueOnce({ blocked: 0, hasMore: true, purged: 50 })
+        .mockResolvedValueOnce({ blocked: 0, hasMore: false, purged: 7 });
       await useTrashStore.getState().emptyTrash({});
       expect(trashService.emptyTrash).toHaveBeenCalledTimes(3);
       expect(ids()).toEqual([]);
@@ -192,9 +214,9 @@ describe('TrashAction', () => {
           useTrashStore
             .getState()
             .setFilter({ projectId: null, resourceType: 'agent' }, 'u1:personal');
-          return { hasMore: true, purged: 50 };
+          return { blocked: 0, hasMore: true, purged: 50 };
         })
-        .mockResolvedValueOnce({ hasMore: false, purged: 1 });
+        .mockResolvedValueOnce({ blocked: 0, hasMore: false, purged: 1 });
 
       await useTrashStore.getState().emptyTrash(started);
 
@@ -230,7 +252,11 @@ describe('TrashAction', () => {
       expect(Object.keys(useTrashStore.getState().trashCountMap)).toEqual(['project:proj_a']);
       expect(ids(other)).toEqual(['in_b']);
 
-      vi.mocked(trashService.emptyTrash).mockResolvedValue({ hasMore: false, purged: 1 });
+      vi.mocked(trashService.emptyTrash).mockResolvedValue({
+        blocked: 0,
+        hasMore: false,
+        purged: 1,
+      });
       await useTrashStore.getState().emptyTrash(active);
       expect(Object.keys(useTrashStore.getState().trashListMap)).toEqual([trashListKey(active)]);
     });
@@ -241,7 +267,7 @@ describe('TrashAction', () => {
       seed([buildItem()], { projectId: null });
       vi.mocked(trashService.emptyTrash).mockImplementationOnce(async () => {
         scope = 'u1:ws_2';
-        return { hasMore: true, purged: 50 };
+        return { blocked: 0, hasMore: true, purged: 50 };
       });
 
       await expect(useTrashStore.getState().emptyTrash({ projectId: null })).rejects.toBeInstanceOf(

@@ -79,7 +79,7 @@ export class ChannelHistoryRepository {
         throw new ChannelError('NOT_FOUND', 'Channel operation not found');
       const { job, operation } = row;
       if (
-        channel.archived ||
+        channel.isDeleted ||
         !job.manifest ||
         job.publicationRevoked ||
         job.status !== 'running' ||

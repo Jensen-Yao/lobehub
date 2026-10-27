@@ -2191,6 +2191,7 @@
   "trash.meta.children": "{{count}} items inside",
   "trash.projectUnavailable.desc": "It was deleted or you no longer have access. Choose All projects, No project or another project to continue.",
   "trash.projectUnavailable.title": "This project is no longer available",
+  "trash.purge.blocked": "{{count}} item(s) are still finishing their work and stayed in the trash. Try again in a moment.",
   "trash.purge.success": "Deleted permanently",
   "trash.purgeConfirm.content": "Permanently delete \"{{title}}\"? This cannot be undone.",
   "trash.purgeConfirm.title": "Delete forever",

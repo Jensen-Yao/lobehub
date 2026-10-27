@@ -1,12 +1,15 @@
 import { ChannelTrashRepository } from '@/database/repositories/channel/trash';
 
-import { type TrashHandler, TrashRestoreError } from './types';
+import { type TrashHandler, TrashPurgeBlockedError, TrashRestoreError } from './types';
 
 export const channelHandler: TrashHandler = {
   purge: async (ctx, root) => {
-    await new ChannelTrashRepository(ctx.db, root.userId, root.workspaceId ?? undefined).purge(
-      root.resourceId,
-    );
+    const result = await new ChannelTrashRepository(
+      ctx.db,
+      root.userId,
+      root.workspaceId ?? undefined,
+    ).purge(root.resourceId);
+    if (result === 'busy') throw new TrashPurgeBlockedError('Channel replies are still stopping');
   },
   restore: async (ctx, root) => {
     const restored = await new ChannelTrashRepository(

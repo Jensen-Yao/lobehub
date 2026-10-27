@@ -39,7 +39,7 @@ export class ChannelRoutingRepository {
         .select()
         .from(channelMessages)
         .where(and(eq(channelMessages.channelId, channelId), eq(channelMessages.id, messageId)));
-      if (!message || message.routingStatus !== 'pending' || channel.archived) return null;
+      if (!message || message.routingStatus !== 'pending' || channel.isDeleted) return null;
 
       const thread = await findThread(tx, channelId, message.threadId);
       if (thread) {

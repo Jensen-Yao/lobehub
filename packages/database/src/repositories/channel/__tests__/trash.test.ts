@@ -116,7 +116,7 @@ describe('Channel recycle bin', () => {
     const executions = new ChannelExecutionRepository(db);
     await executions.claim(channel.id, job.id, lease);
     await repo.remove(channel.id);
-    await expect(trash().purge(channel.id)).rejects.toThrow();
+    await expect(trash().purge(channel.id)).resolves.toBe('busy');
     expect(await registry().findByResource('channel', channel.id)).toBeDefined();
     await trash().restore(channel.id);
     expect(await db.select().from(channelJobs).where(eq(channelJobs.id, job.id))).toEqual([
@@ -125,7 +125,7 @@ describe('Channel recycle bin', () => {
     await expect(executions.publish(channel.id, job.id)).rejects.toThrow();
     await executions.releaseWriter(channel.id, job.id);
     await repo.remove(channel.id);
-    await trash().purge(channel.id);
+    await expect(trash().purge(channel.id)).resolves.toBe('purged');
     expect(await db.select().from(channels).where(eq(channels.id, channel.id))).toEqual([]);
     expect(await db.select().from(trashItems).where(eq(trashItems.resourceId, channel.id))).toEqual(
       [],

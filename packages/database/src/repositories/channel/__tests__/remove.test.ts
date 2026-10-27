@@ -36,13 +36,13 @@ describe('Channel soft deletion', () => {
       repo.send(channel.id, { content: 'No', requestKey: 'after-delete', routing: 'fallback' }),
     ).rejects.toMatchObject({ code: 'CONFLICT' });
     expect(await db.select().from(channels).where(eq(channels.id, channel.id))).toEqual([
-      expect.objectContaining({ archived: true }),
+      expect.objectContaining({ deletedAt: expect.any(Date), isDeleted: true }),
     ]);
     expect(await db.select().from(agents).where(eq(agents.id, agent.agentId!))).toHaveLength(1);
     await expect(repo.remove(channel.id)).resolves.toEqual([]);
     expect(
       (await db.select().from(channelAudit).where(eq(channelAudit.channelId, channel.id))).filter(
-        (row) => row.event === 'archived',
+        (row) => row.event === 'trashed',
       ),
     ).toHaveLength(1);
   });

@@ -4,8 +4,12 @@ import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TrashModel } from '@/database/models/trash';
-import { ChannelRepository } from '@/database/repositories/channel';
-import { createChannelFixture } from '@/database/repositories/channel/__tests__/testUtils';
+import { ChannelExecutionRepository, ChannelRepository } from '@/database/repositories/channel';
+import {
+  createChannelFixture,
+  jobsOf,
+  lease,
+} from '@/database/repositories/channel/__tests__/testUtils';
 import { channels } from '@/database/schemas';
 
 import { TrashService } from '../index';
@@ -35,6 +39,34 @@ describe('Channel trash handler', () => {
     await service.purge(trashed.items.map((item) => item.id));
     expect(await db.select().from(channels).where(eq(channels.id, channel.id))).toEqual([]);
     expect((await service.list()).items).toEqual([]);
+  });
+
+  it('keeps a channel whose replies are still stopping and purges the rest', async () => {
+    const repo = new ChannelRepository(db, fixture.ownerId);
+    const service = new TrashService(db, fixture.ownerId);
+    const { channel: busy } = await repo.create({ title: 'Still stopping' });
+    const agent = await fixture.addAgent(busy.id, 'Writer');
+    const message = await repo.send(busy.id, {
+      content: 'Work',
+      mentions: [agent.id],
+      requestKey: 'run',
+      routing: 'fallback',
+    });
+    const [job] = await jobsOf(db, message.id);
+    await new ChannelExecutionRepository(db).claim(busy.id, job.id, lease);
+    const { channel: idle } = await repo.create({ title: 'Idle' });
+    await repo.remove(busy.id);
+    await repo.remove(idle.id);
+    const busyRoot = await new TrashModel(db, fixture.ownerId).findByResource('channel', busy.id);
+
+    const { items } = await service.list({ resourceType: 'channel' });
+    expect(await service.purge(items.map((item) => item.id))).toEqual({
+      blocked: [busyRoot!.id],
+      purged: 1,
+    });
+    expect((await service.list()).items.map((item) => item.resourceId)).toEqual([busy.id]);
+    expect(await service.emptyTrash()).toEqual({ blocked: 1, hasMore: false, purged: 0 });
+    expect(await db.select().from(channels).where(eq(channels.id, busy.id))).toHaveLength(1);
   });
 
   it('cannot restore or purge a registry row outside the current identity', async () => {

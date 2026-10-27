@@ -1956,6 +1956,8 @@ When I am ___, I need ___
   'trash.restore.failed.parentTrashed':
     'Its agent, topic or previous message is still in the trash. Restore that first.',
   'trash.restore.success': 'Restored',
+  'trash.purge.blocked':
+    '{{count}} item(s) are still finishing their work and stayed in the trash. Try again in a moment.',
   'trash.purge.success': 'Deleted permanently',
   'trash.title': 'Trash',
   'trash.type.agent': 'Agent',

@@ -30,7 +30,6 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 const channel: ChannelListItem = {
-  archived: false,
   canDelete: true,
   createdAt: new Date(),
   id: 'chn_abcdefghijkl',

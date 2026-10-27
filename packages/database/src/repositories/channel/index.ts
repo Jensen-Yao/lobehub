@@ -11,6 +11,7 @@ import {
   channelThreads,
 } from '../../schemas';
 import type { LobeChatDatabase, Transaction } from '../../type';
+import { notTrashed, trashStamp } from '../../utils/softDelete';
 import { normalizeWorkspaceId } from '../../utils/workspace';
 import type { ChannelAddAgentInput } from './agent';
 import {
@@ -198,13 +199,13 @@ export class ChannelRepository {
     this.write(
       channelId,
       async (tx, access) => {
-        if (access.channel.archived) throw new ChannelError('NOT_FOUND', 'Channel not found');
+        if (access.channel.isDeleted) throw new ChannelError('NOT_FOUND', 'Channel not found');
         return {
           channel: { ...access.channel, canDelete: hasRole(access.member.role, 'admin') },
           ...(await readChannelView(tx, channelId, options)),
         };
       },
-      { allowArchived: true },
+      { allowTrashed: true },
     );
 
   createThread = async (channelId: string, input: Parameters<typeof createChannelThread>[2]) =>
@@ -224,7 +225,7 @@ export class ChannelRepository {
           .where(eq(channelMembers.id, member.id));
         return lastReadSequence;
       },
-      { allowArchived: true },
+      { allowTrashed: true },
     );
 
   /** Active channels the caller belongs to in the current scope, newest first. */
@@ -233,7 +234,7 @@ export class ChannelRepository {
       .select({ channel: channels, role: channelMembers.role })
       .from(channels)
       .innerJoin(channelMembers, eq(channelMembers.channelId, channels.id))
-      .where(and(this.membershipWhere(), eq(channels.archived, false)))
+      .where(and(this.membershipWhere(), notTrashed(channels.isDeleted)))
       .orderBy(desc(channels.createdAt));
 
     return rows.map(({ channel, role }) => ({ ...channel, canDelete: hasRole(role, 'admin') }));
@@ -276,8 +277,8 @@ export class ChannelRepository {
       const minRole = options.minRole ?? 'member';
       if (!hasRole(access.member.role, minRole))
         throw new ChannelError('FORBIDDEN', `Requires the ${minRole} role in this channel`);
-      if (access.channel.archived && !options.allowArchived)
-        throw new ChannelError('CONFLICT', 'Channel is archived');
+      if (access.channel.isDeleted && !options.allowTrashed)
+        throw new ChannelError('CONFLICT', 'Channel is in the trash');
 
       return fn(tx, access);
     });
@@ -304,7 +305,7 @@ export class ChannelRepository {
         }
         return stopScope(tx, channelId, scope);
       },
-      { allowArchived: true, minRole: 'threadId' in scope ? 'admin' : 'member' },
+      { allowTrashed: true, minRole: 'threadId' in scope ? 'admin' : 'member' },
     );
 
   /** Soft-delete under the same lock as dispatch/publication; retain receipts until exit. */
@@ -313,11 +314,12 @@ export class ChannelRepository {
       channelId,
       async (tx, { channel }) => {
         const writers = await stopScope(tx, channelId, { all: true });
-        if (!channel.archived) {
-          await tx.update(channels).set({ archived: true }).where(eq(channels.id, channelId));
+        if (!channel.isDeleted) {
+          const deletedAt = new Date();
+          await tx.update(channels).set(trashStamp(deletedAt)).where(eq(channels.id, channelId));
           await new TrashModel(this.db, this.userId, this.workspaceId ?? undefined).register(
             {
-              deletedAt: new Date(),
+              deletedAt,
               root: {
                 projectId: channel.projectId,
                 resourceId: channel.id,
@@ -327,11 +329,11 @@ export class ChannelRepository {
             },
             tx,
           );
-          await audit(tx, channelId, 'archived', channelId);
+          await audit(tx, channelId, 'trashed', channelId);
         }
         return writers;
       },
-      { allowArchived: true, minRole: 'admin' },
+      { allowTrashed: true, minRole: 'admin' },
     );
 
   /** Retain job receipts and history internally, but make this branch inaccessible. */

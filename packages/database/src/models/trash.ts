@@ -43,7 +43,7 @@ export interface TrashRegisterParams {
  */
 const ROOT_TABLES: Record<TrashResourceType, { id: any; isDeleted: any; table: any }> = {
   agent: { id: agents.id, isDeleted: agents.isDeleted, table: agents },
-  channel: { id: channels.id, isDeleted: channels.archived, table: channels },
+  channel: { id: channels.id, isDeleted: channels.isDeleted, table: channels },
   dashboard: { id: dashboards.id, isDeleted: dashboards.isDeleted, table: dashboards },
   message: { id: messages.id, isDeleted: messages.isDeleted, table: messages },
   topic: { id: topics.id, isDeleted: topics.isDeleted, table: topics },

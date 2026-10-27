@@ -1381,9 +1381,10 @@ table channels {
   agent_id text
   title text [not null]
   sequence integer [not null, default: 0]
-  archived boolean [not null, default: false]
   visibility text [not null, default: 'private']
   metadata jsonb [default: `{}`]
+  deleted_at "timestamp with time zone"
+  is_deleted boolean
   created_at "timestamp with time zone" [not null, default: `now()`]
   updated_at "timestamp with time zone" [not null, default: `now()`]
 
