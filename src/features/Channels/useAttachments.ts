@@ -10,7 +10,7 @@ import { useFileStore } from '@/store/file';
 type DraftFile = UploadFileItem & { fileId?: string };
 
 /** Each mounted Channel composer owns its uploads; ordinary chat's global draft is untouched. */
-export function useAttachments(onChange: () => void) {
+export function useAttachments() {
   const { t } = useTranslation('channel');
   const upload = useFileStore((s) => s.uploadWithProgress);
   const [items, setItems] = useState<DraftFile[]>([]);
@@ -79,13 +79,11 @@ export function useAttachments(onChange: () => void) {
         status: 'pending',
       }));
       update([...current.current, ...added]);
-      onChange();
       await Promise.all(added.map(run));
     },
     remove: (id: string) => {
       current.current.find((item) => item.id === id)?.abortController?.abort();
       update(current.current.filter((item) => item.id !== id));
-      onChange();
     },
     retry: (id: string) => {
       const item = current.current.find((item) => item.id === id);

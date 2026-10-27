@@ -22,10 +22,10 @@ export const useRemoveChannel = () => {
     const scope = cacheScope.get();
     return confirmModal({
       cancelText: t('cancel'),
-      content: t('deleteConfirm', { title: channel.title }),
+      content: t('moveToTrashConfirm', { title: channel.title }),
       okButtonProps: { danger: true },
-      okText: t('delete'),
-      title: t('delete'),
+      okText: t('moveToTrash'),
+      title: t('moveToTrash'),
       onOk: async () => {
         try {
           // A confirmation belongs to the identity that opened it.
@@ -39,7 +39,7 @@ export const useRemoveChannel = () => {
         if (cacheScope.get() !== scope) return;
         if (matchChannel(latest.current.location.pathname) === channel.id)
           latest.current.navigate('/', { replace: true });
-        toast.success(t('deleteSuccess'));
+        toast.success(t('moveToTrashSuccess'));
       },
     });
   };

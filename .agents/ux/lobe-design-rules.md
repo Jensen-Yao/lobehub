@@ -99,3 +99,9 @@ The composer is one row (attach, input, send) that grows with its content. Menti
 Enforcement: `mentionMarkdown.test.ts` covers mention chips (boundaries, code); `joinEvents.test.ts` covers join grouping, inviter attribution and paging.
 
 Source: acceptance round 4 review — Discord comparisons for composer, typing line and threads (2026-10-26).
+
+## LOBE-UX-014 — Pair each invited member’s avatar with their name
+
+Channel join events identify people and Agents using their own avatars, not a generic invitation icon. Render each avatar beside its member name, including every member in a grouped event. Let member pairs wrap at narrow widths; do not detach the avatar stack from the names or silently omit later avatars. A member’s emoji avatar is identity, even when it resembles a warning symbol.
+
+Source: user clarification during acceptance round 6 (2026-10-27).

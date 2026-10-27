@@ -23,6 +23,7 @@ import WideScreenContainer from '@/features/WideScreenContainer';
 import { useEnterToSend } from '@/hooks/useEnterToSend';
 import { usePermission } from '@/hooks/usePermission';
 import { useSingleton } from '@/hooks/useSingleton';
+import { cacheScope } from '@/libs/replica';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
 import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/selectors';
@@ -32,6 +33,7 @@ import { MemberAvatar } from './MemberAvatar';
 import { isCurrentUserMember, memberAvatar, memberName } from './memberName';
 import { $insertChannelMentionBoundary, channelMentionIds } from './mentions';
 import { composerRecipients } from './recipients';
+import { createChannelSendRequest } from './sendRequest';
 import { styles } from './styles';
 import { useAttachments } from './useAttachments';
 import { useComposerDraft } from './useComposerDraft';
@@ -78,10 +80,8 @@ export function Composer({
   const sending = useRef(false);
   const previousDocument = useRef('');
   const [error, setError] = useState('');
-  const requestKey = useSingleton(() => ({ current: crypto.randomUUID() }));
-  const attachments = useAttachments(() => {
-    requestKey.current = crypto.randomUUID();
-  });
+  const requests = useSingleton(createChannelSendRequest);
+  const attachments = useAttachments();
   const { allowed, reason } = usePermission('create_content');
   const enableUpload = useServerConfigStore((s) => featureFlagsSelectors(s).enableKnowledgeBase);
   const canUpload = allowed && enableUpload;
@@ -103,19 +103,20 @@ export function Composer({
     setBusy(true);
     setError('');
     const sentRevision = draft.snapshot();
+    const mentions = channelMentionIds(editor.getDocument('json'), memberIds);
+    const requestKey = requests.get(`${cacheScope.get()}:${draftKey}`, {
+      content: value,
+      fileIds,
+      mentions,
+    });
     try {
-      await onSend(
-        value,
-        channelMentionIds(editor.getDocument('json'), memberIds),
-        requestKey.current,
-        fileIds,
-      );
+      await onSend(value, mentions, requestKey, fileIds);
+      requests.complete(requestKey);
       editor.cleanDocument();
       draft.clear(sentRevision);
       attachments.clear();
       setContent('');
       setMentionIds([]);
-      requestKey.current = crypto.randomUUID();
     } catch (cause) {
       console.error('Failed to send Channel message', cause);
       setError(t('sendFailed'));
@@ -234,7 +235,6 @@ export function Composer({
                     previousDocument.current = document;
                     setContent(String(editor.getDocument('markdown') || ''));
                     setMentionIds(channelMentionIds(json, memberIds));
-                    requestKey.current = crypto.randomUUID();
                     draft.save();
                   }
                 }}

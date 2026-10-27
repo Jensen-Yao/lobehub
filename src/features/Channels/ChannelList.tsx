@@ -158,7 +158,7 @@ const EnabledChannelList = () => {
             danger: true,
             icon: Trash,
             key: 'delete',
-            label: t('delete'),
+            label: t('moveToTrash'),
             onClick: () => remove(channel),
           },
         ]

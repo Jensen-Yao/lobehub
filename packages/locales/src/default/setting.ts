@@ -69,7 +69,6 @@ export default {
   'completionSound.banner.previewBody': 'This is how a finished chat will sound in the background.',
   'completionSound.banner.systemMuted':
     'macOS has notification sounds turned off for LobeHub, so background notifications stay silent. Turn them back on in System Settings › Notifications › LobeHub.',
-
   '_cloud.officialProvider': '{{name}} Official Model Service',
   'about.title': 'About',
   'agentImport.action': 'Copy to Workspace...',
@@ -1960,6 +1959,7 @@ When I am ___, I need ___
   'trash.purge.success': 'Deleted permanently',
   'trash.title': 'Trash',
   'trash.type.agent': 'Agent',
+  'trash.type.channel': 'Channel',
   'trash.type.dashboard': 'Dashboard',
   'trash.type.message': 'Message',
   'trash.type.topic': 'Topic',

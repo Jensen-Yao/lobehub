@@ -145,4 +145,11 @@ export default {
   'invite.search': 'Search members and Agents',
   'invite.submit': 'Invite',
   'invite.title': 'Invite members',
+  'events.membersJoined': '<members/> joined the channel',
+  'events.youInvitedMembers': 'You invited <members/> to the channel',
+  'events.invitedMembers': '{{inviter}} invited <members/> to the channel',
+  'moveToTrash': 'Move channel to trash',
+  'moveToTrashConfirm':
+    'Move “{{title}}” to trash? Replies will stop. You can restore the channel and its history from Trash. Agents and files will be kept.',
+  'moveToTrashSuccess': 'Channel moved to trash',
 };

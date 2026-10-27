@@ -61,9 +61,9 @@ describe('Channel deletion confirmation', () => {
     open();
     expect(channelActions.remove).not.toHaveBeenCalled();
     expect(confirm.mock.calls[0][0]).toMatchObject({
-      content: 'deleteConfirm:Important channel',
+      content: 'moveToTrashConfirm:Important channel',
       okButtonProps: { danger: true },
-      okText: 'delete',
+      okText: 'moveToTrash',
     });
   });
 
@@ -72,7 +72,7 @@ describe('Channel deletion confirmation', () => {
     await onOk();
     expect(channelActions.remove).toHaveBeenCalledWith(channel.id);
     expect(navigate).toHaveBeenCalledWith('/', { replace: true });
-    expect(success).toHaveBeenCalledWith('deleteSuccess');
+    expect(success).toHaveBeenCalledWith('moveToTrashSuccess');
   });
 
   it('does not redirect if the user navigated elsewhere while confirmation was open', async () => {

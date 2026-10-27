@@ -102,15 +102,21 @@ export const styles = stylex.create({
   },
   /** Inline system line in the timeline, such as who joined. */
   event: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 6,
     paddingBlock: 8,
     paddingInlineStart: 48,
     fontSize: cssVar.fontSizeSM,
+    lineHeight: 1.8,
     color: cssVar.colorTextSecondary,
   },
+  eventMember: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    maxWidth: '100%',
+    marginInline: 2,
+    verticalAlign: 'middle',
+  },
+  eventMemberName: { minWidth: 0, overflowWrap: 'anywhere' },
   /** A mentioned member inside message text. */
   mention: {
     paddingBlock: 1,

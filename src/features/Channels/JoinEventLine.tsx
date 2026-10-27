@@ -1,6 +1,5 @@
-import { Flexbox } from '@lobehub/ui';
 import * as stylex from '@stylexjs/stylex';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/selectors';
@@ -10,28 +9,42 @@ import { MemberAvatar } from './MemberAvatar';
 import { isCurrentUserMember, memberName } from './memberName';
 import { styles } from './styles';
 
-const MAX_AVATARS = 5;
-
 /** “You invited A, B and C to the channel”, as a system line in the timeline. */
 export function JoinEventLine({ event: { inviter, members } }: { event: ChannelJoinEvent }) {
   const { t, i18n } = useTranslation('channel');
   const userId = useUserStore(userProfileSelectors.userId);
-  const names = new Intl.ListFormat(i18n.language, { type: 'conjunction' }).format(
+  const names = new Intl.ListFormat(i18n.language, { type: 'conjunction' }).formatToParts(
     members.map((member) => memberName(member, t('deletedMember'))),
   );
-  const text = !inviter
-    ? t('events.joined', { names })
+  const key = !inviter
+    ? 'events.membersJoined'
     : isCurrentUserMember(inviter, userId)
-      ? t('events.youInvited', { names })
-      : t('events.invited', { inviter: memberName(inviter, t('deletedMember')), names });
+      ? 'events.youInvitedMembers'
+      : 'events.invitedMembers';
+  let memberIndex = 0;
   return (
     <div role="note" {...stylex.props(styles.event)}>
-      <Flexbox horizontal flex="none" gap={2}>
-        {members.slice(0, MAX_AVATARS).map((member) => (
-          <MemberAvatar key={member.id} member={member} size={18} />
-        ))}
-      </Flexbox>
-      <span>{text}</span>
+      <Trans
+        i18nKey={key}
+        ns="channel"
+        values={{ inviter: inviter && memberName(inviter, t('deletedMember')) }}
+        components={{
+          members: (
+            <span>
+              {names.map((part) => {
+                if (part.type === 'literal') return part.value;
+                const member = members[memberIndex++];
+                return (
+                  <span key={member.id} {...stylex.props(styles.eventMember)}>
+                    <MemberAvatar member={member} size={18} />
+                    <span {...stylex.props(styles.eventMemberName)}>{part.value}</span>
+                  </span>
+                );
+              })}
+            </span>
+          ),
+        }}
+      />
     </div>
   );
 }

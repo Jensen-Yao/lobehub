@@ -1,6 +1,7 @@
 import type { ChannelMemberConfig, ChannelMemberRole, ChannelVisibility } from '@lobechat/types';
 import { and, desc, eq, isNull, or } from 'drizzle-orm';
 
+import { TrashModel } from '../../models/trash';
 import type { ChannelItem, ChannelJobItem, ChannelMessageItem } from '../../schemas';
 import {
   channelJobs,
@@ -314,6 +315,18 @@ export class ChannelRepository {
         const writers = await stopScope(tx, channelId, { all: true });
         if (!channel.archived) {
           await tx.update(channels).set({ archived: true }).where(eq(channels.id, channelId));
+          await new TrashModel(this.db, this.userId, this.workspaceId ?? undefined).register(
+            {
+              deletedAt: new Date(),
+              root: {
+                projectId: channel.projectId,
+                resourceId: channel.id,
+                resourceType: 'channel',
+                title: channel.title,
+              },
+            },
+            tx,
+          );
           await audit(tx, channelId, 'archived', channelId);
         }
         return writers;
