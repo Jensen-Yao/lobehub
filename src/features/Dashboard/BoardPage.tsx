@@ -16,6 +16,7 @@ import DashboardBoard from './Board';
 import DashboardActionsMenu from './DashboardActionsMenu';
 import DashboardAvatar from './DashboardAvatar';
 import { dashboardPageStyles as styles } from './pageStyles';
+import { getDashboardPath } from './utils/path';
 
 interface DashboardBoardPageProps {
   /** The board list this page returns to, e.g. `/dashboard` or a project's dashboards. */
@@ -31,7 +32,10 @@ const BoardPageHeader = memo<DashboardBoardPageProps>(
     const { t } = useTranslation('dashboard');
     const navigate = useWorkspaceAwareNavigate();
     const detail = useDashboardStore(dashboardSelectors.dashboardDetail(dashboardId));
-    const favoritePath = useCurrentFavoritePath();
+    const currentPath = useCurrentFavoritePath();
+    // A project board opened by slug would save a link that breaks when the
+    // project is renamed, so it is favorited under the project id.
+    const favoritePath = detail?.projectId ? getDashboardPath(detail) : currentPath;
 
     return (
       <NavHeader

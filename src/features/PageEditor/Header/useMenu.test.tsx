@@ -17,6 +17,7 @@ const resourcePermissionMock = vi.hoisted(() => ({
 }));
 const wsNavigateMock = vi.hoisted(() => vi.fn());
 const favoriteMenuItemMock = vi.hoisted(() => vi.fn(() => null));
+const pageEditorState = vi.hoisted(() => ({ title: undefined as string | undefined }));
 const documentStoreMock = vi.hoisted(() => ({ state: {} as Record<string, unknown> }));
 const menuActionMocks = vi.hoisted(() => ({
   handleCopyLink: vi.fn(),
@@ -161,6 +162,7 @@ vi.mock('../store', () => ({
     selector({
       documentId: 'doc-1',
       setRightPanelMode: menuActionMocks.setRightPanelMode,
+      title: pageEditorState.title,
     }),
   useStoreApi: () => ({
     getState: () => ({
@@ -184,7 +186,21 @@ describe('PageEditor header menu', () => {
     resourcePermissionMock.canManage = false;
     resourcePermissionMock.workspaceId = undefined;
     documentStoreMock.state = { documentDetailMap: {} };
+    pageEditorState.title = undefined;
     vi.clearAllMocks();
+  });
+
+  it('lets a loaded untitled page be favorited, but waits while the title is loading', () => {
+    renderHook(() => useMenu());
+    expect(favoriteMenuItemMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ snapshotReady: false }),
+    );
+
+    pageEditorState.title = '';
+    renderHook(() => useMenu());
+    expect(favoriteMenuItemMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ snapshotReady: true, title: 'pageEditor.titlePlaceholder' }),
+    );
   });
 
   it('favorites the page under its canonical link, not the location underneath a modal', () => {

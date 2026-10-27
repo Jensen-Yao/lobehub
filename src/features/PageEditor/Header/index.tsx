@@ -95,7 +95,8 @@ const Header = memo(() => {
             <FavoriteButton
               icon={emoji ?? null}
               path={`/page/${documentId}`}
-              snapshotReady={!!title}
+              // An untitled page is loaded too; only `undefined` means still loading.
+              snapshotReady={title !== undefined}
               targetId={documentId}
               title={title || t('pageEditor.titlePlaceholder')}
               type={'page'}

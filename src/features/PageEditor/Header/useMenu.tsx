@@ -66,7 +66,7 @@ export const useMenu = (options: UseMenuOptions = {}): { menuItems: any[] } => {
           // which leaves the location on whatever page is underneath.
           path: `/page/${documentId}`,
           targetId: documentId,
-          snapshotReady: !!pageTitle,
+          snapshotReady: pageTitle !== undefined,
           title: pageTitle || t('pageEditor.titlePlaceholder'),
           type: 'page',
         }

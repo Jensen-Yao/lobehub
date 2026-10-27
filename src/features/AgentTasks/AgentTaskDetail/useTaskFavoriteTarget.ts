@@ -13,10 +13,11 @@ export const useTaskFavoriteTarget = (): FavoriteTarget | undefined => {
 
   if (!taskId || !databaseId) return undefined;
 
+  // The database id arrives with the detail, so the name here is the task's own,
+  // even when empty; an unnamed task is shown, and favorited, by its identifier.
   return {
     path: taskDetailPath(taskId, agentId ?? undefined, name),
     targetId: databaseId,
-    snapshotReady: !!name,
     title: name || taskId,
     type: 'task',
   };
