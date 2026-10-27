@@ -159,4 +159,11 @@ describe('ConnectorDetail', () => {
     expect(screen.getByText('connector.authError')).toBeInTheDocument();
     expect(screen.queryByText('connector.notConnected')).not.toBeInTheDocument();
   });
+
+  it('labels a marketplace plugin without an OAuth provider as a community tool', () => {
+    render(<ConnectorDetail connectorId="connector-1" />);
+
+    expect(screen.getByText('connector.kind.community')).toBeInTheDocument();
+    expect(screen.queryByText('connector.kind.oauth')).not.toBeInTheDocument();
+  });
 });

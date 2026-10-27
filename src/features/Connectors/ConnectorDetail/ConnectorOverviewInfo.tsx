@@ -1,3 +1,4 @@
+import { getComposioAppByIdentifier, getLobehubSkillProviderById } from '@lobechat/const';
 import { Avatar, Flexbox, Tag, Text } from '@lobehub/ui';
 import { cssVar } from '@lobehub/ui/stylex/cssVar.stylex';
 import * as stylex from '@stylexjs/stylex';
@@ -36,15 +37,20 @@ const styles = stylex.create({
   },
 });
 
-type ConnectorKind = 'agent' | 'builtin' | 'custom' | 'oauth';
+type ConnectorKind = 'agent' | 'builtin' | 'community' | 'custom' | 'oauth';
 
 const getConnectorKind = (
-  connector: Pick<ConnectorWithTools, 'agentId' | 'sourceType'>,
+  connector: Pick<ConnectorWithTools, 'agentId' | 'identifier' | 'sourceType'>,
 ): ConnectorKind => {
   if (connector.agentId) return 'agent';
   if (connector.sourceType === ConnectorSourceType.builtin) return 'builtin';
   if (connector.sourceType === ConnectorSourceType.custom) return 'custom';
-  return 'oauth';
+  // Marketplace rows also back plain community plugins; only Composio / LobeHub
+  // providers authorize through OAuth.
+  const isOAuth =
+    !!getComposioAppByIdentifier(connector.identifier) ||
+    !!getLobehubSkillProviderById(connector.identifier);
+  return isOAuth ? 'oauth' : 'community';
 };
 
 const Row = ({ children, label }: { children: ReactNode; label: string }) => (
