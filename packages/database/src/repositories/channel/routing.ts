@@ -4,6 +4,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import type { ChannelMessageItem } from '../../schemas';
 import { channelMembers, channelMessages, channelThreads } from '../../schemas';
 import type { Transaction } from '../../type';
+import { notTrashed } from '../../utils/softDelete';
 import { candidateAgents, deliver, findThread } from './delivery';
 import { ChannelError } from './error';
 import { audit } from './transaction';
@@ -86,7 +87,7 @@ export const resolveRouting = async (
         and(
           eq(channelThreads.channelId, channelId),
           eq(channelThreads.rootMessageId, messageId),
-          eq(channelThreads.archived, false),
+          notTrashed(channelThreads.isDeleted),
         ),
       );
     for (const branch of threads)

@@ -69,6 +69,41 @@ describe('Channel trash handler', () => {
     expect(await db.select().from(channels).where(eq(channels.id, busy.id))).toHaveLength(1);
   });
 
+  it('restores a thread with its channel in one request and reports a newer branch', async () => {
+    const repo = new ChannelRepository(db, fixture.ownerId);
+    const service = new TrashService(db, fixture.ownerId);
+    const { channel } = await repo.create({ title: 'Launch' });
+    const root = await repo.send(channel.id, {
+      content: 'Rollout plan',
+      requestKey: 'root',
+      routing: 'fallback',
+    });
+    const thread = await repo.createThread(channel.id, { rootMessageId: root.id });
+    await repo.removeThread(channel.id, thread.id);
+    await repo.remove(channel.id);
+
+    // The thread may come first in the request; it is retried once its channel is back.
+    const registry = new TrashModel(db, fixture.ownerId);
+    const threadRoot = await registry.findByResource('channelThread', thread.id);
+    const channelRoot = await registry.findByResource('channel', channel.id);
+    const outcome = await service.restore([threadRoot!.id, channelRoot!.id]);
+    expect(outcome.failed).toEqual([]);
+    expect(outcome.restored.map((item) => item.resourceType).sort()).toEqual([
+      'channel',
+      'channelThread',
+    ]);
+    expect((await repo.detail(channel.id)).threads.map((t) => t.id)).toEqual([thread.id]);
+
+    await repo.removeThread(channel.id, thread.id);
+    await repo.createThread(channel.id, { rootMessageId: root.id });
+    const again = await registry.findByResource('channelThread', thread.id);
+    expect(await service.restore([again!.id])).toEqual({
+      failed: [{ code: 'conflict', id: again!.id }],
+      restored: [],
+    });
+    expect((await service.list({ resourceType: 'channelThread' })).items).toHaveLength(1);
+  });
+
   it('cannot restore or purge a registry row outside the current identity', async () => {
     const repo = new ChannelRepository(db, fixture.ownerId);
     const { channel } = await repo.create({ title: 'Private' });

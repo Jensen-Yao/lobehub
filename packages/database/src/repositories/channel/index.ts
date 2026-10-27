@@ -47,6 +47,9 @@ export type { ChannelSendInput } from './send';
 export type { ChannelStopScope } from './stop';
 export type { ChannelAccess, ChannelWriteOptions } from './types';
 
+/** Recycle-bin row title: the start of the thread's root message. */
+const CHANNEL_THREAD_TITLE_LENGTH = 120;
+
 const ROLE_RANK: Record<ChannelMemberRole, number> = { admin: 1, member: 0, owner: 2 };
 
 const hasRole = (role: ChannelMemberRole | null, minRole: ChannelMemberRole) =>
@@ -336,25 +339,49 @@ export class ChannelRepository {
       { allowTrashed: true, minRole: 'admin' },
     );
 
-  /** Retain job receipts and history internally, but make this branch inaccessible. */
+  /**
+   * Move a branch to the recycle bin. Its messages and job receipts stay intact for restore;
+   * the thread is registered as its own root, like a message under a topic.
+   */
   removeThread = async (channelId: string, threadId: string): Promise<void> =>
     this.write(
       channelId,
-      async (tx) => {
-        const [thread] = await tx
-          .select()
+      async (tx, { channel }) => {
+        const [row] = await tx
+          .select({ root: channelMessages.content, thread: channelThreads })
           .from(channelThreads)
+          .innerJoin(
+            channelMessages,
+            and(
+              eq(channelMessages.channelId, channelThreads.channelId),
+              eq(channelMessages.id, channelThreads.rootMessageId),
+            ),
+          )
           .where(and(eq(channelThreads.channelId, channelId), eq(channelThreads.id, threadId)));
-        if (!thread) throw new ChannelError('NOT_FOUND', 'Thread not found');
+        if (!row) throw new ChannelError('NOT_FOUND', 'Thread not found');
         // A retry after a scheduling failure must still be authorized, but must not
-        // repeat the archive or release a writer before the coordinator confirms exit.
-        if (thread.archived) return;
+        // repeat the stamp or release a writer before the coordinator confirms exit.
+        if (row.thread.isDeleted) return;
         await stopScope(tx, channelId, { threadId });
+        const deletedAt = new Date();
         await tx
           .update(channelThreads)
-          .set({ archived: true })
+          .set(trashStamp(deletedAt))
           .where(eq(channelThreads.id, threadId));
-        await audit(tx, channelId, 'thread_archived', threadId);
+        await new TrashModel(this.db, this.userId, this.workspaceId ?? undefined).register(
+          {
+            deletedAt,
+            root: {
+              meta: { parentTitle: channel.title },
+              projectId: channel.projectId,
+              resourceId: threadId,
+              resourceType: 'channelThread',
+              title: row.root.trim().slice(0, CHANNEL_THREAD_TITLE_LENGTH) || null,
+            },
+          },
+          tx,
+        );
+        await audit(tx, channelId, 'thread_trashed', threadId);
       },
       { minRole: 'admin' },
     );

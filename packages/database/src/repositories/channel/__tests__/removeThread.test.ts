@@ -68,7 +68,7 @@ describe('Thread deletion', () => {
     ).toEqual([fresh.id]);
     expect(
       (await db.select().from(channelAudit).where(eq(channelAudit.targetId, thread.id))).filter(
-        (a) => a.event === 'thread_archived',
+        (a) => a.event === 'thread_trashed',
       ),
     ).toHaveLength(1);
   });
@@ -190,7 +190,7 @@ describe('Thread deletion', () => {
     await executions.releaseWriter(channel.id, running.id);
     expect(await executions.claim(channel.id, nextJob.id, lease)).not.toBeNull();
     expect(await db.select().from(channelThreads).where(eq(channelThreads.id, thread.id))).toEqual([
-      expect.objectContaining({ archived: true }),
+      expect.objectContaining({ deletedAt: expect.any(Date), isDeleted: true }),
     ]);
   });
 

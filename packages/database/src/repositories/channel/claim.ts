@@ -14,6 +14,7 @@ import {
 } from '../../schemas';
 import type { Transaction } from '../../type';
 import { createNanoId } from '../../utils/idGenerator';
+import { notTrashed } from '../../utils/softDelete';
 import { resolveExecutionConfig } from './agent';
 import { findThread } from './delivery';
 import { buildManifest } from './manifest';
@@ -199,7 +200,7 @@ export const claimJob = async (
         or(
           isNull(channelMessages.threadId),
           and(
-            eq(channelThreads.archived, false),
+            notTrashed(channelThreads.isDeleted),
             sql`${channelThreads.followerMemberIds} @> ${JSON.stringify([job.memberId])}::jsonb`,
           ),
         ),

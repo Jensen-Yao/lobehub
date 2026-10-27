@@ -22,6 +22,7 @@ export const TRASH_RESOURCE_TYPES = [
   'widget',
   'dashboard',
   'channel',
+  'channelThread',
 ] as const;
 export type TrashResourceType = (typeof TRASH_RESOURCE_TYPES)[number];
 
@@ -117,5 +118,10 @@ export const TRASH_RESTORE_ERROR_CODES = [
   'notFound',
   /** A parent of the row is itself in the trash — restore that root first. */
   'parentTrashed',
+  /**
+   * A live row has taken the slot this one would return to (a new Channel thread on the
+   * same message) — it cannot come back without displacing that row.
+   */
+  'conflict',
 ] as const;
 export type TrashRestoreErrorCode = (typeof TRASH_RESTORE_ERROR_CODES)[number];

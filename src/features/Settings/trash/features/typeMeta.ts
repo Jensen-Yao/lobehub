@@ -2,6 +2,7 @@ import type { TrashResourceType } from '@lobechat/types';
 import {
   BotIcon,
   ChartNoAxesColumnIcon,
+  GitBranchIcon,
   HashIcon,
   LayoutDashboardIcon,
   MessageSquareIcon,
@@ -11,6 +12,7 @@ import {
 export const TRASH_TYPE_ICON: Record<TrashResourceType, typeof HashIcon> = {
   agent: BotIcon,
   channel: HashIcon,
+  channelThread: GitBranchIcon,
   dashboard: LayoutDashboardIcon,
   message: MessageSquareIcon,
   topic: HashIcon,
@@ -25,4 +27,5 @@ export const TRASH_TYPE_ORDER: TrashResourceType[] = [
   'widget',
   'dashboard',
   'channel',
+  'channelThread',
 ];

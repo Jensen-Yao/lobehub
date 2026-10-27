@@ -58,7 +58,7 @@ describe('Channel recycle bin', () => {
     expect(detail.threads.map((thread) => thread.id)).toEqual([visible.id]);
     expect(detail.members.some((member) => member.id === agent.id)).toBe(true);
     expect(await db.select().from(channelThreads).where(eq(channelThreads.id, hidden.id))).toEqual([
-      expect.objectContaining({ archived: true }),
+      expect.objectContaining({ isDeleted: true }),
     ]);
     expect(await trash().restore(channel.id)).toBe(false);
   });

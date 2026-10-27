@@ -11,6 +11,7 @@ import {
   users,
 } from '../../schemas';
 import type { Transaction } from '../../type';
+import { notTrashed } from '../../utils/softDelete';
 import { fileIdsByMessage } from './attachments';
 import { activeMembers } from './delivery';
 import { ChannelError } from './error';
@@ -106,7 +107,7 @@ export const readChannelView = async (
     tx
       .select()
       .from(channelThreads)
-      .where(and(eq(channelThreads.channelId, channelId), eq(channelThreads.archived, false)))
+      .where(and(eq(channelThreads.channelId, channelId), notTrashed(channelThreads.isDeleted)))
       .orderBy(asc(channelThreads.createdAt)),
     tx
       .select({
@@ -203,7 +204,7 @@ export const createChannelThread = async (
       and(
         eq(channelThreads.channelId, channelId),
         eq(channelThreads.rootMessageId, root.id),
-        eq(channelThreads.archived, false),
+        notTrashed(channelThreads.isDeleted),
       ),
     );
   if (existing) return existing;

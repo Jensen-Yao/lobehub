@@ -217,7 +217,7 @@ describe('Channel on-demand history', () => {
       if (change === 'thread')
         await db
           .update(channelThreads)
-          .set({ archived: true })
+          .set({ deletedAt: new Date(), isDeleted: true })
           .where(eq(channelThreads.id, thread.id));
       await expect(state.history.readMessages(operationId)).rejects.toThrow();
     },

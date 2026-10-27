@@ -14,6 +14,7 @@ import {
   channelThreads,
 } from '../../schemas';
 import type { Transaction } from '../../type';
+import { notTrashed } from '../../utils/softDelete';
 import { ChannelError } from './error';
 
 /** The Thread a message belongs to, or null for the main channel. */
@@ -31,7 +32,7 @@ export const findThread = async (
       and(
         eq(channelThreads.channelId, channelId),
         eq(channelThreads.id, threadId),
-        eq(channelThreads.archived, false),
+        notTrashed(channelThreads.isDeleted),
       ),
     );
   if (!thread) throw new ChannelError('NOT_FOUND', 'Thread not found');

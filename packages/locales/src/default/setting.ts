@@ -1952,9 +1952,11 @@ When I am ___, I need ___
   'trash.projectUnavailable.title': 'This project is no longer available',
   'trash.purgeConfirm.content': 'Permanently delete "{{title}}"? This cannot be undone.',
   'trash.purgeConfirm.title': 'Delete forever',
+  'trash.restore.failed.conflict':
+    'This message already has a newer thread. Move that thread to trash first, then restore this one.',
   'trash.restore.failed.notFound': 'This item no longer exists.',
   'trash.restore.failed.parentTrashed':
-    'Its agent, topic or previous message is still in the trash. Restore that first.',
+    'Its agent, topic, channel or previous message is still in the trash. Restore that first.',
   'trash.restore.success': 'Restored',
   'trash.purge.blocked':
     '{{count}} item(s) are still finishing their work and stayed in the trash. Try again in a moment.',
@@ -1962,6 +1964,7 @@ When I am ___, I need ___
   'trash.title': 'Trash',
   'trash.type.agent': 'Agent',
   'trash.type.channel': 'Channel',
+  'trash.type.channelThread': 'Channel thread',
   'trash.type.dashboard': 'Dashboard',
   'trash.type.message': 'Message',
   'trash.type.topic': 'Topic',
