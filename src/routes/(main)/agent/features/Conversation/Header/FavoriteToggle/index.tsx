@@ -20,12 +20,14 @@ const FavoriteToggle = memo(() => {
   const agentMeta = useAgentStore((s) =>
     agentId ? agentSelectors.getAgentMetaById(agentId)(s) : undefined,
   );
+  const agentLoaded = useAgentStore((s) => (agentId ? !!s.agentMap[agentId] : false));
 
   const target = useConversationFavoriteTarget({
     owner: agentId
       ? {
           avatar: agentMeta?.avatar,
           id: agentId,
+          loaded: agentLoaded,
           path: AGENT_CHAT_URL(agentId),
           title: agentMeta?.title,
           type: 'agent',

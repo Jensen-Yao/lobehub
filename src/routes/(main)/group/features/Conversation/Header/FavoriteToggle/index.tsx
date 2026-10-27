@@ -17,12 +17,16 @@ const FavoriteToggle = memo(() => {
   const groupMeta = useAgentGroupStore((s) =>
     groupId ? agentGroupSelectors.getGroupMeta(groupId)(s) : undefined,
   );
+  const groupLoaded = useAgentGroupStore((s) =>
+    groupId ? !!agentGroupSelectors.getGroupById(groupId)(s) : false,
+  );
 
   const target = useConversationFavoriteTarget({
     owner: groupId
       ? {
           avatar: groupMeta?.avatar,
           id: groupId,
+          loaded: groupLoaded,
           path: GROUP_CHAT_URL(groupId),
           title: groupMeta?.title,
           type: 'group',

@@ -25,6 +25,7 @@ vi.mock('@/store/chat', () => ({
 const group: ConversationFavoriteOwner = {
   avatar: '🧩',
   id: 'grp_1',
+  loaded: true,
   path: '/group/grp_1',
   title: 'Design Crew',
   type: 'group',
@@ -49,14 +50,22 @@ describe('useConversationFavoriteTarget', () => {
     });
   });
 
-  it('waits for an untitled owner and shows its placeholder', () => {
+  it('waits for the owner to load', () => {
+    const { result } = renderHook(() =>
+      useConversationFavoriteTarget({ owner: { ...group, loaded: false, title: undefined } }),
+    );
+
+    expect(result.current).toMatchObject({ snapshotReady: false });
+  });
+
+  it('lets a loaded owner without a title be favorited under its placeholder', () => {
     const { result } = renderHook(() =>
       useConversationFavoriteTarget({ owner: { ...group, avatar: undefined, title: undefined } }),
     );
 
     expect(result.current).toMatchObject({
       icon: null,
-      snapshotReady: false,
+      snapshotReady: true,
       title: 'untitledGroup',
     });
   });

@@ -1,4 +1,4 @@
-import type { AddFavoriteParams, FavoriteType } from '@lobechat/types';
+import { type AddFavoriteParams, FAVORITE_LIMIT, type FavoriteType } from '@lobechat/types';
 import { toast } from '@lobehub/ui';
 import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -45,9 +45,12 @@ export const useFavoriteToggle = (target: FavoriteTarget | undefined) => {
     type && targetId ? favoriteSelectors.getFavorite(type, targetId)(s)?.id : undefined,
   );
   const isFavorite = !!favoriteId;
+  const favoriteCount = useHomeStore((s) => favoriteSelectors.favoriteList(s)?.length);
+  const snapshotReady = target?.snapshotReady ?? true;
   // Until the list loads, "not in the list" is unknown, not "not favorited": a
-  // toggle then would add a row the member meant to remove.
-  const isReady = useHomeStore((s) => favoriteSelectors.favoriteList(s) !== undefined);
+  // toggle then would add a row the member meant to remove. An add also waits
+  // for the target's own title, so a placeholder is never saved; removing does not.
+  const isReady = favoriteCount !== undefined && (isFavorite || snapshotReady);
   // The stored copy, so a write rolled back after a failure runs the sync again.
   const storedSnapshot = useHomeStore((s) => {
     const item = type && targetId ? favoriteSelectors.getFavorite(type, targetId)(s) : undefined;
@@ -62,7 +65,6 @@ export const useFavoriteToggle = (target: FavoriteTarget | undefined) => {
   const title = target?.title;
   const icon = target?.icon;
   const path = target?.path;
-  const snapshotReady = target?.snapshotReady ?? true;
   // Titles change on every keystroke, so write once the target settles. The
   // favorite id is a dependency too: a rename made while the add was pending is
   // replayed once the confirmed row (and its real id) replaces the optimistic one.
@@ -95,6 +97,11 @@ export const useFavoriteToggle = (target: FavoriteTarget | undefined) => {
 
   const toggle = useCallback(async () => {
     if (!target || !isReady) return;
+    // A full sidebar rejects every add, so say how to make room instead of offering a retry.
+    if (!isFavorite && (favoriteCount ?? 0) >= FAVORITE_LIMIT) {
+      toast.error(t('favorite.limitReached', { count: FAVORITE_LIMIT }));
+      return;
+    }
     const params: AddFavoriteParams = {
       icon: target.icon ?? null,
       path: target.path,
@@ -108,7 +115,7 @@ export const useFavoriteToggle = (target: FavoriteTarget | undefined) => {
       console.error('[favorite] toggle failed', error);
       toast.error(t('favorite.updateError'));
     }
-  }, [isReady, t, target, toggleFavorite]);
+  }, [favoriteCount, isFavorite, isReady, t, target, toggleFavorite]);
 
   return { isFavorite, isReady, toggle };
 };

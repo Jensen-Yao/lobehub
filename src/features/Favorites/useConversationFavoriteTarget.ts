@@ -8,8 +8,9 @@ import { type FavoriteTarget } from './useFavoriteToggle';
 export interface ConversationFavoriteOwner {
   avatar?: string | null;
   id: string;
+  /** Whether the owner's meta has loaded; the star waits for it. */
+  loaded: boolean;
   path: string;
-  /** Undefined until the owner's meta is loaded; the star waits for it. */
   title?: string;
   type: 'agent' | 'group';
   /** Shown while the owner has no title of its own. */
@@ -51,7 +52,7 @@ export const useConversationFavoriteTarget = ({
   return {
     icon: owner.avatar ?? null,
     path: owner.path,
-    snapshotReady: !!owner.title,
+    snapshotReady: owner.loaded,
     targetId: owner.id,
     title: owner.title || owner.untitledTitle,
     type: owner.type,

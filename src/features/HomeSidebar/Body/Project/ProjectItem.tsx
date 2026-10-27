@@ -34,7 +34,9 @@ const ProjectItem = memo<ProjectItemProps>(({ project }) => {
   const favoriteMenuItem = useFavoriteMenuItem(
     {
       icon: project.avatar ?? null,
-      path: projectPath,
+      // The slug can be renamed from Project Settings, where this row is not
+      // mounted to refresh the snapshot; the id link always resolves.
+      path: `/project/${project.id}`,
       targetId: project.id,
       title: project.name,
       type: 'project',

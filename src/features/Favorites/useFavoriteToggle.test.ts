@@ -1,6 +1,7 @@
 /**
  * @vitest-environment happy-dom
  */
+import { FAVORITE_LIMIT } from '@lobechat/types';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -14,16 +15,19 @@ import {
 const store = vi.hoisted(() => ({
   favoriteId: undefined as string | undefined,
   listLoaded: true,
+  listSize: 0,
   storedTitle: 'Stored',
   syncFavoriteSnapshot: vi.fn(),
   toggleFavorite: vi.fn(),
+  toastError: vi.fn(),
 }));
 
+vi.mock('@lobehub/ui', () => ({ toast: { error: store.toastError } }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock('./useFetchFavorites', () => ({ useFetchFavorites: () => ({}) }));
 vi.mock('@/store/home/selectors', () => ({
   favoriteSelectors: {
-    favoriteList: () => (store.listLoaded ? [] : undefined),
+    favoriteList: () => (store.listLoaded ? Array.from({ length: store.listSize }) : undefined),
     getFavorite: () => () =>
       store.favoriteId
         ? { icon: null, id: store.favoriteId, path: '/page/docs_a', title: store.storedTitle }
@@ -150,5 +154,49 @@ describe('useFavoriteToggle before the list loads', () => {
     await act(() => result.current.toggle());
 
     expect(store.toggleFavorite).not.toHaveBeenCalled();
+  });
+});
+
+describe('useFavoriteToggle adding', () => {
+  beforeEach(() => {
+    store.favoriteId = undefined;
+    store.listLoaded = true;
+    store.listSize = 0;
+    store.toggleFavorite.mockReset().mockResolvedValue(undefined);
+    store.toastError.mockReset();
+  });
+
+  it("waits for the target's own title before adding it", async () => {
+    const { result, rerender } = renderHook(
+      ({ ready }) => useFavoriteToggle({ ...target('New Topic'), snapshotReady: ready }),
+      { initialProps: { ready: false } },
+    );
+
+    expect(result.current.isReady).toBe(false);
+    await act(() => result.current.toggle());
+    expect(store.toggleFavorite).not.toHaveBeenCalled();
+
+    rerender({ ready: true });
+    await act(() => result.current.toggle());
+    expect(store.toggleFavorite).toHaveBeenCalledTimes(1);
+  });
+
+  it('still removes a favorite whose target has not loaded', () => {
+    store.favoriteId = 'fav_a';
+    const { result } = renderHook(() =>
+      useFavoriteToggle({ ...target('New Topic'), snapshotReady: false }),
+    );
+
+    expect(result.current.isReady).toBe(true);
+  });
+
+  it('explains a full sidebar instead of sending an add that must fail', async () => {
+    store.listSize = FAVORITE_LIMIT;
+    const { result } = renderHook(() => useFavoriteToggle(target('Spec')));
+
+    await act(() => result.current.toggle());
+
+    expect(store.toggleFavorite).not.toHaveBeenCalled();
+    expect(store.toastError).toHaveBeenCalledWith('favorite.limitReached');
   });
 });
