@@ -6,6 +6,7 @@ import { ChevronLeftIcon } from 'lucide-react';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { FavoriteButton, useCurrentFavoritePath } from '@/features/Favorites';
 import NavHeader from '@/features/NavHeader';
 import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
 import { dashboardSelectors, useDashboardStore } from '@/store/dashboard';
@@ -30,6 +31,7 @@ const BoardPageHeader = memo<DashboardBoardPageProps>(
     const { t } = useTranslation('dashboard');
     const navigate = useWorkspaceAwareNavigate();
     const detail = useDashboardStore(dashboardSelectors.dashboardDetail(dashboardId));
+    const favoritePath = useCurrentFavoritePath();
 
     return (
       <NavHeader
@@ -48,6 +50,14 @@ const BoardPageHeader = memo<DashboardBoardPageProps>(
             <Text ellipsis weight={500}>
               {detail?.title ?? ''}
             </Text>
+            {detail?.title && (
+              <FavoriteButton
+                path={favoritePath}
+                targetId={dashboardId}
+                title={detail.title}
+                type={'dashboard'}
+              />
+            )}
           </Flexbox>
         }
         right={
