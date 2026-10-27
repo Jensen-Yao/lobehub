@@ -10,6 +10,7 @@ import {
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import AsyncError from '@/components/AsyncError';
 import { useFetchFavorites } from '@/features/Favorites';
 import { useHomeStore } from '@/store/home';
 import { favoriteSelectors } from '@/store/home/selectors';
@@ -23,14 +24,17 @@ interface FavoritesProps {
 /**
  * Pages the member starred, in the order they arranged. The section only
  * appears once something is favorited: an empty one would be a heading with
- * nothing to act on, and the star on each page is the way in.
+ * nothing to act on, and the star on each page is the way in. A failed first
+ * load still shows the section, with the error and a retry: the stars stay
+ * disabled until the list is known, so the member needs a way back.
  */
 const Favorites = memo<FavoritesProps>(({ itemKey }) => {
   const { t } = useTranslation('common');
-  useFetchFavorites();
-  const items = useHomeStore(favoriteSelectors.favorites);
+  const { error, revalidate } = useFetchFavorites();
+  const list = useHomeStore(favoriteSelectors.favoriteList);
+  const loadFailed = list === undefined && !!error;
 
-  if (items.length === 0) return null;
+  if (!loadFailed && (!list || list.length === 0)) return null;
 
   return (
     <AccordionItem value={itemKey}>
@@ -42,7 +46,11 @@ const Favorites = memo<FavoritesProps>(({ itemKey }) => {
         </AccordionTrigger>
       </AccordionHeader>
       <AccordionPanel>
-        <SortableFavoriteList items={items} />
+        {loadFailed ? (
+          <AsyncError error={error} variant="inline" onRetry={() => revalidate()} />
+        ) : (
+          list && <SortableFavoriteList items={list} />
+        )}
       </AccordionPanel>
     </AccordionItem>
   );
