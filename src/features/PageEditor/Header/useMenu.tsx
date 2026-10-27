@@ -65,6 +65,7 @@ export const useMenu = (options: UseMenuOptions = {}): { menuItems: any[] } => {
           icon: pageEmoji ?? null,
           path: favoritePath,
           targetId: documentId,
+          snapshotReady: !!pageTitle,
           title: pageTitle || t('pageEditor.titlePlaceholder'),
           type: 'page',
         }

@@ -13,6 +13,7 @@ import {
 
 const store = vi.hoisted(() => ({
   favoriteId: undefined as string | undefined,
+  listLoaded: true,
   storedTitle: 'Stored',
   syncFavoriteSnapshot: vi.fn(),
   toggleFavorite: vi.fn(),
@@ -22,6 +23,7 @@ vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => k
 vi.mock('./useFetchFavorites', () => ({ useFetchFavorites: () => ({}) }));
 vi.mock('@/store/home/selectors', () => ({
   favoriteSelectors: {
+    favoriteList: () => (store.listLoaded ? [] : undefined),
     getFavorite: () => () =>
       store.favoriteId
         ? { icon: null, id: store.favoriteId, path: '/page/docs_a', title: store.storedTitle }
@@ -48,6 +50,8 @@ describe('useFavoriteToggle snapshot sync', () => {
     vi.useFakeTimers();
     store.favoriteId = 'fav_a';
     store.storedTitle = 'Stored';
+    store.listLoaded = true;
+    store.toggleFavorite.mockReset().mockResolvedValue(undefined);
     store.syncFavoriteSnapshot.mockReset().mockResolvedValue(undefined);
   });
 
@@ -124,5 +128,27 @@ describe('useFavoriteToggle snapshot sync', () => {
     }
 
     expect(store.syncFavoriteSnapshot).toHaveBeenCalledTimes(FAVORITE_SNAPSHOT_SYNC_ATTEMPTS);
+  });
+
+  it('does not write a placeholder title over a saved favorite', () => {
+    renderHook(() => useFavoriteToggle({ ...target('New Topic'), snapshotReady: false }));
+
+    act(() => vi.advanceTimersByTime(FAVORITE_SNAPSHOT_SYNC_DELAY * 2));
+
+    expect(store.syncFavoriteSnapshot).not.toHaveBeenCalled();
+  });
+});
+
+describe('useFavoriteToggle before the list loads', () => {
+  it('does not toggle while it cannot tell whether the target is favorited', async () => {
+    store.listLoaded = false;
+    store.favoriteId = undefined;
+    store.toggleFavorite.mockReset().mockResolvedValue(undefined);
+    const { result } = renderHook(() => useFavoriteToggle(target('Spec')));
+
+    expect(result.current.isReady).toBe(false);
+    await act(() => result.current.toggle());
+
+    expect(store.toggleFavorite).not.toHaveBeenCalled();
   });
 });

@@ -19,6 +19,12 @@ export interface FavoriteTarget {
   icon?: string | null;
   /** In-app link without the workspace slug; `useCurrentFavoritePath` gives the open page's. */
   path: string;
+  /**
+   * Whether `title` and `icon` are the target's own data. Pass `false` while
+   * they are still placeholders (a topic whose detail has not loaded), so a
+   * placeholder is never written over a saved favorite.
+   */
+  snapshotReady?: boolean;
   targetId: string;
   title: string;
   type: FavoriteType;
@@ -39,6 +45,9 @@ export const useFavoriteToggle = (target: FavoriteTarget | undefined) => {
     type && targetId ? favoriteSelectors.getFavorite(type, targetId)(s)?.id : undefined,
   );
   const isFavorite = !!favoriteId;
+  // Until the list loads, "not in the list" is unknown, not "not favorited": a
+  // toggle then would add a row the member meant to remove.
+  const isReady = useHomeStore((s) => favoriteSelectors.favoriteList(s) !== undefined);
   // The stored copy, so a write rolled back after a failure runs the sync again.
   const storedSnapshot = useHomeStore((s) => {
     const item = type && targetId ? favoriteSelectors.getFavorite(type, targetId)(s) : undefined;
@@ -53,13 +62,14 @@ export const useFavoriteToggle = (target: FavoriteTarget | undefined) => {
   const title = target?.title;
   const icon = target?.icon;
   const path = target?.path;
+  const snapshotReady = target?.snapshotReady ?? true;
   // Titles change on every keystroke, so write once the target settles. The
   // favorite id is a dependency too: a rename made while the add was pending is
   // replayed once the confirmed row (and its real id) replaces the optimistic one.
   // A failed write rolls the stored copy back, which reruns this effect; a
   // snapshot that keeps failing stops after a few attempts instead of looping.
   useEffect(() => {
-    if (!favoriteId || !type || !targetId || !title) return;
+    if (!favoriteId || !snapshotReady || !type || !targetId || !title) return;
     const snapshot = JSON.stringify([icon ?? null, path, title]);
     if (failures.current.snapshot !== snapshot) failures.current = { count: 0, snapshot };
     if (failures.current.count >= FAVORITE_SNAPSHOT_SYNC_ATTEMPTS) return;
@@ -71,10 +81,20 @@ export const useFavoriteToggle = (target: FavoriteTarget | undefined) => {
       });
     }, FAVORITE_SNAPSHOT_SYNC_DELAY);
     return () => clearTimeout(timer);
-  }, [favoriteId, storedSnapshot, type, targetId, title, icon, path, syncFavoriteSnapshot]);
+  }, [
+    favoriteId,
+    snapshotReady,
+    storedSnapshot,
+    type,
+    targetId,
+    title,
+    icon,
+    path,
+    syncFavoriteSnapshot,
+  ]);
 
   const toggle = useCallback(async () => {
-    if (!target) return;
+    if (!target || !isReady) return;
     const params: AddFavoriteParams = {
       icon: target.icon ?? null,
       path: target.path,
@@ -88,7 +108,7 @@ export const useFavoriteToggle = (target: FavoriteTarget | undefined) => {
       console.error('[favorite] toggle failed', error);
       toast.error(t('favorite.updateError'));
     }
-  }, [t, target, toggleFavorite]);
+  }, [isReady, t, target, toggleFavorite]);
 
-  return { isFavorite, toggle };
+  return { isFavorite, isReady, toggle };
 };

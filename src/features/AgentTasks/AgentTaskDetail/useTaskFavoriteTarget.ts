@@ -16,6 +16,7 @@ export const useTaskFavoriteTarget = (): FavoriteTarget | undefined => {
   return {
     path: taskDetailPath(taskId, agentId ?? undefined, name),
     targetId: databaseId,
+    snapshotReady: !!name,
     title: name || taskId,
     type: 'task',
   };

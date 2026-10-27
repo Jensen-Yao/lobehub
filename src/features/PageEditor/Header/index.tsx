@@ -96,6 +96,7 @@ const Header = memo(() => {
             <FavoriteButton
               icon={emoji ?? null}
               path={favoritePath}
+              snapshotReady={!!title}
               targetId={documentId}
               title={title || t('pageEditor.titlePlaceholder')}
               type={'page'}

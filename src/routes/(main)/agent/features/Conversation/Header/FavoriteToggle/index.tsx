@@ -31,6 +31,7 @@ const FavoriteToggle = memo(() => {
   const target: FavoriteTarget = topicId
     ? {
         path: AGENT_CHAT_TOPIC_URL(agentId, topicId),
+        snapshotReady: topicTitle !== undefined,
         targetId: topicId,
         title: topicTitle || t('newTopic'),
         type: 'topic',
@@ -38,6 +39,7 @@ const FavoriteToggle = memo(() => {
     : {
         icon: agentMeta?.avatar ?? null,
         path: AGENT_CHAT_URL(agentId),
+        snapshotReady: !!agentMeta?.title,
         targetId: agentId,
         title: agentMeta?.title || t('untitledAgent', { ns: 'chat' }),
         type: 'agent',

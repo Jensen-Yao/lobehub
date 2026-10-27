@@ -28,6 +28,7 @@ const FavoriteToggle = memo(() => {
   const target: FavoriteTarget = topicId
     ? {
         path: GROUP_CHAT_TOPIC_URL(groupId, topicId),
+        snapshotReady: topicTitle !== undefined,
         targetId: topicId,
         title: topicTitle || t('newTopic'),
         type: 'topic',
@@ -35,6 +36,7 @@ const FavoriteToggle = memo(() => {
     : {
         icon: groupMeta?.avatar ?? null,
         path: GROUP_CHAT_URL(groupId),
+        snapshotReady: !!groupMeta?.title,
         targetId: groupId,
         title: groupMeta?.title || t('untitledGroup', { ns: 'chat' }),
         type: 'group',

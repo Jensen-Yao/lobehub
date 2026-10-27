@@ -25,7 +25,7 @@ interface FavoriteButtonProps extends FavoriteTarget {
 const FavoriteButton = memo<FavoriteButtonProps>(
   ({ size = DESKTOP_HEADER_ICON_SMALL_SIZE, ...target }) => {
     const { t } = useTranslation('common');
-    const { isFavorite, toggle } = useFavoriteToggle(target);
+    const { isFavorite, isReady, toggle } = useFavoriteToggle(target);
     const hotkey = useUserStore(settingsSelectors.getHotkeyById(HotkeyEnum.ToggleFavorite));
     const ownsHotkey = useOwnsFavoriteHotkey();
 
@@ -42,6 +42,7 @@ const FavoriteButton = memo<FavoriteButtonProps>(
         aria-label={label}
         aria-pressed={isFavorite}
         color={isFavorite ? cssVar.colorWarning : undefined}
+        disabled={!isReady}
         fill={isFavorite ? cssVar.colorWarning : 'none'}
         icon={StarIcon}
         size={size}

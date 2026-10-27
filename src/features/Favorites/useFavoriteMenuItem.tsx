@@ -22,12 +22,13 @@ export const useFavoriteMenuItem = (
   { showHotkey = true }: FavoriteMenuItemOptions = {},
 ): DropdownItem | null => {
   const { t } = useTranslation('common');
-  const { isFavorite, toggle } = useFavoriteToggle(target);
+  const { isFavorite, isReady, toggle } = useFavoriteToggle(target);
   const hotkey = useUserStore(settingsSelectors.getHotkeyById(HotkeyEnum.ToggleFavorite));
 
   if (!target) return null;
 
   return {
+    disabled: !isReady,
     extra: showHotkey && hotkey ? <Hotkey keys={hotkey} variant={'borderless'} /> : undefined,
     icon: <Icon icon={isFavorite ? StarOffIcon : StarIcon} />,
     key: 'toggleFavorite',
