@@ -41,7 +41,7 @@ import { TrashEmptyScopeChangedError } from '@/store/trash/action';
 import { useUserStore } from '@/store/user';
 import { labPreferSelectors, userProfileSelectors } from '@/store/user/selectors';
 
-import DeletedByCell from './DeletedByCell';
+import DeletedByCell, { DELETED_BY_TEXT_INSET } from './DeletedByCell';
 import { ProjectFilter } from './ProjectFilter';
 import {
   canEmptyTrashView,
@@ -57,6 +57,8 @@ dayjs.extend(relativeTime);
 const TRASH_LIST_BREAKPOINT = 800;
 const EMPTY_ITEMS: TrashItem[] = [];
 const EMPTY_COUNTS: TrashCountByType = {};
+const NAME_ICON_SIZE = 28;
+const NAME_ICON_GAP = 10;
 
 const styles = createStaticStyles(({ css, cssVar }) => ({
   container: css`
@@ -122,6 +124,11 @@ interface TrashListProps {
   /** A workspace bin: split into its public and private sides. */
   isWorkspace?: boolean;
 }
+
+/** A column header that starts where its cells' text does, past a leading icon or avatar. */
+const InsetTitle = ({ children, inset }: { children: string; inset: number }) => (
+  <span style={{ paddingInlineStart: inset }}>{children}</span>
+);
 
 const TrashList = ({ isWorkspace = false }: TrashListProps) => {
   const { t } = useTranslation('setting');
@@ -335,19 +342,19 @@ const TrashList = ({ isWorkspace = false }: TrashListProps) => {
         const avatar = item.meta?.avatar;
         const title = item.title || t('trash.untitled');
         return (
-          <Flexbox horizontal align={'center'} className={styles.name} gap={10}>
+          <Flexbox horizontal align={'center'} className={styles.name} gap={NAME_ICON_GAP}>
             {avatar ? (
               <Avatar
                 avatar={avatar}
                 background={item.meta?.backgroundColor ?? undefined}
-                size={28}
+                size={NAME_ICON_SIZE}
                 style={{ flexShrink: 0 }}
               />
             ) : (
               <Center
-                height={28}
+                height={NAME_ICON_SIZE}
                 style={{ borderRadius: 6, flex: 'none', opacity: 0.7 }}
-                width={28}
+                width={NAME_ICON_SIZE}
               >
                 <Icon icon={TypeIcon} size={18} />
               </Center>
@@ -382,7 +389,9 @@ const TrashList = ({ isWorkspace = false }: TrashListProps) => {
           </Flexbox>
         );
       },
-      title: t('trash.columns.name'),
+      title: (
+        <InsetTitle inset={NAME_ICON_SIZE + NAME_ICON_GAP}>{t('trash.columns.name')}</InsetTitle>
+      ),
       width: 'clamp(320px, 36cqw, 420px)',
     },
     {
@@ -403,8 +412,11 @@ const TrashList = ({ isWorkspace = false }: TrashListProps) => {
       ? [
           {
             key: 'deletedBy',
+            listLabel: t('trash.columns.deletedBy'),
             render: (item: TrashItem) => <DeletedByCell userId={item.deletedByUserId} />,
-            title: t('trash.columns.deletedBy'),
+            title: (
+              <InsetTitle inset={DELETED_BY_TEXT_INSET}>{t('trash.columns.deletedBy')}</InsetTitle>
+            ),
           },
         ]
       : []),
