@@ -5,6 +5,7 @@ import isEqual from 'fast-deep-equal';
 import type { ChannelItem, ChannelJobItem, ChannelMemberItem } from '../../schemas';
 import { agentOperations, channelJobs, topics } from '../../schemas';
 import type { Transaction } from '../../type';
+import { CHANNEL_TOPIC_TRIGGER } from '../../utils/topicVisibility';
 
 // Matches Bot AgentBridgeService: check on the next request, never expire guild Threads.
 const TOPIC_STALE_THRESHOLD = 4 * 60 * 60 * 1000;
@@ -64,7 +65,7 @@ export const resolveTopic = async (
     .values({
       agentId: member.agentId,
       mode: 'default',
-      trigger: 'channel',
+      trigger: CHANNEL_TOPIC_TRIGGER,
       userId,
       workspaceId: channel.workspaceId,
     })
