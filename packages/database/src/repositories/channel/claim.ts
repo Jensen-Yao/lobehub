@@ -166,7 +166,7 @@ export const claimJob = async (
   jobId: string,
   options: ChannelClaimOptions,
 ): Promise<ChannelClaim | null> => {
-  if (channel.archived) return null;
+  if (channel.isDeleted) return null;
 
   const [job] = await tx
     .select()

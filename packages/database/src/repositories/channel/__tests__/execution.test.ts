@@ -475,7 +475,7 @@ describe('ChannelExecutionRepository', () => {
     expect((await jobById(job.id)).status).toBe('completed');
   });
 
-  it('refuses unclaimed or revoked jobs and archived channels', async () => {
+  it('refuses unclaimed or revoked jobs and trashed channels', async () => {
     const { channel, job } = await mentionAgent();
     await expect(
       execution.accepted(channel.id, job.id, { nativeSessionId: 's' }),
@@ -491,7 +491,10 @@ describe('ChannelExecutionRepository', () => {
       execution.accepted(channel.id, job.id, { nativeSessionId: 's' }),
     ).rejects.toMatchObject({ code: 'CONFLICT' });
 
-    await db.update(channels).set({ archived: true }).where(eq(channels.id, channel.id));
+    await db
+      .update(channels)
+      .set({ deletedAt: new Date(), isDeleted: true })
+      .where(eq(channels.id, channel.id));
     const [rerun] = await db
       .insert(channelJobs)
       .values({ ...job, deliveryKey: 'retry', id: undefined, status: 'queued' })

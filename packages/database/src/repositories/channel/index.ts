@@ -4,6 +4,7 @@ import { and, desc, eq, isNull, or } from 'drizzle-orm';
 import type { ChannelItem, ChannelJobItem, ChannelMessageItem } from '../../schemas';
 import { channelJobs, channelMembers, channelMessages, channels } from '../../schemas';
 import type { LobeChatDatabase, Transaction } from '../../type';
+import { notTrashed } from '../../utils/softDelete';
 import { normalizeWorkspaceId } from '../../utils/workspace';
 import type { ChannelAddAgentInput } from './agent';
 import { addAgentMember, requireChannelAgent } from './agent';
@@ -119,7 +120,7 @@ export class ChannelRepository {
         channel: access.channel,
         ...(await readChannelView(tx, channelId, options)),
       }),
-      { allowArchived: true },
+      { allowTrashed: true },
     );
 
   createThread = async (channelId: string, input: Parameters<typeof createChannelThread>[2]) =>
@@ -139,7 +140,7 @@ export class ChannelRepository {
           .where(eq(channelMembers.id, member.id));
         return lastReadSequence;
       },
-      { allowArchived: true },
+      { allowTrashed: true },
     );
 
   /** Active channels the caller belongs to in the current scope, newest first. */
@@ -148,7 +149,7 @@ export class ChannelRepository {
       .select({ channel: channels })
       .from(channels)
       .innerJoin(channelMembers, eq(channelMembers.channelId, channels.id))
-      .where(and(this.membershipWhere(), eq(channels.archived, false)))
+      .where(and(this.membershipWhere(), notTrashed(channels.isDeleted)))
       .orderBy(desc(channels.createdAt));
 
     return rows.map((row) => row.channel);
@@ -191,8 +192,8 @@ export class ChannelRepository {
       const minRole = options.minRole ?? 'member';
       if (!hasRole(access.member.role, minRole))
         throw new ChannelError('FORBIDDEN', `Requires the ${minRole} role in this channel`);
-      if (access.channel.archived && !options.allowArchived)
-        throw new ChannelError('CONFLICT', 'Channel is archived');
+      if (access.channel.isDeleted && !options.allowTrashed)
+        throw new ChannelError('CONFLICT', 'Channel is in the trash');
 
       return fn(tx, access);
     });
@@ -219,7 +220,7 @@ export class ChannelRepository {
         }
         return stopScope(tx, channelId, scope);
       },
-      { allowArchived: true, minRole: 'threadId' in scope ? 'admin' : 'member' },
+      { allowTrashed: true, minRole: 'threadId' in scope ? 'admin' : 'member' },
     );
 
   /** Sends an unassigned message back to Jev. Its author or an admin may retry. */
