@@ -3240,7 +3240,7 @@
   "workspace.members.seatUsage_one": "{{used}} / {{capacity}} assento",
   "workspace.members.seatUsage_other": "{{used}} / {{capacity}} assentos",
   "workspace.members.subtitle": "Gerencie os membros e convites do workspace",
-  "workspace.members.tabs.members": "Membros da Equipe",
+  "workspace.members.tabs.members": "Membros",
   "workspace.members.tabs.pending": "Convites Pendentes",
   "workspace.members.title": "Membros",
   "workspace.members.totalCount_one": "{{total}} membro",

@@ -3240,7 +3240,7 @@
   "workspace.members.seatUsage_one": "{{used}} / {{capacity}} posto",
   "workspace.members.seatUsage_other": "{{used}} / {{capacity}} posti",
   "workspace.members.subtitle": "Gestisci i membri e gli inviti del workspace",
-  "workspace.members.tabs.members": "Membri del team",
+  "workspace.members.tabs.members": "Membri",
   "workspace.members.tabs.pending": "Inviti in sospeso",
   "workspace.members.title": "Membri",
   "workspace.members.totalCount_one": "{{total}} membro",

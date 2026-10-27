@@ -3240,7 +3240,7 @@
   "workspace.members.seatUsage_one": "{{used}} / {{capacity}} 席位",
   "workspace.members.seatUsage_other": "{{used}} / {{capacity}} 席位",
   "workspace.members.subtitle": "管理工作區成員和邀請",
-  "workspace.members.tabs.members": "團隊成員",
+  "workspace.members.tabs.members": "成員",
   "workspace.members.tabs.pending": "待處理的邀請",
   "workspace.members.title": "成員",
   "workspace.members.totalCount_one": "{{total}} 位成員",

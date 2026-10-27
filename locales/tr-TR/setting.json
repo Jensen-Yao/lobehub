@@ -3240,7 +3240,7 @@
   "workspace.members.seatUsage_one": "{{used}} / {{capacity}} koltuk",
   "workspace.members.seatUsage_other": "{{used}} / {{capacity}} koltuklar",
   "workspace.members.subtitle": "Çalışma alanı üyelerini ve davetlerini yönetin",
-  "workspace.members.tabs.members": "Ekip Üyeleri",
+  "workspace.members.tabs.members": "Üyeler",
   "workspace.members.tabs.pending": "Bekleyen Davetler",
   "workspace.members.title": "Üyeler",
   "workspace.members.totalCount_one": "{{total}} üye",

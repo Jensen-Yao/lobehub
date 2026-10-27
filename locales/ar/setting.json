@@ -3240,7 +3240,7 @@
   "workspace.members.seatUsage_one": "{{used}} / {{capacity}} مقعد",
   "workspace.members.seatUsage_other": "{{used}} / {{capacity}} مقاعد",
   "workspace.members.subtitle": "إدارة أعضاء مساحة العمل والدعوات",
-  "workspace.members.tabs.members": "أعضاء الفريق",
+  "workspace.members.tabs.members": "الأعضاء",
   "workspace.members.tabs.pending": "الدعوات المعلقة",
   "workspace.members.title": "الأعضاء",
   "workspace.members.totalCount_one": "{{total}} عضو",

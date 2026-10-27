@@ -3240,7 +3240,7 @@
   "workspace.members.seatUsage_one": "{{used}} / {{capacity}} 좌석",
   "workspace.members.seatUsage_other": "{{used}} / {{capacity}} 좌석들",
   "workspace.members.subtitle": "워크스페이스 멤버 및 초대 관리",
-  "workspace.members.tabs.members": "팀 멤버",
+  "workspace.members.tabs.members": "멤버",
   "workspace.members.tabs.pending": "대기 중인 초대",
   "workspace.members.title": "멤버",
   "workspace.members.totalCount_one": "{{total}} 명의 멤버",

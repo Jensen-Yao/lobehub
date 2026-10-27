@@ -3240,7 +3240,7 @@
   "workspace.members.seatUsage_one": "{{used}} / {{capacity}} plek",
   "workspace.members.seatUsage_other": "{{used}} / {{capacity}} plekken",
   "workspace.members.subtitle": "Beheer werkruimteleden en uitnodigingen",
-  "workspace.members.tabs.members": "Teamleden",
+  "workspace.members.tabs.members": "Leden",
   "workspace.members.tabs.pending": "Openstaande uitnodigingen",
   "workspace.members.title": "Leden",
   "workspace.members.totalCount_one": "{{total}} lid",

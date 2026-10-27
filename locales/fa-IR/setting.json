@@ -3240,7 +3240,7 @@
   "workspace.members.seatUsage_one": "{{used}} / {{capacity}} صندلی",
   "workspace.members.seatUsage_other": "{{used}} / {{capacity}} صندلی‌ها",
   "workspace.members.subtitle": "مدیریت اعضای فضای کاری و دعوت‌نامه‌ها",
-  "workspace.members.tabs.members": "اعضای تیم",
+  "workspace.members.tabs.members": "اعضا",
   "workspace.members.tabs.pending": "دعوت‌نامه‌های در انتظار",
   "workspace.members.title": "اعضا",
   "workspace.members.totalCount_one": "{{total}} عضو",

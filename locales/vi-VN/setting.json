@@ -3240,7 +3240,7 @@
   "workspace.members.seatUsage_one": "{{used}} / {{capacity}} chỗ ngồi",
   "workspace.members.seatUsage_other": "{{used}} / {{capacity}} chỗ ngồi",
   "workspace.members.subtitle": "Quản lý thành viên và lời mời trong không gian làm việc",
-  "workspace.members.tabs.members": "Thành viên đội ngũ",
+  "workspace.members.tabs.members": "Thành viên",
   "workspace.members.tabs.pending": "Lời mời đang chờ xử lý",
   "workspace.members.title": "Thành viên",
   "workspace.members.totalCount_one": "{{total}} thành viên",

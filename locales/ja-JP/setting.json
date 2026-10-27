@@ -3240,7 +3240,7 @@
   "workspace.members.seatUsage_one": "{{used}} / {{capacity}} 席",
   "workspace.members.seatUsage_other": "{{used}} / {{capacity}} 席",
   "workspace.members.subtitle": "ワークスペースメンバーと招待を管理",
-  "workspace.members.tabs.members": "チームメンバー",
+  "workspace.members.tabs.members": "メンバー",
   "workspace.members.tabs.pending": "保留中の招待",
   "workspace.members.title": "メンバー",
   "workspace.members.totalCount_one": "{{total}} 人",

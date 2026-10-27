@@ -3240,7 +3240,7 @@
   "workspace.members.seatUsage_one": "{{used}} / {{capacity}} място",
   "workspace.members.seatUsage_other": "{{used}} / {{capacity}} места",
   "workspace.members.subtitle": "Управление на членове и покани за работното пространство",
-  "workspace.members.tabs.members": "Членове на екипа",
+  "workspace.members.tabs.members": "Членове",
   "workspace.members.tabs.pending": "Чакащи покани",
   "workspace.members.title": "Членове",
   "workspace.members.totalCount_one": "{{total}} член",
