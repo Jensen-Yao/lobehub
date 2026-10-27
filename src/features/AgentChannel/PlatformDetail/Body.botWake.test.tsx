@@ -6,6 +6,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { useEffect } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { flattenBotWakeSettings } from '@/server/services/agentSignal/scenarios/botWake/config';
 import { schema as discordSchema } from '@/server/services/bot/platforms/discord/schema';
 import type { SerializedPlatformDefinition } from '@/server/services/bot/platforms/types';
 
@@ -134,7 +135,7 @@ describe('channel settings form: bot-wake options', () => {
     expect(screen.queryByText(en['channel.botWakeEnabled'])).not.toBeInTheDocument();
     expect(screen.getByText(en['channel.botWakeScope'])).toBeInTheDocument();
     expect(screen.getByText(en['channel.botWakeAllowChannels'])).toBeInTheDocument();
-    expect(screen.getByText(en['channel.botWakeCustomInstructions'])).toBeInTheDocument();
+    expect(screen.getByText(en['channel.botWakeCustomInstructionsEnabled'])).toBeInTheDocument();
     expect(screen.getByText(en['channel.botWakeSchedulerMode'])).toBeInTheDocument();
     // Batching timings stay out of the way until batching is on.
     expect(screen.queryByText(en['channel.botWakeCollectSeconds'])).not.toBeInTheDocument();
@@ -214,7 +215,9 @@ describe('channel settings form: bot-wake options', () => {
     state.copy = en;
     state.featureFlags = { enableBotWake: true };
 
-    const { container } = render(<Harness settings={{ botWakeEnabled: true }} />);
+    const { container } = render(
+      <Harness settings={{ botWakeCustomInstructionsEnabled: true, botWakeEnabled: true }} />,
+    );
 
     const area = container.querySelector('textarea')!;
     expect(area).toBeInTheDocument();
@@ -224,16 +227,27 @@ describe('channel settings form: bot-wake options', () => {
     expect(container.querySelectorAll('textarea')).toHaveLength(1);
   });
 
-  it('shows the saved instructions in the text area', () => {
+  it('keeps the text area folded until its switch is on', () => {
     state.copy = en;
     state.featureFlags = { enableBotWake: true };
 
+    const { container } = render(<Harness settings={{ botWakeEnabled: true }} />);
+
+    expect(screen.getByText(en['channel.botWakeCustomInstructionsEnabled'])).toBeInTheDocument();
+    expect(container.querySelector('textarea')).not.toBeInTheDocument();
+  });
+
+  it('shows instructions saved before the switch existed, switched on', () => {
+    state.copy = en;
+    state.featureFlags = { enableBotWake: true };
+
+    // What the server hands the form: the stored settings through its projection.
     const { container } = render(
       <Harness
-        settings={{
+        settings={flattenBotWakeSettings({
           botWakeCustomInstructions: 'Only answer billing questions.\nNever joke.',
           botWakeEnabled: true,
-        }}
+        })!}
       />,
     );
 

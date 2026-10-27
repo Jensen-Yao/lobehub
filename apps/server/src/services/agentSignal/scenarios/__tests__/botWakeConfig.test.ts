@@ -28,7 +28,50 @@ describe('parseBotWakeSettings', () => {
     expect(parsed.rules.classifier.mode).toBe('enforce');
     expect(
       parseBotWakeSettings({ botWake: { classifier: { threshold: 0.8 } } }).rules.classifier,
-    ).toEqual({ initiateThreshold: 0.65, mode: 'enforce', threshold: 0.8 });
+    ).toEqual({ initiateEnabled: true, initiateThreshold: 0.65, mode: 'enforce', threshold: 0.8 });
+  });
+
+  it('lets the owner switch helping others off, keeping the threshold', () => {
+    const K = BOT_WAKE_SETTING_KEYS;
+    const { classifier } = parseBotWakeSettings({
+      [K.classifierInitiateEnabled]: false,
+      [K.classifierInitiateThreshold]: 0.8,
+      [K.enabled]: true,
+    }).rules;
+
+    expect(classifier).toMatchObject({ initiateEnabled: false, initiateThreshold: 0.8 });
+  });
+
+  it('hands the instructions to the classifier only while their switch is on, or was never set', () => {
+    const K = BOT_WAKE_SETTING_KEYS;
+    const text = { [K.customInstructions]: 'billing only', [K.enabled]: true };
+
+    expect(parseBotWakeSettings(text).rules.customInstructions).toBe('billing only');
+    expect(
+      parseBotWakeSettings({ ...text, [K.customInstructionsEnabled]: true }).rules
+        .customInstructions,
+    ).toBe('billing only');
+    expect(
+      parseBotWakeSettings({ ...text, [K.customInstructionsEnabled]: false }).rules
+        .customInstructions,
+    ).toBeUndefined();
+  });
+
+  it('shows the instructions switch on in the form only for text written before it existed', () => {
+    const K = BOT_WAKE_SETTING_KEYS;
+
+    expect(flattenBotWakeSettings({ [K.customInstructions]: 'billing only' })).toEqual({
+      [K.customInstructions]: 'billing only',
+      [K.customInstructionsEnabled]: true,
+    });
+    // A choice the owner made stays, and no text means nothing to switch on.
+    expect(
+      flattenBotWakeSettings({
+        [K.customInstructions]: 'billing only',
+        [K.customInstructionsEnabled]: false,
+      })?.[K.customInstructionsEnabled],
+    ).toBe(false);
+    expect(flattenBotWakeSettings({ [K.enabled]: true })).toEqual({ [K.enabled]: true });
   });
 
   it('lets a confident classifier start a wake outside the window from 0.65, and 0 turns it off', () => {
@@ -193,11 +236,13 @@ describe('parseBotWakeSettings from the settings form', () => {
     // These strings are persisted in every saved provider; renaming one orphans the stored value.
     expect(BOT_WAKE_SETTING_KEYS).toEqual({
       allowChannels: 'botWakeAllowChannels',
+      classifierInitiateEnabled: 'botWakeClassifierInitiateEnabled',
       classifierInitiateThreshold: 'botWakeClassifierInitiateThreshold',
       classifierThreshold: 'botWakeClassifierThreshold',
       collectSeconds: 'botWakeCollectSeconds',
       cooldownSeconds: 'botWakeCooldownSeconds',
       customInstructions: 'botWakeCustomInstructions',
+      customInstructionsEnabled: 'botWakeCustomInstructionsEnabled',
       denyChannels: 'botWakeDenyChannels',
       enabled: 'botWakeEnabled',
       maxSilentWakes: 'botWakeMaxSilentWakes',
@@ -232,7 +277,12 @@ describe('parseBotWakeSettings from the settings form', () => {
     expect(ruleMode).toBe('enforce');
     expect(rules).toEqual({
       allowChannels: ['c1', '22'],
-      classifier: { initiateThreshold: 0.65, mode: 'enforce', threshold: 0.7 },
+      classifier: {
+        initiateEnabled: true,
+        initiateThreshold: 0.65,
+        mode: 'enforce',
+        threshold: 0.7,
+      },
       customInstructions: 'Only billing questions.',
       denyChannels: ['c9'],
       maxSilentWakes: 1,
@@ -364,6 +414,8 @@ describe('flattenBotWakeSettings', () => {
       [K.cooldownSeconds]: 90,
       [K.collectSeconds]: 30,
       [K.customInstructions]: 'reply to release questions',
+      // Instructions written before their switch existed show it on, so a save keeps them live.
+      [K.customInstructionsEnabled]: true,
       [K.denyChannels]: ['200'],
       [K.enabled]: true,
       [K.maxSilentWakes]: 1,

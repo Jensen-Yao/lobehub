@@ -466,9 +466,12 @@ export const createBotWakeRecorder = (options: BotWakeRecorderOptions): BotWakeR
 
   // Outside the follow-up window the classifier may start a wake on its own, but only past a
   // stricter bar than the one it uses to confirm a follow-up. Only while it enforces.
-  const { initiateThreshold } = parsed.rules.classifier;
+  const { initiateEnabled, initiateThreshold } = parsed.rules.classifier;
   const confidentClassifierPolicy =
-    classify && parsed.rules.classifier.mode === 'enforce' && initiateThreshold > 0
+    classify &&
+    parsed.rules.classifier.mode === 'enforce' &&
+    initiateEnabled &&
+    initiateThreshold > 0
       ? createClassifierPolicy(
           'enforce',
           {

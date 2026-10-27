@@ -130,6 +130,15 @@ export const botWakeFields: FieldSchema[] = [
     visibleWhen: ENABLED,
   },
   {
+    key: KEY.classifierInitiateEnabled,
+    default: DEFAULT_WAKE_RULES.classifier.initiateEnabled,
+    description: 'channel.botWakeClassifierInitiateEnabledHint',
+    featureFlag: FEATURE_FLAG,
+    label: 'channel.botWakeClassifierInitiateEnabled',
+    type: 'boolean',
+    visibleWhen: ENABLED,
+  },
+  {
     key: KEY.classifierInitiateThreshold,
     default: DEFAULT_WAKE_RULES.classifier.initiateThreshold,
     description: 'channel.botWakeClassifierInitiateThresholdHint',
@@ -138,7 +147,7 @@ export const botWakeFields: FieldSchema[] = [
     maximum: 1,
     minimum: 0,
     type: 'number',
-    visibleWhen: ENABLED,
+    visibleWhen: { field: KEY.classifierInitiateEnabled, value: true },
   },
   {
     key: KEY.proactiveEnabled,
@@ -161,13 +170,23 @@ export const botWakeFields: FieldSchema[] = [
     visibleWhen: { field: KEY.proactiveEnabled, value: true },
   },
   {
+    key: KEY.customInstructionsEnabled,
+    default: false,
+    description: 'channel.botWakeCustomInstructionsEnabledHint',
+    featureFlag: FEATURE_FLAG,
+    label: 'channel.botWakeCustomInstructionsEnabled',
+    type: 'boolean',
+    visibleWhen: ENABLED,
+  },
+  {
     key: KEY.customInstructions,
     description: 'channel.botWakeCustomInstructionsHint',
     featureFlag: FEATURE_FLAG,
     label: 'channel.botWakeCustomInstructions',
     placeholder: 'channel.botWakeCustomInstructionsPlaceholder',
     type: 'string',
-    visibleWhen: ENABLED,
+    // The large text area opens with its switch.
+    visibleWhen: { field: KEY.customInstructionsEnabled, value: true },
     // A prompt, not a label: the form gives it a text area instead of a one-line input.
     rows: CUSTOM_INSTRUCTIONS_ROWS,
     // Longer text is cut by the runtime, not rejected.

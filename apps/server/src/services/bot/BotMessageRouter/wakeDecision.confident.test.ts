@@ -144,10 +144,11 @@ describe('bot-wake recorder: a confident classifier outside the follow-up window
   it('can be turned off, and never runs while the classifier or the rules only watch', async () => {
     const classify = classifierAnswer(0.99);
     const off = { botWake: { classifier: { initiateThreshold: 0 }, enabled: true } };
+    const switchedOff = { botWake: { classifier: { initiateEnabled: false }, enabled: true } };
     const classifierShadow = WITH_CLASSIFIER('shadow');
     const rulesShadow = { botWake: { enabled: true, mode: 'shadow' } };
 
-    for (const settings of [off, classifierShadow, rulesShadow]) {
+    for (const settings of [off, switchedOff, classifierShadow, rulesShadow]) {
       await expect(
         make(settings, fakeState(), { classify }).initiate(weather()),
       ).resolves.toBeUndefined();

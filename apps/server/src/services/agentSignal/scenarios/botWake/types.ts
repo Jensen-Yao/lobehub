@@ -210,10 +210,12 @@ export interface WakeRules {
   allowChannels: string[];
   classifier: WakeClassifierRules & {
     /**
-     * Outside the follow-up window, a score this high wakes the bot on its own: the message reads
-     * as meant for it although nobody named or @-mentioned it. Only while the classifier enforces;
-     * 0 turns it off.
+     * "Help others": outside the follow-up window the classifier may wake the bot on its own, for
+     * a message that reads as meant for it although nobody named or @-mentioned it. Only while
+     * the classifier enforces.
      */
+    initiateEnabled: boolean;
+    /** The score that starts such a wake; stricter than `threshold`. 0 also turns it off. */
     initiateThreshold: number;
   };
   /** Free text handed to the classifier as context. Never compiled into a rule. */
@@ -245,9 +247,19 @@ export interface WakeSchedulerConfig {
  * and parsed defensively by {@link parseBotWakeSettings}: settings are user-edited JSON.
  */
 export interface BotWakeConfig {
-  classifier?: { initiateThreshold?: number; mode?: WakePolicyMode; threshold?: number };
+  classifier?: {
+    initiateEnabled?: boolean;
+    initiateThreshold?: number;
+    mode?: WakePolicyMode;
+    threshold?: number;
+  };
   /** Free-text guidance for the classifier. */
   customInstructions?: string;
+  /**
+   * The settings switch for `customInstructions`. Off keeps the text but stops handing it to the
+   * classifier; absent (a config saved before the switch existed) counts as on.
+   */
+  customInstructionsEnabled?: boolean;
   enabled?: boolean;
   /**
    * Mode of the rule policies (internal rules and the owner's structured rules). `off` disables

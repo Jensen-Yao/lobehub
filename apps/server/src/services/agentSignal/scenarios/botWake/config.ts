@@ -5,7 +5,7 @@ import type { BotWakeConfig, WakePolicyMode, WakeRules, WakeSchedulerConfig } fr
 
 export const DEFAULT_WAKE_RULES: WakeRules = {
   allowChannels: [],
-  classifier: { initiateThreshold: 0.65, mode: 'enforce', threshold: 0.5 },
+  classifier: { initiateEnabled: true, initiateThreshold: 0.65, mode: 'enforce', threshold: 0.5 },
   denyChannels: [],
   maxSilentWakes: 3,
   ownerPresenceSeconds: 120,
@@ -59,6 +59,7 @@ const SettingsSchema = z
   .object({
     classifier: z
       .object({
+        initiateEnabled: z.boolean().catch(DEFAULT_WAKE_RULES.classifier.initiateEnabled),
         initiateThreshold: z
           .number()
           .min(0)
@@ -70,6 +71,7 @@ const SettingsSchema = z
       .partial()
       .catch({}),
     customInstructions: z.string().catch(''),
+    customInstructionsEnabled: z.boolean().optional().catch(undefined),
     enabled: z.boolean().catch(false),
     mode: mode.catch('enforce'),
     proactive: z
@@ -114,11 +116,13 @@ const SettingsSchema = z
  */
 export const BOT_WAKE_SETTING_KEYS = {
   allowChannels: 'botWakeAllowChannels',
+  classifierInitiateEnabled: 'botWakeClassifierInitiateEnabled',
   classifierInitiateThreshold: 'botWakeClassifierInitiateThreshold',
   classifierThreshold: 'botWakeClassifierThreshold',
   collectSeconds: 'botWakeCollectSeconds',
   cooldownSeconds: 'botWakeCooldownSeconds',
   customInstructions: 'botWakeCustomInstructions',
+  customInstructionsEnabled: 'botWakeCustomInstructionsEnabled',
   denyChannels: 'botWakeDenyChannels',
   enabled: 'botWakeEnabled',
   maxSilentWakes: 'botWakeMaxSilentWakes',
@@ -148,7 +152,15 @@ const chosen = (values: Record<string, unknown>) =>
 const BOT_WAKE_NESTED_PATHS: Array<{ key: string; path: string[] }> = [
   { key: BOT_WAKE_SETTING_KEYS.enabled, path: ['enabled'] },
   { key: BOT_WAKE_SETTING_KEYS.customInstructions, path: ['customInstructions'] },
+  {
+    key: BOT_WAKE_SETTING_KEYS.customInstructionsEnabled,
+    path: ['customInstructionsEnabled'],
+  },
   { key: BOT_WAKE_SETTING_KEYS.classifierThreshold, path: ['classifier', 'threshold'] },
+  {
+    key: BOT_WAKE_SETTING_KEYS.classifierInitiateEnabled,
+    path: ['classifier', 'initiateEnabled'],
+  },
   {
     key: BOT_WAKE_SETTING_KEYS.classifierInitiateThreshold,
     path: ['classifier', 'initiateThreshold'],
@@ -204,6 +216,22 @@ const readPath = (source: unknown, path: string[]) =>
   path.reduce<unknown>((value, segment) => (isRecord(value) ? value[segment] : undefined), source);
 
 /**
+ * Instructions written before their switch existed are live (the parser reads an absent switch as
+ * on), so the form must show the switch on. Left at the form's default, the next save would write
+ * `false` and silently stop handing them to the classifier.
+ */
+const withInstructionsSwitch = (
+  settings: Record<string, unknown> | null | undefined,
+): Record<string, unknown> | null | undefined => {
+  const k = BOT_WAKE_SETTING_KEYS;
+  const text = settings?.[k.customInstructions];
+  if (!settings || isChosen(settings[k.customInstructionsEnabled])) return settings;
+  if (typeof text !== 'string' || !text.trim()) return settings;
+
+  return { ...settings, [k.customInstructionsEnabled]: true };
+};
+
+/**
  * Expands a hand-written nested `settings.botWake` into the flat keys the settings form renders,
  * dropping the nested object so the next save persists the migrated shape.
  *
@@ -227,7 +255,7 @@ const readPath = (source: unknown, path: string[]) =>
 export const flattenBotWakeSettings = (
   settings: Record<string, unknown> | null | undefined,
 ): Record<string, unknown> | null | undefined => {
-  if (!isRecord(settings?.botWake)) return settings;
+  if (!isRecord(settings?.botWake)) return withInstructionsSwitch(settings);
 
   const nested = settings.botWake;
   const flat = Object.fromEntries(
@@ -246,7 +274,7 @@ export const flattenBotWakeSettings = (
   // back whole, and dropping it here would silently turn the override into the default.
   const overrides = readModeOverrides(nested);
 
-  return { ...rest, ...flat, ...(overrides ? { botWake: overrides } : {}) };
+  return withInstructionsSwitch({ ...rest, ...flat, ...(overrides ? { botWake: overrides } : {}) });
 };
 
 /**
@@ -274,10 +302,15 @@ const gatherBotWakeSettings = (settings: Record<string, unknown> | null | undefi
   };
 
   return {
-    ...chosen({ customInstructions: flat(k.customInstructions), enabled: flat(k.enabled) }),
+    ...chosen({
+      customInstructions: flat(k.customInstructions),
+      customInstructionsEnabled: flat(k.customInstructionsEnabled),
+      enabled: flat(k.enabled),
+    }),
     ...(overrides && 'mode' in overrides ? { mode: overrides.mode } : {}),
     classifier: {
       ...chosen({
+        initiateEnabled: flat(k.classifierInitiateEnabled),
         initiateThreshold: flat(k.classifierInitiateThreshold),
         threshold: flat(k.classifierThreshold),
       }),
@@ -333,8 +366,11 @@ export const parseBotWakeSettings = (
     ...DEFAULT_WAKE_RULES,
     ...raw.rules,
     classifier: { ...DEFAULT_WAKE_RULES.classifier, ...raw.classifier },
+    // Switched off, the text stays in the settings but is not handed to the classifier.
     customInstructions:
-      raw.customInstructions?.trim().slice(0, MAX_CUSTOM_INSTRUCTIONS_LENGTH) || undefined,
+      raw.customInstructionsEnabled === false
+        ? undefined
+        : raw.customInstructions?.trim().slice(0, MAX_CUSTOM_INSTRUCTIONS_LENGTH) || undefined,
     // The switch turns it on (`enforce`); an operator's mode override (`shadow`) wins over it.
     proactive: {
       mode: raw.proactive?.mode ?? (raw.proactive?.enabled ? 'enforce' : 'off'),
