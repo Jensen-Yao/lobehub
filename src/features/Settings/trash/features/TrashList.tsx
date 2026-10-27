@@ -19,7 +19,6 @@ import {
   Flexbox,
   Icon,
   Segmented,
-  Tabs,
   Tag,
   Text,
   toast,
@@ -69,7 +68,7 @@ const styles = createStaticStyles(({ css, cssVar }) => ({
   /**
    * Type chips on the small control height: with the track's 3px padding and
    * 1px border the whole Segmented is `controlHeight.middle` tall, level with
-   * the project picker and the empty button beside it.
+   * the side switch, the project picker and the empty button beside it.
    */
   filterItem: css`
     height: ${controlHeight.small}px;
@@ -90,10 +89,6 @@ const styles = createStaticStyles(({ css, cssVar }) => ({
   name: css`
     width: 100%;
     min-width: 0;
-  `,
-  sides: css`
-    margin-block: -8px 8px;
-    padding-inline: 24px;
   `,
   table: css`
     @container (max-width: ${TRASH_LIST_BREAKPOINT}px) {
@@ -463,22 +458,23 @@ const TrashList = ({ isWorkspace = false }: TrashListProps) => {
 
   return (
     <div className={styles.container} ref={containerRef}>
-      {visibility && (
-        <Tabs
-          activeKey={visibility}
-          className={styles.sides}
-          items={[
-            { key: 'public', label: t('trash.side.public') },
-            { key: 'private', label: t('trash.side.private') },
-          ]}
-          onChange={(key) =>
-            // Each side has its own types, so the type filter starts over.
-            changeFilter({ projectId, visibility: key as TrashVisibility })
-          }
-        />
-      )}
       <div className={styles.header}>
         <Flexbox horizontal align={'center'} gap={8} style={{ flexWrap: 'wrap', minWidth: 0 }}>
+          {visibility && (
+            <Segmented
+              classNames={{ item: styles.filterItem }}
+              size={'small'}
+              value={visibility}
+              options={[
+                { label: t('trash.side.public'), value: 'public' },
+                { label: t('trash.side.private'), value: 'private' },
+              ]}
+              onChange={(value) =>
+                // Each side has its own types, so the type filter starts over.
+                changeFilter({ projectId, visibility: value as TrashVisibility })
+              }
+            />
+          )}
           <Segmented
             classNames={{ item: styles.filterItem }}
             options={typeOptions}
