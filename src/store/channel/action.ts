@@ -12,18 +12,27 @@ import { channelThreadEntityId } from './projection';
 import { channelSelectors } from './selectors';
 import { initialState, useChannelStore } from './store';
 
+/**
+ * Gateway push is not delivered yet, so polling is the only refresh: views with work in
+ * progress refresh every few seconds, idle views and the list once a minute.
+ */
+export const CHANNEL_ACTIVE_REFRESH_MS = 3000;
+export const CHANNEL_IDLE_REFRESH_MS = 60_000;
+
 class ChannelActionImpl {
   readonly #private = new ChannelPrivateAction(useChannelStore.setState, useChannelStore.getState);
   useFetchUserCandidates = (channelId: string, search: string) =>
     useClientDataSWR(channelKeys.userCandidates(channelId, search), () =>
       channelService.userCandidates(channelId, search),
     );
-  useFetchList = () => this.#private.list.useSync({}, { refreshInterval: 30_000 });
+  useFetchList = () => this.#private.list.useSync({}, { refreshInterval: CHANNEL_IDLE_REFRESH_MS });
   useFetchDetail = (params: ChannelViewParams | null) => {
     // Subscribe to the replica, not just SWR's last response: sending a message
     // updates this view imperatively and must shorten an already scheduled idle poll.
     const pending = useChannelStore(channelSelectors.hasPendingWork(params));
-    return this.#private.detail.useSync(params, { refreshInterval: pending ? 1000 : 30_000 });
+    return this.#private.detail.useSync(params, {
+      refreshInterval: pending ? CHANNEL_ACTIVE_REFRESH_MS : CHANNEL_IDLE_REFRESH_MS,
+    });
   };
   refreshList = () => this.#private.list.fetch({}, { fresh: true });
   refreshDetail = (params: ChannelViewParams) =>

@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cacheScope } from '@/libs/replica';
 import { channelService } from '@/services/channel';
 
-import { channelActions } from './action';
+import { CHANNEL_ACTIVE_REFRESH_MS, channelActions } from './action';
 import { channelViewKey } from './projection';
 import { useChannelStore } from './store';
 
@@ -125,14 +125,14 @@ describe('Channel in-progress refresh without gateway notifications', () => {
     expect(current()?.messages[0].routingStatus).toBe('pending');
 
     response = detail({ messages: [message('assigned')], jobs: [job()] });
-    await tick(1000);
+    await tick(CHANNEL_ACTIVE_REFRESH_MS);
     expect(current()?.jobs[0]).toMatchObject({ memberId: 'pi', status: 'running' });
 
     response = detail({
       messages: [message('assigned')],
       jobs: [job({ status: 'completed', writerHeld: false })],
     });
-    await tick(1000);
+    await tick(CHANNEL_ACTIVE_REFRESH_MS);
     expect(current()?.jobs[0].status).toBe('completed');
 
     const calls = vi.mocked(channelService.detail).mock.calls.length;
@@ -142,6 +142,10 @@ describe('Channel in-progress refresh without gateway notifications', () => {
 
   it.each([
     ['queued', job({ status: 'queued', writerHeld: false })],
+    [
+      'queued behind earlier work',
+      job({ blockedCode: 'member_busy', status: 'queued', writerHeld: false }),
+    ],
     ['running', job()],
     ['stopping', job({ status: 'cancelled', publicationRevoked: true })],
   ])('keeps refreshing a %s job until its next state is visible', async (_label, pendingJob) => {
@@ -149,7 +153,7 @@ describe('Channel in-progress refresh without gateway notifications', () => {
     renderHook(() => channelActions.useFetchDetail(params), { wrapper });
     await tick(0);
     response = detail({ jobs: [job({ status: 'completed', writerHeld: false })] });
-    await tick(1000);
+    await tick(CHANNEL_ACTIVE_REFRESH_MS);
     expect(current()?.jobs[0].status).toBe('completed');
   });
 
@@ -160,7 +164,7 @@ describe('Channel in-progress refresh without gateway notifications', () => {
       renderHook(() => channelActions.useFetchDetail(params), { wrapper });
       await tick(0);
       response = detail({ messages: [message(status)] });
-      await tick(1000);
+      await tick(CHANNEL_ACTIVE_REFRESH_MS);
       expect(current()?.messages[0].routingStatus).toBe(status);
       const calls = vi.mocked(channelService.detail).mock.calls.length;
       await tick(5000);
@@ -174,6 +178,17 @@ describe('Channel in-progress refresh without gateway notifications', () => {
         job({ threadId: 'other' }),
         job({ id: 'stopped', status: 'cancelled', publicationRevoked: true, writerHeld: false }),
       ],
+    });
+    renderHook(() => channelActions.useFetchDetail(params), { wrapper });
+    await tick(0);
+    const calls = vi.mocked(channelService.detail).mock.calls.length;
+    await tick(5000);
+    expect(channelService.detail).toHaveBeenCalledTimes(calls);
+  });
+
+  it('does not fast-poll a queued job blocked on a device or a person', async () => {
+    response = detail({
+      jobs: [job({ blockedCode: 'device_offline', status: 'queued', writerHeld: false })],
     });
     renderHook(() => channelActions.useFetchDetail(params), { wrapper });
     await tick(0);
