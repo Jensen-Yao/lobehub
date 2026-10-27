@@ -6,7 +6,7 @@
   },
   "dialect": "postgresql",
   "enums": {},
-  "id": "1c152648-f578-4c51-8acc-0312a39b9ef4",
+  "id": "f79811d1-7777-4b72-aae2-3dfe6eba42ed",
   "policies": {},
   "prevId": "7c8b5944-a341-485c-a9f6-514a3a55e780",
   "roles": {},
@@ -11542,13 +11542,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "archived": {
-          "name": "archived",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
         "follower_member_ids": {
           "name": "follower_member_ids",
           "type": "jsonb",
@@ -11562,6 +11555,18 @@
           "primaryKey": false,
           "notNull": false,
           "default": "'{}'::jsonb"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_deleted": {
+          "name": "is_deleted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -11589,7 +11594,7 @@
             }
           ],
           "isUnique": true,
-          "where": "\"channel_threads\".\"archived\" = false",
+          "where": "\"channel_threads\".\"is_deleted\" IS NOT TRUE",
           "concurrently": false,
           "method": "btree",
           "with": {}
