@@ -82,7 +82,8 @@ const ConnectorOverviewInfo = memo<ConnectorOverviewInfoProps>(({ connector }) =
   const isBuiltin = kind === 'builtin';
   const status = isBuiltin
     ? { color: 'success' as const, label: t('connector.enabled') }
-    : connector.status === ConnectorStatus.connected
+    : // Disconnect only clears `isEnabled`, leaving the stored status as connected.
+      connector.isEnabled && connector.status === ConnectorStatus.connected
       ? { color: 'success' as const, label: t('connector.connected') }
       : connector.status === ConnectorStatus.error
         ? { color: 'error' as const, label: t('connector.authError') }

@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
       authorizedByName?: string;
       id: string;
       identifier: string;
+      isEnabled?: boolean;
       metadata?: { description?: string };
       mcpConnectionType?: string;
       name: string;
@@ -96,6 +97,7 @@ describe('ConnectorDetail', () => {
       {
         id: 'connector-1',
         identifier: 'notion',
+        isEnabled: true,
         metadata: { description: 'Workspace notes' },
         name: 'Notion',
         sourceType: ConnectorSourceType.marketplace,
@@ -165,5 +167,18 @@ describe('ConnectorDetail', () => {
 
     expect(screen.getByText('connector.kind.community')).toBeInTheDocument();
     expect(screen.queryByText('connector.kind.oauth')).not.toBeInTheDocument();
+  });
+
+  it('shows a disconnected connector as not connected even though its status stays connected', () => {
+    mocks.toolState.connectors[0] = {
+      ...mocks.toolState.connectors[0],
+      isEnabled: false,
+      status: 'connected',
+    };
+
+    render(<ConnectorDetail connectorId="connector-1" />);
+
+    expect(screen.getByText('connector.notConnected')).toBeInTheDocument();
+    expect(screen.queryByText('connector.connected')).not.toBeInTheDocument();
   });
 });
