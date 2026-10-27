@@ -260,18 +260,20 @@ export const channelThreads = pgTable(
       .notNull(),
     rootMessageId: uuid('root_message_id').notNull(),
     rootSequence: integer('root_sequence').notNull(),
-    archived: boolean('archived').notNull().default(false),
     /** Member ids (people and Agents) following this Thread. */
     followerMemberIds: jsonb('follower_member_ids').$type<string[]>().notNull().default([]),
     metadata: jsonb('metadata').$type<ChannelThreadMetadata>().default({}),
+    /** Recycle bin — see `schemas/trash.ts`. */
+    ...softDeleteColumns(),
     createdAt: createdAt(),
   },
   // Threads and messages reference each other; the annotation breaks the type cycle.
   (t): PgTableExtraConfigValue[] => [
     unique('channel_threads_scope_unique').on(t.channelId, t.id),
+    // One live Thread per root message; a trashed Thread keeps its row until restore or purge.
     uniqueIndex('channel_threads_root_unique')
       .on(t.channelId, t.rootMessageId)
-      .where(sql`${t.archived} = false`),
+      .where(sql`${t.isDeleted} IS NOT TRUE`),
     foreignKey({
       columns: [t.channelId, t.rootMessageId],
       foreignColumns: [channelMessages.channelId, channelMessages.id],
