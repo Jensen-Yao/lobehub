@@ -72,58 +72,65 @@ export class FavoriteModel {
    * target that is already there refreshes its link and snapshot in place and
    * keeps its position.
    */
-  add = async (params: AddFavoriteParams): Promise<FavoriteItem> => {
-    const [{ count, existing }] = await this.db
-      .select({
-        count: sql<number>`count(*)::int`,
-        existing: sql<number>`count(*) FILTER (WHERE ${userFavorites.type} = ${params.type} AND ${userFavorites.targetId} = ${params.targetId})::int`,
-      })
-      .from(userFavorites)
-      .where(this.scope());
-    // Refreshing an existing favorite never grows the list.
-    if (existing === 0 && count >= FAVORITE_LIMIT) throw new FavoriteLimitError();
+  add = async (params: AddFavoriteParams): Promise<FavoriteItem> =>
+    // The limit check and the insert run under one per-sidebar lock, so two
+    // concurrent adds cannot both see room for one more row.
+    this.db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext(${`user-favorites:${this.userId}:${this.workspaceId ?? 'personal'}`}))`,
+      );
 
-    const nextSortOrder = sql<number>`(
-      SELECT COALESCE(MAX(${userFavorites.sortOrder}) + 1, 0)
-      FROM ${userFavorites}
-      WHERE ${this.scope()}
-    )`;
+      const [{ count, existing }] = await tx
+        .select({
+          count: sql<number>`count(*)::int`,
+          existing: sql<number>`count(*) FILTER (WHERE ${userFavorites.type} = ${params.type} AND ${userFavorites.targetId} = ${params.targetId})::int`,
+        })
+        .from(userFavorites)
+        .where(this.scope());
+      // Refreshing an existing favorite never grows the list.
+      if (existing === 0 && count >= FAVORITE_LIMIT) throw new FavoriteLimitError();
 
-    const [row] = await this.db
-      .insert(userFavorites)
-      .values({
-        icon: params.icon ?? null,
-        path: params.path,
-        sortOrder: nextSortOrder,
-        targetId: params.targetId,
-        title: params.title,
-        type: params.type,
-        userId: this.userId,
-        workspaceId: this.workspaceId,
-      })
-      .onConflictDoUpdate({
-        set: {
+      const nextSortOrder = sql<number>`(
+        SELECT COALESCE(MAX(${userFavorites.sortOrder}) + 1, 0)
+        FROM ${userFavorites}
+        WHERE ${this.scope()}
+      )`;
+
+      const [row] = await tx
+        .insert(userFavorites)
+        .values({
           icon: params.icon ?? null,
           path: params.path,
+          sortOrder: nextSortOrder,
+          targetId: params.targetId,
           title: params.title,
-          updatedAt: new Date(),
-        },
-        target: this.workspaceId
-          ? [
-              userFavorites.userId,
-              userFavorites.workspaceId,
-              userFavorites.type,
-              userFavorites.targetId,
-            ]
-          : [userFavorites.userId, userFavorites.type, userFavorites.targetId],
-        targetWhere: this.workspaceId
-          ? sql`${userFavorites.workspaceId} IS NOT NULL`
-          : sql`${userFavorites.workspaceId} IS NULL`,
-      })
-      .returning();
+          type: params.type,
+          userId: this.userId,
+          workspaceId: this.workspaceId,
+        })
+        .onConflictDoUpdate({
+          set: {
+            icon: params.icon ?? null,
+            path: params.path,
+            title: params.title,
+            updatedAt: new Date(),
+          },
+          target: this.workspaceId
+            ? [
+                userFavorites.userId,
+                userFavorites.workspaceId,
+                userFavorites.type,
+                userFavorites.targetId,
+              ]
+            : [userFavorites.userId, userFavorites.type, userFavorites.targetId],
+          targetWhere: this.workspaceId
+            ? sql`${userFavorites.workspaceId} IS NOT NULL`
+            : sql`${userFavorites.workspaceId} IS NULL`,
+        })
+        .returning();
 
-    return toFavoriteItem(row);
-  };
+      return toFavoriteItem(row);
+    });
 
   remove = async (id: string): Promise<void> => {
     await this.db.delete(userFavorites).where(and(eq(userFavorites.id, id), this.scope()));

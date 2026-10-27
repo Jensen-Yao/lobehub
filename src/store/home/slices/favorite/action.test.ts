@@ -178,6 +178,39 @@ describe('favorite slice', () => {
     expect(reorder).toHaveBeenCalledWith(['fav_b', 'fav_a']);
   });
 
+  it('keeps the dragged order across a row whose add is still pending', async () => {
+    await loadWith([favorite('a'), favorite('b')]);
+    let resolveAdd!: (item: FavoriteItem) => void;
+    const add = vi
+      .spyOn(favoriteService, 'add')
+      .mockImplementation(() => new Promise((resolve) => (resolveAdd = resolve)));
+    const reorder = vi.spyOn(favoriteService, 'reorder').mockResolvedValue();
+
+    let added!: Promise<void>;
+    let reordered!: Promise<void>;
+    act(() => {
+      added = useHomeStore
+        .getState()
+        .addFavorite({ path: '/page/c', targetId: 'c', title: 'c', type: 'page' });
+    });
+    act(() => {
+      reordered = useHomeStore.getState().reorderFavorites(['fav_b', 'optimistic:page:c', 'fav_a']);
+    });
+    expect(list().map((item) => item.targetId)).toEqual(['b', 'c', 'a']);
+
+    await waitFor(() => expect(add).toHaveBeenCalled());
+    // The reorder waits for the add instead of dropping the pending row.
+    expect(reorder).not.toHaveBeenCalled();
+    await act(async () => {
+      resolveAdd(favorite('c'));
+      await added;
+      await reordered;
+    });
+
+    expect(reorder).toHaveBeenCalledWith(['fav_b', 'fav_c', 'fav_a']);
+    expect(list().map((item) => item.id)).toEqual(['fav_b', 'fav_c', 'fav_a']);
+  });
+
   it('rewrites a snapshot only when the target changed', async () => {
     await loadWith([favorite('a', { title: 'Old' })]);
     const update = vi.spyOn(favoriteService, 'update').mockResolvedValue();

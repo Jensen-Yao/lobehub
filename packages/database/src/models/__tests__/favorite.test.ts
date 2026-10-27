@@ -121,6 +121,27 @@ describe('FavoriteModel', () => {
     expect(items[0].title).toBe('Renamed');
   });
 
+  it('lets only one of two concurrent adds take the last free slot', async () => {
+    await serverDB.insert(userFavorites).values(
+      Array.from({ length: FAVORITE_LIMIT - 1 }, (_, index) => ({
+        path: `/page/docs_${index}`,
+        sortOrder: index,
+        targetId: `docs_${index}`,
+        title: `Page ${index}`,
+        type: 'page' as const,
+        userId,
+      })),
+    );
+
+    const results = await Promise.allSettled([
+      personalModel.add(topic('tpc_first')),
+      personalModel.add(topic('tpc_second')),
+    ]);
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(await personalModel.query()).toHaveLength(FAVORITE_LIMIT);
+  });
+
   it('removes by target', async () => {
     await personalModel.add(topic('tpc_1'));
     await personalModel.add(topic('tpc_2'));

@@ -18,6 +18,18 @@ type FavoriteSnapshot = Partial<Pick<FavoriteItem, 'icon' | 'path' | 'title'>>;
 /** Rows added on the client before the server confirmed them. */
 export const isOptimisticId = (id: string) => id.startsWith('optimistic:');
 
+/**
+ * The row an id from the list points at. A client id names its target, so it
+ * still finds the row after the server confirmed it under a real id.
+ */
+const findRow = (items: FavoriteItem[], id: string): FavoriteItem | undefined => {
+  const byId = items.find((item) => item.id === id);
+  if (byId || !isOptimisticId(id)) return byId;
+  const [, type, ...rest] = id.split(':');
+  const targetId = rest.join(':');
+  return items.find((item) => item.type === type && item.targetId === targetId);
+};
+
 const isTarget = (item: FavoriteItem, type: FavoriteType, targetId: string) =>
   item.type === type && item.targetId === targetId;
 
@@ -41,6 +53,8 @@ export class FavoriteActionImpl {
   readonly #targetQueues = new Map<string, Promise<unknown>>();
   /** Reorders reach the server in drag order, so the last drag wins. */
   #reorderQueue: Promise<unknown> = Promise.resolve();
+  /** Adds still waiting for the server; a reorder waits for them to learn their ids. */
+  readonly #pendingAdds = new Set<Promise<unknown>>();
 
   constructor(set: Setter, get: () => HomeStore, _api?: unknown) {
     void _api;
@@ -77,7 +91,7 @@ export class FavoriteActionImpl {
       type: params.type,
     };
 
-    await this.#list.optimistic(
+    const operation = this.#list.optimistic(
       FAVORITE_LIST_KEY,
       (items = []) => upsert(items, optimisticItem),
       () => this.#enqueue(params.type, params.targetId, () => favoriteService.add(params)),
@@ -93,6 +107,13 @@ export class FavoriteActionImpl {
           },
       },
     );
+    // Settles once the confirmed row (with its real id) is in the list.
+    this.#pendingAdds.add(operation);
+    try {
+      await operation;
+    } finally {
+      this.#pendingAdds.delete(operation);
+    }
   };
 
   refreshFavorites = async (): Promise<void> => {
@@ -111,17 +132,23 @@ export class FavoriteActionImpl {
     await this.#list.optimistic(
       FAVORITE_LIST_KEY,
       (items = []) => {
-        const byId = new Map(items.map((item) => [item.id, item]));
-        const listed = ids.flatMap((id) => byId.get(id) ?? []);
-        const rest = items.filter((item) => !ids.includes(item.id));
+        const listed = ids.flatMap((id) => findRow(items, id) ?? []);
+        const rest = items.filter((item) => !listed.includes(item));
         return [...listed, ...rest];
       },
       () => {
-        // A row whose add is still pending has no server id to place yet.
-        const persistedIds = ids.filter((id) => !isOptimisticId(id));
         const operation = this.#reorderQueue
           .catch(() => undefined)
-          .then(() => favoriteService.reorder(persistedIds));
+          .then(async () => {
+            // A row being added has no server id yet: wait for its add, then
+            // send the whole order with real ids so the server keeps its slot.
+            await Promise.allSettled(this.#pendingAdds);
+            const items = favoriteSelectors.favorites(this.#get());
+            const persistedIds = ids
+              .map((id) => findRow(items, id)?.id)
+              .filter((id): id is string => !!id && !isOptimisticId(id));
+            await favoriteService.reorder(persistedIds);
+          });
         this.#reorderQueue = operation;
         return operation;
       },
