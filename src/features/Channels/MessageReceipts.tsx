@@ -28,7 +28,7 @@ export const replyEntries = (
   fallbackName: string,
 ): ReplyEntry[] =>
   jobs.map((job) => {
-    const member = detail.members.find((entry) => entry.id === job.memberId);
+    const member = (detail.members ?? []).find((entry) => entry.id === job.memberId);
     return {
       agentId: member?.agentId,
       avatar: memberAvatar(member),
@@ -137,7 +137,7 @@ export function MessageFailureMark({
   message: ChannelPublicMessage;
 }) {
   const { t, i18n } = useTranslation('channel');
-  const failed = detail.jobs.filter(
+  const failed = (detail.jobs ?? []).filter(
     (job) => job.messageId === message.id && job.status === 'failed',
   );
   if (!failed.length) return null;

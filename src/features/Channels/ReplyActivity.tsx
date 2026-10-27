@@ -29,8 +29,9 @@ export function ReplyActivity({
   threadId: string | null;
 }) {
   const { t, i18n } = useTranslation('channel');
-  const jobs = replyActivityJobs(detail.jobs.filter((job) => (job.threadId ?? null) === threadId));
-  const receiving = detail.messages.some((message) => message.routingStatus === 'pending');
+  const { jobs: allJobs = [], messages = [] } = detail;
+  const jobs = replyActivityJobs(allJobs.filter((job) => (job.threadId ?? null) === threadId));
+  const receiving = messages.some((message) => message.routingStatus === 'pending');
   if (!jobs.length)
     return receiving ? (
       <span role="status" {...stylex.props(activityStyles.line, styles.muted)}>

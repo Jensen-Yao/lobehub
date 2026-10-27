@@ -1,5 +1,6 @@
 import type { ChannelReadMessageParams, ChannelReadMessagesParams } from '@lobechat/types';
 import { inArray } from 'drizzle-orm';
+import pMap from 'p-map';
 
 import { ChannelHistoryRepository } from '@/database/repositories/channel';
 import { files } from '@/database/schemas';
@@ -40,11 +41,10 @@ export class ChannelHistoryService {
     const fileService = new FileService(this.db, this.userId, this.workspaceId);
     return {
       ...result,
-      attachments: await Promise.all(
-        shared.map(async (file) => ({
-          ...file,
-          url: await fileService.getFullFileUrl(file.url, 300),
-        })),
+      attachments: await pMap(
+        shared,
+        async (file) => ({ ...file, url: await fileService.getFullFileUrl(file.url, 300) }),
+        { concurrency: 10 },
       ),
     };
   };

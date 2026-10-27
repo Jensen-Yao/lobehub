@@ -91,16 +91,17 @@ export function ThreadPanel({
   const maxWidth = narrow ? availableWidth : availableWidth - 360;
   const width = Math.min(preferredWidth, maxWidth);
   const channelId = detail.channel?.id ?? '';
+  const { messages = [], threads = [] } = detail;
   const lastThreadId = typeof lastTarget === 'string' ? lastTarget : null;
   // Same name as the sidebar entry: the first line of the message the thread branched from.
   const threadView = useChannelStore(
     channelSelectors.detail({ channelId, threadId: lastThreadId }),
   );
-  const rootMessageId = detail.threads.find((entry) => entry.id === lastThreadId)?.rootMessageId;
+  const rootMessageId = threads.find((entry) => entry.id === lastThreadId)?.rootMessageId;
   const title =
     threadTitle(
       (lastTarget && typeof lastTarget !== 'string' ? lastTarget.root : threadView?.rootMessage) ??
-        detail.messages.find((message) => message.id === rootMessageId),
+        messages.find((message) => message.id === rootMessageId),
     ) || t('thread');
 
   return (
@@ -146,7 +147,7 @@ export function ThreadPanel({
                 {lastTarget && <ThreadFollowers detail={detail} target={lastTarget} />}
                 {threadId &&
                   detail.channel.canDelete &&
-                  detail.threads.some((thread) => thread.id === threadId) && (
+                  threads.some((thread) => thread.id === threadId) && (
                     <DropdownMenu
                       items={[
                         {
