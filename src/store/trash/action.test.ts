@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cacheScope, createReplicaState } from '@/libs/replica';
 import { mutate } from '@/libs/swr';
 import { trashService, type TrashViewFilter } from '@/services/trash';
+import { channelActions } from '@/store/channel';
 
 import { TrashEmptyScopeChangedError } from './action';
 import type { TrashListData } from './initialState';
@@ -29,6 +30,10 @@ vi.mock('@/libs/swr/useCacheScope', () => ({
   getCacheScope: () => 'u1:personal',
   isScopeTrusted: () => true,
   useCacheScope: () => 'u1:personal',
+}));
+
+vi.mock('@/store/channel', () => ({
+  channelActions: { forgetThreadRemovals: vi.fn() },
 }));
 
 vi.mock('@/services/trash', () => ({
@@ -116,6 +121,21 @@ describe('TrashAction', () => {
       expect(restored(['message:list', { agentId: 'a', topicId: 't' }, 1])).toBe(true);
       expect(restored(['trash:list', 'all'])).toBe(false);
       expect(restored('not-an-array')).toBe(false);
+    });
+
+    it('lets the Channel store show restored threads again before the sweep', async () => {
+      vi.mocked(trashService.restore).mockResolvedValue({
+        failed: [],
+        restored: [
+          buildItem(),
+          buildItem({ id: 'trash_2', resourceId: 'thread_1', resourceType: 'channelThread' }),
+        ],
+      });
+      await useTrashStore.getState().restore(['trash_1', 'trash_2']);
+      expect(channelActions.forgetThreadRemovals).toHaveBeenCalledWith(['thread_1']);
+      expect(
+        vi.mocked(channelActions.forgetThreadRemovals).mock.invocationCallOrder[0],
+      ).toBeLessThan(vi.mocked(mutate).mock.invocationCallOrder.at(-1)!);
     });
 
     it('also drops rows the server reported as already gone', async () => {

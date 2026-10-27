@@ -19,14 +19,19 @@ import {
 import type { ChannelState } from './store';
 
 export class ChannelPrivateAction {
-  // Thread IDs are never restored. A pre-delete head response may arrive after
+  // Scope → thread ID → entity ID. A pre-delete head response may arrive after
   // persistence has settled; unlike hydration, it would lift replica entity guards.
-  private readonly deletedThreads = new Map<string, Set<string>>();
+  // Only a recycle-bin restore, which keeps the thread ID, lifts the marker.
+  private readonly deletedThreads = new Map<string, Map<string, string>>();
   resetThreadRemovals = () => this.deletedThreads.clear();
+  forgetThreadRemovals = (threadIds: Iterable<string>) => {
+    for (const threadId of threadIds)
+      for (const ids of this.deletedThreads.values()) ids.delete(threadId);
+  };
   removeThread = (channelId: string, threadId: string, scope: string) => {
     const id = channelThreadEntityId(channelId, threadId);
-    const ids = this.deletedThreads.get(scope) ?? new Set<string>();
-    ids.add(id);
+    const ids = this.deletedThreads.get(scope) ?? new Map<string, string>();
+    ids.set(threadId, id);
     this.deletedThreads.set(scope, ids);
     this.detail.removeEntity(id, { scope });
   };
@@ -61,7 +66,7 @@ export class ChannelPrivateAction {
       entity: channelDetailEntity,
       prepareHead: (incoming) => {
         let data: ChannelDetail | undefined = incoming;
-        for (const id of this.deletedThreads.get(cacheScope.get()) ?? []) {
+        for (const id of this.deletedThreads.get(cacheScope.get())?.values() ?? []) {
           if (!data) break;
           data = channelDetailEntity.map(data, id, () => undefined);
         }

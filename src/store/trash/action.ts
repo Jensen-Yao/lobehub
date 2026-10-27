@@ -10,6 +10,7 @@ import {
 } from '@/libs/replica';
 import { mutate } from '@/libs/swr';
 import { trashService, type TrashViewFilter } from '@/services/trash';
+import { channelActions } from '@/store/channel';
 import type { StoreSetter } from '@/store/types';
 import { setNamespace } from '@/utils/storeDebug';
 
@@ -216,6 +217,11 @@ export class TrashActionImpl {
       for (const failure of outcome.failed) if (failure.code === 'notFound') gone.add(failure.id);
       this.#dropRows(gone);
     });
+    const threadIds = outcome.restored
+      .filter((item) => item.resourceType === 'channelThread')
+      .map((item) => item.resourceId);
+    // The Channel store keeps hiding deleted threads; a restored one keeps its ID.
+    if (threadIds.length > 0) channelActions.forgetThreadRemovals(threadIds);
     if (outcome.restored.length > 0) void this.revalidateRestoredScopes();
     return outcome;
   };

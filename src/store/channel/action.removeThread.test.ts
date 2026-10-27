@@ -144,6 +144,17 @@ describe('Thread removal cache lifecycle', () => {
     expect(read(thread)).toBeDefined();
   });
 
+  it('shows a thread again once the recycle bin restores it', async () => {
+    await channelActions.removeThread(channel.id, removed.id);
+    await channelActions.refreshDetail(main);
+    expect(read(main)?.threads).toEqual([kept]);
+
+    channelActions.forgetThreadRemovals([removed.id]);
+    await Promise.all([main, thread].map(channelActions.refreshDetail));
+    expect(read(main)?.threads).toEqual([removed, kept]);
+    expect(read(thread)).toBeDefined();
+  });
+
   it('retains content on a transient thread read failure', async () => {
     vi.mocked(channelService.detail).mockRejectedValueOnce(new Error('offline'));
     await expect(channelActions.refreshDetail(thread)).rejects.toThrow('offline');
