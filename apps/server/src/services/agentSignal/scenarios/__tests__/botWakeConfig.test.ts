@@ -28,7 +28,23 @@ describe('parseBotWakeSettings', () => {
     expect(parsed.rules.classifier.mode).toBe('enforce');
     expect(
       parseBotWakeSettings({ botWake: { classifier: { threshold: 0.8 } } }).rules.classifier,
-    ).toEqual({ mode: 'enforce', threshold: 0.8 });
+    ).toEqual({ initiateThreshold: 0.65, mode: 'enforce', threshold: 0.8 });
+  });
+
+  it('lets a confident classifier start a wake outside the window from 0.65, and 0 turns it off', () => {
+    const K = BOT_WAKE_SETTING_KEYS;
+
+    expect(parseBotWakeSettings({ [K.enabled]: true }).rules.classifier.initiateThreshold).toBe(
+      0.65,
+    );
+    expect(
+      parseBotWakeSettings({ [K.enabled]: true, [K.classifierInitiateThreshold]: 0 }).rules
+        .classifier.initiateThreshold,
+    ).toBe(0);
+    expect(
+      parseBotWakeSettings({ [K.classifierInitiateThreshold]: 2 }).rules.classifier
+        .initiateThreshold,
+    ).toBe(0.65);
   });
 
   it('ignores a mode an earlier form saved: the settings page no longer offers one', () => {
@@ -177,6 +193,7 @@ describe('parseBotWakeSettings from the settings form', () => {
     // These strings are persisted in every saved provider; renaming one orphans the stored value.
     expect(BOT_WAKE_SETTING_KEYS).toEqual({
       allowChannels: 'botWakeAllowChannels',
+      classifierInitiateThreshold: 'botWakeClassifierInitiateThreshold',
       classifierThreshold: 'botWakeClassifierThreshold',
       collectSeconds: 'botWakeCollectSeconds',
       cooldownSeconds: 'botWakeCooldownSeconds',
@@ -215,7 +232,7 @@ describe('parseBotWakeSettings from the settings form', () => {
     expect(ruleMode).toBe('enforce');
     expect(rules).toEqual({
       allowChannels: ['c1', '22'],
-      classifier: { mode: 'enforce', threshold: 0.7 },
+      classifier: { initiateThreshold: 0.65, mode: 'enforce', threshold: 0.7 },
       customInstructions: 'Only billing questions.',
       denyChannels: ['c9'],
       maxSilentWakes: 1,

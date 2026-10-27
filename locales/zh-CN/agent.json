@@ -56,6 +56,8 @@
   "channel.botWakeAllowChannelsHint": "允许机器人参与的频道或子区 ID。留空表示不限制。",
   "channel.botWakeChannelIdLabel": "频道 ID",
   "channel.botWakeChannelIdPlaceholder": "例如 1234567890",
+  "channel.botWakeClassifierInitiateThreshold": "无人呼叫时的接话门槛",
+  "channel.botWakeClassifierInitiateThresholdHint": "机器人最近没在频道里说话时，没人叫它、也没人 @ 它的消息，只有它至少这么确定是在对它说，才会接话，范围 0 到 1。设为 0 关闭。",
   "channel.botWakeClassifierThreshold": "灵敏度",
   "channel.botWakeClassifierThresholdHint": "机器人要多确定一条消息是对它说的，才会参与，范围 0 到 1。越高，它参与得越少。",
   "channel.botWakeCollectSeconds": "收集时长（秒）",

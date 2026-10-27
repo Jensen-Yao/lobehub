@@ -95,6 +95,7 @@ const WAKE_SECTION_KEYS: Array<[Exclude<WakeSectionKey, 'more'>, string[]]> = [
     [
       'botWakeCustomInstructions',
       'botWakeClassifierThreshold',
+      'botWakeClassifierInitiateThreshold',
       'botWakeProactiveEnabled',
       'botWakeProactiveThreshold',
     ],

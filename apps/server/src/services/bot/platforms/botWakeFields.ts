@@ -130,6 +130,17 @@ export const botWakeFields: FieldSchema[] = [
     visibleWhen: ENABLED,
   },
   {
+    key: KEY.classifierInitiateThreshold,
+    default: DEFAULT_WAKE_RULES.classifier.initiateThreshold,
+    description: 'channel.botWakeClassifierInitiateThresholdHint',
+    featureFlag: FEATURE_FLAG,
+    label: 'channel.botWakeClassifierInitiateThreshold',
+    maximum: 1,
+    minimum: 0,
+    type: 'number',
+    visibleWhen: ENABLED,
+  },
+  {
     key: KEY.proactiveEnabled,
     default: false,
     description: 'channel.botWakeProactiveEnabledHint',

@@ -475,6 +475,9 @@ export default {
   'channel.botWakeClassifierThreshold': 'Sensitivity',
   'channel.botWakeClassifierThresholdHint':
     'How sure the bot must be that a message is for it before it joins, from 0 to 1. A higher value makes it join less often.',
+  'channel.botWakeClassifierInitiateThreshold': 'Join without being called',
+  'channel.botWakeClassifierInitiateThresholdHint':
+    'When the bot has not spoken in a channel lately, it joins a message nobody named or @-mentioned it in only if it is at least this sure the message is for it, from 0 to 1. 0 turns this off.',
   'channel.botWakeProactiveEnabled': 'Offer help unasked',
   'channel.botWakeProactiveEnabledHint':
     'When you raise something the bot could help with (a problem, a complaint, a plan) without addressing it, the bot judges whether to step in with a concrete proposal. Only your own messages count, and it may still stay silent.',

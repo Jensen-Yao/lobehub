@@ -208,7 +208,14 @@ export interface WakeClassifierRules {
 export interface WakeRules {
   /** Raw platform channel/thread ids the bot may wake in; empty means anywhere. */
   allowChannels: string[];
-  classifier: WakeClassifierRules;
+  classifier: WakeClassifierRules & {
+    /**
+     * Outside the follow-up window, a score this high wakes the bot on its own: the message reads
+     * as meant for it although nobody named or @-mentioned it. Only while the classifier enforces;
+     * 0 turns it off.
+     */
+    initiateThreshold: number;
+  };
   /** Free text handed to the classifier as context. Never compiled into a rule. */
   customInstructions?: string;
   /** Raw platform channel/thread ids the bot never wakes in. Wins over the allow list. */
@@ -238,7 +245,7 @@ export interface WakeSchedulerConfig {
  * and parsed defensively by {@link parseBotWakeSettings}: settings are user-edited JSON.
  */
 export interface BotWakeConfig {
-  classifier?: { mode?: WakePolicyMode; threshold?: number };
+  classifier?: { initiateThreshold?: number; mode?: WakePolicyMode; threshold?: number };
   /** Free-text guidance for the classifier. */
   customInstructions?: string;
   enabled?: boolean;

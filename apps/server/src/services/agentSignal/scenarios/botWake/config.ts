@@ -5,7 +5,7 @@ import type { BotWakeConfig, WakePolicyMode, WakeRules, WakeSchedulerConfig } fr
 
 export const DEFAULT_WAKE_RULES: WakeRules = {
   allowChannels: [],
-  classifier: { mode: 'enforce', threshold: 0.5 },
+  classifier: { initiateThreshold: 0.65, mode: 'enforce', threshold: 0.5 },
   denyChannels: [],
   maxSilentWakes: 3,
   ownerPresenceSeconds: 120,
@@ -59,6 +59,11 @@ const SettingsSchema = z
   .object({
     classifier: z
       .object({
+        initiateThreshold: z
+          .number()
+          .min(0)
+          .max(1)
+          .catch(DEFAULT_WAKE_RULES.classifier.initiateThreshold),
         mode: mode.catch(DEFAULT_WAKE_RULES.classifier.mode),
         threshold: z.number().min(0).max(1).catch(DEFAULT_WAKE_RULES.classifier.threshold),
       })
@@ -109,6 +114,7 @@ const SettingsSchema = z
  */
 export const BOT_WAKE_SETTING_KEYS = {
   allowChannels: 'botWakeAllowChannels',
+  classifierInitiateThreshold: 'botWakeClassifierInitiateThreshold',
   classifierThreshold: 'botWakeClassifierThreshold',
   collectSeconds: 'botWakeCollectSeconds',
   cooldownSeconds: 'botWakeCooldownSeconds',
@@ -143,6 +149,10 @@ const BOT_WAKE_NESTED_PATHS: Array<{ key: string; path: string[] }> = [
   { key: BOT_WAKE_SETTING_KEYS.enabled, path: ['enabled'] },
   { key: BOT_WAKE_SETTING_KEYS.customInstructions, path: ['customInstructions'] },
   { key: BOT_WAKE_SETTING_KEYS.classifierThreshold, path: ['classifier', 'threshold'] },
+  {
+    key: BOT_WAKE_SETTING_KEYS.classifierInitiateThreshold,
+    path: ['classifier', 'initiateThreshold'],
+  },
   { key: BOT_WAKE_SETTING_KEYS.proactiveEnabled, path: ['proactive', 'enabled'] },
   { key: BOT_WAKE_SETTING_KEYS.proactiveThreshold, path: ['proactive', 'threshold'] },
   { key: BOT_WAKE_SETTING_KEYS.allowChannels, path: ['rules', 'allowChannels'] },
@@ -267,7 +277,10 @@ const gatherBotWakeSettings = (settings: Record<string, unknown> | null | undefi
     ...chosen({ customInstructions: flat(k.customInstructions), enabled: flat(k.enabled) }),
     ...(overrides && 'mode' in overrides ? { mode: overrides.mode } : {}),
     classifier: {
-      ...chosen({ threshold: flat(k.classifierThreshold) }),
+      ...chosen({
+        initiateThreshold: flat(k.classifierInitiateThreshold),
+        threshold: flat(k.classifierThreshold),
+      }),
       ...overrides?.classifier,
     },
     // Only when set: a row saved before the option existed reads the same as its nested form.

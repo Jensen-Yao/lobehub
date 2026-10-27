@@ -56,6 +56,8 @@
   "channel.botWakeAllowChannelsHint": "Channel or thread IDs where the bot may join. Leave empty for no limit.",
   "channel.botWakeChannelIdLabel": "Channel ID",
   "channel.botWakeChannelIdPlaceholder": "e.g. 1234567890",
+  "channel.botWakeClassifierInitiateThreshold": "Join without being called",
+  "channel.botWakeClassifierInitiateThresholdHint": "When the bot has not spoken in a channel lately, it joins a message nobody named or @-mentioned it in only if it is at least this sure the message is for it, from 0 to 1. 0 turns this off.",
   "channel.botWakeClassifierThreshold": "Sensitivity",
   "channel.botWakeClassifierThresholdHint": "How sure the bot must be that a message is for it before it joins, from 0 to 1. A higher value makes it join less often.",
   "channel.botWakeCollectSeconds": "Collect for (seconds)",
