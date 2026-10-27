@@ -1,7 +1,7 @@
 /**
  * @vitest-environment happy-dom
  */
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ConnectorSourceType } from '@/database/schemas';
@@ -17,12 +17,14 @@ const mocks = vi.hoisted(() => ({
       updateTools: [],
     },
     connectors: [] as Array<{
+      authorizedByName?: string;
       id: string;
       identifier: string;
       metadata?: { description?: string };
       mcpConnectionType?: string;
       name: string;
       sourceType: string;
+      status?: string;
     }>,
     deleteConnector: vi.fn(),
     disconnectConnector: vi.fn(),
@@ -120,5 +122,41 @@ describe('ConnectorDetail', () => {
     render(<ConnectorDetail connectorId="connector-1" />);
 
     expect(screen.getByRole('button', { name: 'Uninstall' })).toBeInTheDocument();
+  });
+
+  it('keeps authorization and identity in Overview and moves permissions to Tools', () => {
+    mocks.toolState.connectors[0] = {
+      ...mocks.toolState.connectors[0],
+      authorizedByName: 'Avery',
+      status: 'connected',
+    };
+    mocks.toolState.connectorTools = {
+      ...mocks.toolState.connectorTools,
+      readTools: [{ id: 'tool-1' }] as never[],
+    };
+
+    render(<ConnectorDetail connectorId="connector-1" />);
+
+    // Overview: connection status, identity and lifecycle actions; no permission matrix.
+    expect(screen.getByText('connector.connected')).toBeInTheDocument();
+    expect(screen.getByText('Avery')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Uninstall' })).toBeInTheDocument();
+    expect(screen.queryByTestId('permission-group')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: /connector\.tab\.tools/ }));
+
+    // Tools: the permission groups and reset, without the lifecycle actions.
+    expect(screen.getAllByTestId('permission-group')).toHaveLength(4);
+    expect(screen.getByRole('button', { name: 'Reset permissions' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Uninstall' })).not.toBeInTheDocument();
+  });
+
+  it('reports an authorization error instead of "not connected"', () => {
+    mocks.toolState.connectors[0] = { ...mocks.toolState.connectors[0], status: 'error' };
+
+    render(<ConnectorDetail connectorId="connector-1" />);
+
+    expect(screen.getByText('connector.authError')).toBeInTheDocument();
+    expect(screen.queryByText('connector.notConnected')).not.toBeInTheDocument();
   });
 });

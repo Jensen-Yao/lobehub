@@ -1910,6 +1910,8 @@ When I am ___, I need ___
   'tools.builtins.lobe-attachments.description':
     'Page through attached files that were too long to include in full',
   'tools.builtins.lobe-attachments.title': 'Attachments',
+  'tools.connectorScope.personal': 'Personal',
+  'tools.connectorScope.workspace': 'Workspace',
   'trash.actions.empty': 'Empty trash',
   'trash.actions.emptyFiltered': 'Empty filtered ({{count}})',
   'trash.actions.emptyFilteredPending': 'Empty filtered',

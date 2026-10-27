@@ -22,6 +22,7 @@ import { openUploadSkillModal } from '@/features/SkillStore/SkillList/UploadSkil
 import { useConnectorManageable } from '@/hooks/useConnectorManagePolicy';
 
 import ConnectorManagePolicy from './ConnectorManagePolicy';
+import ConnectorScopeSwitch from './ConnectorScopeSwitch';
 import { type ToolDetailType } from './SkillDetail';
 import SkillList, { type SkillViewMode } from './SkillList';
 
@@ -169,6 +170,8 @@ const LeftPanel = memo<LeftPanelProps>(
             </div>
           </div>
 
+          {/* Scope is the first cut of the list; mobile settings route scopes on their own. */}
+          {isConnectorView && !fullWidth && <ConnectorScopeSwitch />}
           {isConnectorView && <ConnectorManagePolicy />}
 
           <div className={styles.body}>
